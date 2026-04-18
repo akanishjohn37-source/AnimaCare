@@ -1,0 +1,187 @@
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 1rem 2rem;
+  margin: 1rem 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+.navbar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.brand-icon {
+  color: var(--accent-primary);
+}
+
+.brand-text {
+  letter-spacing: -0.025em;
+}
+
+.nav-links {
+  display: flex;
+  gap: 2rem;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-link.active {
+  color: var(--accent-primary);
+  background: var(--accent-glow);
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.sos-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: pulse-border 2s infinite;
+}
+
+.sos-btn:hover {
+  background: var(--danger);
+  color: white;
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+}
+
+@keyframes pulse-border {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.user-profile {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--accent-primary);
+  cursor: pointer;
+}
+
+.profile-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--role-color, var(--accent-primary));
+}
+
+/* ── Role badge ──────────────────── */
+.navbar-role-badge {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  background: color-mix(in srgb, var(--role-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--role-color) 30%, transparent);
+  border-radius: 20px;
+  font-size: 0.72rem; font-weight: 700;
+  color: var(--role-color);
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+/* ── Profile wrap + dropdown ──────── */
+.nav-profile-wrap { position: relative; }
+
+.nav-profile-btn {
+  display: flex; align-items: center; gap: 0.6rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.nav-profile-btn:hover { background: rgba(255,255,255,0.08); }
+
+.nav-user-info { display: flex; flex-direction: column; align-items: flex-start; }
+.nav-user-name { font-size: 0.82rem; font-weight: 600; color: #fff; }
+.nav-user-role { font-size: 0.68rem; font-weight: 500; text-transform: capitalize; }
+
+.nav-dropdown {
+  position: absolute; top: calc(100% + 0.5rem); right: 0;
+  min-width: 220px;
+  background: #1a1a2e;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  z-index: 200;
+  animation: dropIn 0.18s ease;
+}
+
+@keyframes dropIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.nav-dropdown-header {
+  padding: 1rem;
+  display: flex; flex-direction: column; gap: 0.2rem;
+}
+.nav-dropdown-header strong { font-size: 0.9rem; color: #fff; }
+.nav-dropdown-header span   { font-size: 0.78rem; color: rgba(255,255,255,0.4); }
+
+.nav-dropdown-status {
+  display: flex; align-items: center; gap: 0.35rem;
+  font-size: 0.72rem; font-weight: 600; text-transform: capitalize;
+  margin-top: 0.25rem;
+}
+
+.nav-dropdown-divider {
+  height: 1px; background: rgba(255,255,255,0.08);
+}
+
+.nav-dropdown-item {
+  display: flex; align-items: center; gap: 0.6rem;
+  width: 100%; padding: 0.75rem 1rem;
+  background: none; border: none;
+  font-size: 0.85rem; color: rgba(255,255,255,0.65);
+  cursor: pointer; text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-dropdown-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+.nav-dropdown-item--danger:hover { background: rgba(239,68,68,0.1); color: #f87171; }
+

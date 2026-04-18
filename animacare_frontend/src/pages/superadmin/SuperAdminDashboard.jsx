@@ -1,0 +1,392 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import './SuperAdminDashboard.css';
+
+const API = 'http://127.0.0.1:8000/api/auth';
+
+const STATUS_COLOR = {
+  active:    { bg: 'rgba(74,222,128,0.12)',  border: 'rgba(74,222,128,0.3)',  color: '#4ade80' },
+  pending:   { bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.3)',  color: '#f59e0b' },
+  suspended: { bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.3)',   color: '#f87171' },
+  rejected:  { bg: 'rgba(107,114,128,0.12)', border: 'rgba(107,114,128,0.3)', color: '#9ca3af' },
+};
+
+const ROLE_COLOR = {
+  citizen:        '#22d3ee',
+  veterinarian:   '#4ade80',
+  shelter_admin:  '#f59e0b',
+  civic_authority:'#a78bfa',
+  admin:          '#f43f5e',
+};
+
+const MOCK_SYSTEM_METRICS = {
+  s3Storage: '42.8 GB', apiLatency: '42ms',
+  celeryTasks: '14 Active / 0 Failed', cpuUsage: '34%', memoryUsage: '65%',
+};
+
+const MOCK_AUDIT_LOGS = [
+  { id: 5001, admin: 'superadmin', action: 'USER_APPROVAL',    target: 'Dr. Priya Sharma', timestamp: '2026-04-07 09:12:00', ip: '192.168.1.100' },
+  { id: 5002, admin: 'superadmin', action: 'LISTING_SUSPENSION', target: 'Animal ID #8841', timestamp: '2026-04-07 10:45:11', ip: '10.0.0.21' },
+  { id: 5003, admin: 'superadmin', action: 'AI_WEIGHT_ADJUST', target: 'System Algorithm', timestamp: '2026-04-07 11:30:45', ip: '192.168.1.100' },
+];
+
+/* ── Stat card ── */
+const StatCard = ({ label, value, color }) => (
+  <div style={{
+    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 14, padding: '1.25rem 1.5rem',
+    display: 'flex', flexDirection: 'column', gap: 6,
+  }}>
+    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+    <span style={{ fontSize: '1.75rem', fontWeight: 800, color: color || '#fff' }}>{value}</span>
+  </div>
+);
+
+/* ── Status badge ── */
+const StatusBadge = ({ status }) => {
+  const s = STATUS_COLOR[status] || STATUS_COLOR.pending;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      padding: '0.2rem 0.65rem',
+      background: s.bg, border: `1px solid ${s.border}`, borderRadius: 20,
+      color: s.color, fontSize: '0.72rem', fontWeight: 700, textTransform: 'capitalize',
+    }}>{status}</span>
+  );
+};
+
+/* ── Role badge ── */
+const RoleBadge = ({ role }) => (
+  <span style={{
+    display: 'inline-flex', padding: '0.2rem 0.65rem',
+    background: `${ROLE_COLOR[role]}18`,
+    border: `1px solid ${ROLE_COLOR[role]}40`,
+    borderRadius: 20, color: ROLE_COLOR[role],
+    fontSize: '0.72rem', fontWeight: 700, textTransform: 'capitalize',
+    whiteSpace: 'nowrap',
+  }}>{role?.replace('_', ' ')}</span>
+);
+
+/* ─────────────────────────────────────────────────────────
+   Main Component
+───────────────────────────────────────────────────────── */
+const SuperAdminDashboard = () => {
+  const { token } = useAuth();
+  const [activeTab, setActiveTab] = useState('health');
+  const [pendingUsers, setPendingUsers] = useState([]);
+  const [allUsers, setAllUsers]         = useState([]);
+  const [stats, setStats]               = useState(null);
+  const [loading, setLoading]           = useState(false);
+  const [actionNote, setActionNote]     = useState({});
+  const [toast, setToast]               = useState('');
+
+  const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+
+  const fetchPending = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/admin/users/pending/`, { headers: authHeaders });
+      const data = await res.json();
+      setPendingUsers(Array.isArray(data) ? data : []);
+    } catch {}
+  }, [token]);
+
+  const fetchAllUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/admin/users/`, { headers: authHeaders });
+      const data = await res.json();
+      setAllUsers(Array.isArray(data) ? data : []);
+    } catch {}
+    setLoading(false);
+  }, [token]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/admin/stats/`, { headers: authHeaders });
+      const data = await res.json();
+      setStats(data);
+    } catch {}
+  }, [token]);
+
+  useEffect(() => {
+    fetchStats();
+    fetchPending();
+  }, [fetchStats, fetchPending]);
+
+  useEffect(() => {
+    if (activeTab === 'users') fetchAllUsers();
+  }, [activeTab, fetchAllUsers]);
+
+  const doUserAction = async (userId, action) => {
+    const note = actionNote[userId] || '';
+    try {
+      const res = await fetch(`${API}/admin/users/${userId}/action/`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ action, note }),
+      });
+      const data = await res.json();
+      showToast(data.message || `User ${action}d.`);
+      fetchPending();
+      fetchStats();
+      if (activeTab === 'users') fetchAllUsers();
+    } catch { showToast('Error performing action.'); }
+  };
+
+  const tabs = [
+    { key: 'health',       label: 'System Health'     },
+    { key: 'verification', label: `Pending Approval (${pendingUsers.length})` },
+    { key: 'users',        label: 'All Users'          },
+    { key: 'audit',        label: 'Audit Trail'        },
+  ];
+
+  return (
+    <div className="superadmin-container">
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', top: '5rem', right: '2rem', zIndex: 999,
+          background: '#1a1a3e', border: '1px solid rgba(74,222,128,0.4)',
+          color: '#4ade80', padding: '0.8rem 1.25rem', borderRadius: 12,
+          fontSize: '0.87rem', fontWeight: 600,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          animation: 'dropIn 0.2s ease',
+        }}>
+          ✓ {toast}
+        </div>
+      )}
+
+      <header className="superadmin-header">
+        <div className="header-content">
+          <h1>Super-Administrator Control Panel</h1>
+          <span className="badge-mfa">🛡 Admin Session Active</span>
+        </div>
+        <nav className="superadmin-nav">
+          {tabs.map(t => (
+            <button
+              key={t.key}
+              className={activeTab === t.key ? 'active' : ''}
+              onClick={() => setActiveTab(t.key)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+      </header>
+
+      <main className="superadmin-main">
+
+        {/* ── System Health ─────────────────────────────── */}
+        {activeTab === 'health' && (
+          <section className="dashboard-section fade-in">
+            <h2>Platform Overview</h2>
+
+            {stats && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                <StatCard label="Total Users"    value={stats.total}     color="#fff"     />
+                <StatCard label="Pending"         value={stats.pending}   color="#f59e0b"  />
+                <StatCard label="Active"          value={stats.active}    color="#4ade80"  />
+                <StatCard label="Suspended"       value={stats.suspended} color="#f87171"  />
+                <StatCard label="Citizens"        value={stats.by_role?.citizen || 0}       color="#22d3ee" />
+                <StatCard label="Veterinarians"   value={stats.by_role?.veterinarian || 0}  color="#4ade80" />
+                <StatCard label="Shelter Admins"  value={stats.by_role?.shelter_admin || 0} color="#f59e0b" />
+                <StatCard label="Civic Auth"      value={stats.by_role?.civic_authority || 0} color="#a78bfa" />
+              </div>
+            )}
+
+            <h2 style={{ marginTop: '1.5rem' }}>Infrastructure &amp; API Health</h2>
+            <div className="metrics-grid">
+              <div className="metric-card glass"><h3>AWS S3 Storage</h3><p className="value highlight-blue">{MOCK_SYSTEM_METRICS.s3Storage}</p></div>
+              <div className="metric-card glass"><h3>Global API Latency</h3><p className="value highlight-green">{MOCK_SYSTEM_METRICS.apiLatency}</p></div>
+              <div className="metric-card glass"><h3>Celery Task Queue</h3><p className="value">{MOCK_SYSTEM_METRICS.celeryTasks}</p></div>
+              <div className="metric-card glass"><h3>Server CPU</h3><p className="value highlight-orange">{MOCK_SYSTEM_METRICS.cpuUsage}</p></div>
+              <div className="metric-card glass"><h3>Memory</h3><p className="value highlight-red">{MOCK_SYSTEM_METRICS.memoryUsage}</p></div>
+            </div>
+
+            <div className="ai-controls glass fade-in" style={{ marginTop: '1.5rem' }}>
+              <h3><span className="icon">⚙️</span> AI Algorithm Weight Adjustments</h3>
+              <p>Global overrides for AnimaCare predictive models. Use with extreme caution.</p>
+              <div className="slider-group">
+                <label>Behavioral Match Weight (0–100)</label>
+                <input type="range" min="0" max="100" defaultValue="75" />
+              </div>
+              <div className="slider-group">
+                <label>Emergency Triage Priority (0–10)</label>
+                <input type="range" min="0" max="10" defaultValue="8" />
+              </div>
+              <button className="btn-primary" onClick={() => showToast('Weights synchronized with Redis cache.')}>
+                Compile &amp; Push to Redis
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* ── Pending Approvals ─────────────────────────── */}
+        {activeTab === 'verification' && (
+          <section className="dashboard-section fade-in">
+            <h2>Pending Registration Approvals</h2>
+            <p className="subtitle">
+              Review and approve professional registrations. Veterinarians, Shelter Admins, and Civic
+              Authority accounts require manual verification before activation.
+            </p>
+
+            {pendingUsers.length === 0 ? (
+              <div className="empty-state" style={{
+                padding: '3rem', textAlign: 'center',
+                color: 'rgba(255,255,255,0.35)', fontSize: '0.95rem',
+              }}>
+                ✅ No pending approvals — all clear!
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {pendingUsers.map(u => (
+                  <div key={u.id} style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(245,158,11,0.2)',
+                    borderRadius: 14, padding: '1.25rem 1.5rem',
+                    display: 'flex', flexDirection: 'column', gap: '0.85rem',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
+                          <span style={{ fontWeight: 700, color: '#fff', fontSize: '1rem' }}>{u.full_name}</span>
+                          <RoleBadge role={u.role} />
+                          <StatusBadge status={u.account_status} />
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', display: 'flex', gap: '1rem' }}>
+                          <span>@{u.username}</span>
+                          <span>{u.email}</span>
+                          {u.phone_number && <span>📞 {u.phone_number}</span>}
+                          <span>Registered: {new Date(u.date_joined).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Admin note field */}
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <input
+                        type="text"
+                        placeholder="Optional approval/rejection note…"
+                        value={actionNote[u.id] || ''}
+                        onChange={e => setActionNote(p => ({ ...p, [u.id]: e.target.value }))}
+                        style={{
+                          flex: 1, background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
+                          padding: '0.55rem 0.85rem', color: '#fff', fontSize: '0.85rem',
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.6rem' }}>
+                      <button
+                        id={`approve-user-${u.id}`}
+                        className="btn-approve"
+                        onClick={() => doUserAction(u.id, 'approve')}
+                      >
+                        ✓ Approve
+                      </button>
+                      <button
+                        id={`reject-user-${u.id}`}
+                        className="btn-reject"
+                        onClick={() => doUserAction(u.id, 'reject')}
+                      >
+                        ✗ Reject
+                      </button>
+                      <button
+                        id={`suspend-user-${u.id}`}
+                        className="btn-suspend"
+                        onClick={() => doUserAction(u.id, 'suspend')}
+                      >
+                        ⏸ Suspend
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── All Users ──────────────────────────────────── */}
+        {activeTab === 'users' && (
+          <section className="dashboard-section fade-in">
+            <h2>RBAC User Management</h2>
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.3)' }}>Loading users…</div>
+            ) : (
+              <div className="data-grid glass-dark">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Name</th>
+                      <th>Username</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                      <th>Joined</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allUsers.map(u => (
+                      <tr key={u.id}>
+                        <td>#{u.id}</td>
+                        <td style={{ fontWeight: 600, color: '#fff' }}>{u.full_name}</td>
+                        <td style={{ color: 'rgba(255,255,255,0.5)' }}>@{u.username}</td>
+                        <td><RoleBadge role={u.role} /></td>
+                        <td><StatusBadge status={u.account_status} /></td>
+                        <td style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem' }}>
+                          {new Date(u.date_joined).toLocaleDateString()}
+                        </td>
+                        <td>
+                          <div className="action-buttons">
+                            {u.account_status !== 'active' && (
+                              <button className="btn-approve" onClick={() => doUserAction(u.id, 'approve')}>Approve</button>
+                            )}
+                            {u.account_status === 'active' && u.role !== 'admin' && (
+                              <button className="btn-suspend" onClick={() => doUserAction(u.id, 'suspend')}>Suspend</button>
+                            )}
+                            {u.account_status !== 'rejected' && u.role !== 'admin' && (
+                              <button className="btn-reject"  onClick={() => doUserAction(u.id, 'reject')}>Reject</button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Audit Trail ────────────────────────────────── */}
+        {activeTab === 'audit' && (
+          <section className="dashboard-section fade-in">
+            <h2>Immutable Audit Trail Viewer</h2>
+            <div className="audit-log-container glass-dark">
+              {MOCK_AUDIT_LOGS.map(log => (
+                <div className="audit-entry" key={log.id}>
+                  <div className="audit-time">{log.timestamp}</div>
+                  <div className="audit-details">
+                    <strong>{log.admin}</strong> executed{' '}
+                    <span className="action-tag">{log.action}</span>{' '}
+                    on <em>{log.target}</em>.
+                    <span className="ip-address">IP: {log.ip}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+      </main>
+
+      <style>{`@keyframes dropIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }`}</style>
+    </div>
+  );
+};
+
+export default SuperAdminDashboard;

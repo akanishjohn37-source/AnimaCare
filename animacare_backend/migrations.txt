@@ -1,0 +1,17 @@
+﻿Migrations for 'analytics':
+  apps\analytics\migrations\0001_initial.py
+    + Create model AnimalInventory
+    + Create model AICompatibilityScore
+    + Create model LifestyleAssessment
+    + Create model Pet
+    + Create model MedicalRecord
+    + Create model HealthRiskFlag
+Migrations for 'governance':
+  apps\governance\migrations\0001_initial.py
+    + Create model AuditTrail
+Migrations for 'shelter':
+  apps\shelter\migrations\0001_initial.py
+    + Create model AnimalInventory
+    + Create model AdoptionApplication
+    + Create model Shelter
+    + Add field shelter to animalinventory

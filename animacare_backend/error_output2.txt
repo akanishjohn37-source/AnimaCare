@@ -1,0 +1,60 @@
+﻿python : 
+SystemCheckError: 
+System check 
+identified some 
+issues:
+At line:1 char:1
++ python manage.py 
+check 2>&1 | Out-File 
+-Encoding utf8 
+error_output2.t ...
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (SystemChec   
+ kErro...ed some i    
+ssues::String) []    
+, RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+
+ERRORS:
+analytics.AICompatibil
+ityScore.user: 
+(fields.E301) Field 
+defines a relation 
+with the model 
+'auth.User', which 
+has been swapped out.
+	HINT: Update the 
+relation to point at '
+settings.AUTH_USER_MOD
+EL'.
+analytics.LifestyleAss
+essment.user: 
+(fields.E301) Field 
+defines a relation 
+with the model 
+'auth.User', which 
+has been swapped out.
+	HINT: Update the 
+relation to point at '
+settings.AUTH_USER_MOD
+EL'.
+analytics.Pet.owner: 
+(fields.E301) Field 
+defines a relation 
+with the model 
+'auth.User', which 
+has been swapped out.
+	HINT: Update the 
+relation to point at '
+settings.AUTH_USER_MOD
+EL'.
+
+System check 
+identified 3 issues 
+(0 silenced).

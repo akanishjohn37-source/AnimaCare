@@ -1,0 +1,139 @@
+.medical-container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.medical-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.pet-identity {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.profile-img-lg {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  border: 3px solid var(--accent-primary);
+  object-fit: cover;
+}
+
+.auth-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--success);
+  background: rgba(16, 185, 129, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.medical-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+}
+
+@media (max-width: 900px) {
+  .medical-grid { grid-template-columns: 1fr; }
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: 1.25rem;
+}
+
+.icon-success { color: var(--success); }
+
+.log-card {
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 0.75rem;
+}
+
+.log-header h3 { font-size: 1.1rem; }
+.log-date { color: var(--text-tertiary); font-size: 0.9rem; }
+
+.log-body p {
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.log-body strong {
+  color: var(--text-primary);
+}
+
+.media-card {
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.media-image-container {
+  position: relative;
+  height: 200px;
+}
+
+.media-image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.media-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.media-image-container:hover .media-overlay {
+  opacity: 1;
+}
+
+.media-info {
+  padding: 1rem;
+}
+
+.media-info h4 { font-size: 1rem; margin-bottom: 0.25rem; }
+.media-info p { font-size: 0.85rem; color: var(--text-secondary); }
+
+.readonly-notice {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  background: rgba(16, 185, 129, 0.05);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.readonly-notice p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}

@@ -1,0 +1,70 @@
+.passport-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 3rem;
+}
+
+.passport-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.avatar-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+.avatar-preview {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(139, 92, 246, 0.1);
+  border: 2px dashed var(--accent-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.avatar-preview:hover {
+  background: var(--accent-primary);
+  color: white;
+  transform: scale(1.05);
+}
+
+.avatar-upload p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 600px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+  border-top: 1px solid var(--glass-border);
+  padding-top: 2rem;
+}
+
+.btn-lg {
+  padding: 1rem 3rem;
+  font-size: 1.1rem;
+  width: 100%;
+}
