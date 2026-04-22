@@ -94,6 +94,8 @@
 .badge-success { background: rgba(16, 185, 129, 0.2); color: var(--success); }
 .badge-primary { background: rgba(139, 92, 246, 0.2); color: var(--accent-primary); }
 .badge-warning { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+.badge-secondary { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.6); }
+.badge-danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
 
 .pet-actions {
   display: flex;

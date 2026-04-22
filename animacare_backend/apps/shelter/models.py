@@ -25,7 +25,9 @@ class AnimalInventory(models.Model):
     is_adopted = models.BooleanField(default=False)
     is_available = models.BooleanField(default=True)
     is_suspended = models.BooleanField(default=False) # For Super-Admin Moderation
-    media_url = models.URLField(blank=True, null=True) # S3 URL
+    listing_type = models.CharField(max_length=20, default='Adopt', choices=[('Adopt', 'Adopt'), ('Sell', 'Sell'), ('Donate', 'Donate')])
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    media_url = models.TextField(blank=True, null=True) # Supports S3 URL or Base64 Data URL
     
     def __str__(self):
         return f"{self.name} ({self.species})"
@@ -37,6 +39,7 @@ class AdoptionApplication(models.Model):
         ('Interview Scheduled', 'Interview Scheduled'),
         ('Approved', 'Approved'),
         ('Rejected', 'Rejected'),
+        ('Cancelled', 'Cancelled'),
     )
     applicant = models.ForeignKey(User, on_delete=models.CASCADE, related_name='adoption_applications', limit_choices_to={'role': 'citizen'})
     animal = models.ForeignKey(AnimalInventory, on_delete=models.CASCADE, related_name='applications')

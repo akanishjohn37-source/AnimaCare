@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Heart, Search, MapPin } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Heart, Search, MapPin, Plus, Camera, DollarSign, Tag, CheckCircle, 
+  Upload, X, PawPrint, ChevronRight, Info
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import './AdoptionPortal.css';
 
@@ -14,34 +17,120 @@ const AdoptionPortal = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
 
-  React.useEffect(() => {
-    const fetchAnimals = async () => {
-      try {
-        const res = await fetch('http://localhost:8000/api/shelter/inventory/?citizen_view=true');
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.length > 0) {
-            setPortalAnimals(data.map(animal => ({
-              ...animal,
-              likes: Math.floor(Math.random() * 50) + 10,
-              shelterName: 'Verified Shelter' // In reality, fetch shelter details or nest serializer
-            })));
-          } else {
-            // Fallback mock data that aligns with backend schema
-            setPortalAnimals([
-              { id: 1, name: 'Bella', species: 'Dog', breed: 'Labrador Mix', medical_triage_status: 'Healthy', behavioral_traits: 'Friendly, Active', shelterName: 'City Rescue Shelter', media_url: 'https://images.unsplash.com/photo-1544568100-847a948585b9?w=300&h=300&fit=crop', likes: 24, intake_date: '2025-01-15' },
-              { id: 2, name: 'Oliver', species: 'Cat', breed: 'Tabby Cat', medical_triage_status: 'Quarantine', behavioral_traits: 'Shy initially, sweet', shelterName: 'Hope Animal Foundation', media_url: 'https://images.unsplash.com/photo-1513360371669-4adf3dd7dff8?w=300&h=300&fit=crop', likes: 8, intake_date: '2025-02-28' },
-              { id: 3, name: 'Max', species: 'Dog', breed: 'German Shepherd', medical_triage_status: 'Healthy', behavioral_traits: 'Loyal, working dog trainability', shelterName: 'City Rescue Shelter', media_url: 'https://images.unsplash.com/photo-1589941013453-ec89f33b6e95?w=300&h=300&fit=crop', likes: 45, intake_date: '2026-03-10' },
-              { id: 4, name: 'Chloe', species: 'Cat', breed: 'Siamese', medical_triage_status: 'Needs Surgery', behavioral_traits: 'Vocal, affectionate', shelterName: 'Feline Friends Hub', media_url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=300&h=300&fit=crop', likes: 13, intake_date: '2026-04-01' },
-            ]);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch animals", err);
+  // Shelter Admin specific state
+  const [showRescueForm, setShowRescueForm] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [rescueForm, setRescueForm] = useState({
+    name: '', species: 'Dog', custom_species: '', breed: '', medical_triage_status: 'Healthy',
+    listing_type: 'Adopt', price: '0', media_url: '', kennel_zone_id: 'A1'
+  });
+
+  const isShelterAdmin = user?.role === 'shelter_admin';
+
+  const fetchAnimals = async () => {
+    try {
+      const url = isShelterAdmin 
+        ? 'http://localhost:8000/api/shelter/inventory/' 
+        : 'http://localhost:8000/api/shelter/inventory/?citizen_view=true';
+      
+      const res = await authFetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setPortalAnimals(data.map(animal => ({
+          ...animal,
+          likes: animal.likes || Math.floor(Math.random() * 50) + 10,
+          shelterName: animal.shelter_name || 'Verified Shelter'
+        })));
       }
-    };
+    } catch (err) {
+      console.error("Failed to fetch animals", err);
+    }
+  };
+
+  useEffect(() => {
     fetchAnimals();
-  }, []);
+  }, [user, isShelterAdmin]);
+
+  useEffect(() => {
+    if (user && !isShelterAdmin) {
+      authFetch('http://localhost:8000/api/shelter/applications/')
+        .then(res => res.json())
+        .then(data => {
+           if (Array.isArray(data)) {
+             setAppliedIds(data.map(app => app.animal));
+           }
+        })
+        .catch(err => console.error("Error fetching applications", err));
+    }
+  }, [user, authFetch, isShelterAdmin]);
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setIsUploading(true);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setRescueForm({ ...rescueForm, media_url: reader.result });
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRescueSubmit = async (e) => {
+    e.preventDefault();
+    const finalSpecies = rescueForm.species === 'Other' ? rescueForm.custom_species : rescueForm.species;
+    if (!finalSpecies) {
+      alert("Please specify the species.");
+      return;
+    }
+
+    try {
+      const { custom_species, ...submissionData } = rescueForm;
+      const res = await authFetch('http://localhost:8000/api/shelter/inventory/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...submissionData,
+          species: finalSpecies
+        })
+      });
+      if (res.ok) {
+        alert("Animal Rescued Successfully!");
+        setShowRescueForm(false);
+        setRescueForm({ name: '', species: 'Dog', custom_species: '', breed: '', medical_triage_status: 'Healthy', listing_type: 'Adopt', price: '0', media_url: '', kennel_zone_id: 'A1' });
+        fetchAnimals();
+      } else {
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+          const errData = await res.json();
+          alert("Registration Failed: " + JSON.stringify(errData));
+        } else {
+          const text = await res.text();
+          console.error("Server Error HTML:", text);
+          alert("Registration Failed: Server error. Please check backend logs.");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An unexpected error occurred.");
+    }
+  };
+
+  const toggleAvailability = async (animal) => {
+    try {
+        const res = await authFetch(`http://localhost:8000/api/shelter/inventory/${animal.id}/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_available: !animal.is_available })
+        });
+        if (res.ok) {
+            fetchAnimals();
+        }
+    } catch (err) {
+        console.error(err);
+    }
+  };
 
   const handleLike = (animalId) => {
     if (userLikes.includes(animalId)) {
@@ -55,175 +144,249 @@ const AdoptionPortal = () => {
 
   const filteredAnimals = portalAnimals.filter(a => 
     a.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (a.breed && a.breed.toLowerCase().includes(searchTerm.toLowerCase())) || 
-    (a.shelterName && a.shelterName.toLowerCase().includes(searchTerm.toLowerCase()))
+    (a.breed && a.breed.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleAdoptClick = async (animalId) => {
-    try {
-      const res = await fetch(`http://localhost:8000/api/shelter/inventory/${animalId}/`);
-      if (res.ok) {
-        const data = await res.json();
-        setSelectedAnimal(data);
-        setIsModalOpen(true);
-      } else {
-        // Fallback to local state if db fetch fails
-        const fallback = portalAnimals.find(a => a.id === animalId);
-        if (fallback) {
-          setSelectedAnimal(fallback);
-          setIsModalOpen(true);
-        } else {
-          alert("Failed to retrieve details from the Shelter Administrator's database.");
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      // Fallback
-      const fallback = portalAnimals.find(a => a.id === animalId);
-      if (fallback) {
-        setSelectedAnimal(fallback);
-        setIsModalOpen(true);
-      } else {
-        alert("Error loading animal details.");
-      }
-    }
-  };
-
-  const confirmAdoption = async () => {
-    if (!user) {
-        alert("You need to be logged in to adopt.");
-        return;
-    }
-    setIsApplying(true);
-    try {
-      const res = await authFetch('http://localhost:8000/api/shelter/applications/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          applicant: user.id,
-          animal: selectedAnimal.id,
-          status: 'Pending'
-        })
-      });
-      if (res.ok) {
-        setAppliedIds([...appliedIds, selectedAnimal.id]);
-        setIsModalOpen(false);
-        alert("Application successfully submitted!");
-      } else {
-        const text = await res.text();
-        alert(`Failed to apply: ${text}`);
-      }
-    } catch (err) {
-      console.error(err);
-      setAppliedIds([...appliedIds, selectedAnimal.id]);
-      setIsModalOpen(false);
-      alert("Application successfully submitted! (Local fallback)");
-    }
-    setIsApplying(false);
-  };
-
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="adoption-portal-container">
       <div className="page-header">
-        <div>
-          <h1 className="page-title gradient-text">Adoption & Foster Portal</h1>
-          <p className="page-subtitle">Find your new best friend from verified shelters in your area.</p>
+        <div style={{ position: 'relative' }}>
+          <h1 className="page-title gradient-text">
+            {isShelterAdmin ? 'Shelter Inventory Management' : 'Adoption & Foster Portal'}
+          </h1>
+          <p className="page-subtitle">
+            {isShelterAdmin 
+              ? 'Register rescued animals and manage their market availability.' 
+              : 'Find your new best friend from verified shelters in your area.'}
+          </p>
         </div>
         
-        <div className="search-bar glass-panel">
-          <Search size={18} className="search-icon" />
-          <input 
-            type="text" 
-            placeholder="Search by breed, age, or shelter..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="header-actions">
+          {isShelterAdmin && (
+            <button 
+              className={`btn ${showRescueForm ? 'btn-secondary' : 'btn-primary'} rescue-toggle-btn`} 
+              onClick={() => setShowRescueForm(!showRescueForm)}
+            >
+              {showRescueForm ? <X size={18} /> : <Plus size={18} />}
+              <span>{showRescueForm ? 'Cancel Registration' : 'Register New Rescue'}</span>
+            </button>
+          )}
+          <div className="search-bar glass-panel">
+            <Search size={18} className="search-icon" />
+            <input 
+              type="text" 
+              placeholder="Filter by name or breed..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
+      <AnimatePresence>
+        {showRescueForm && isShelterAdmin && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0, marginBottom: 0 }} 
+            animate={{ height: 'auto', opacity: 1, marginBottom: '2rem' }} 
+            exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+            className="rescue-form-wrapper glass-panel"
+          >
+            <div className="rescue-form-header">
+              <div className="header-icon-wrap">
+                <PawPrint size={24} />
+              </div>
+              <h3>Animal Intake Registration</h3>
+            </div>
+
+            <form onSubmit={handleRescueSubmit} className="rescue-grid-form">
+              <div className="form-main-content">
+                <div className="input-group">
+                  <label><Info size={14} /> Animal Name</label>
+                  <input required type="text" placeholder="e.g. Buddy" value={rescueForm.name} onChange={e => setRescueForm({...rescueForm, name: e.target.value})} />
+                </div>
+
+                <div className="input-row">
+                  <div className="input-group">
+                    <label>Species</label>
+                    <select value={rescueForm.species} onChange={e => setRescueForm({...rescueForm, species: e.target.value})}>
+                      <option>Dog</option>
+                      <option>Cat</option>
+                      <option>Rabbit</option>
+                      <option>Bird</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                  {rescueForm.species === 'Other' && (
+                    <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="input-group">
+                      <label>Specify Species</label>
+                      <input required type="text" placeholder="Type species name..." value={rescueForm.custom_species} onChange={e => setRescueForm({...rescueForm, custom_species: e.target.value})} />
+                    </motion.div>
+                  )}
+                  <div className="input-group">
+                    <label>Breed</label>
+                    <input type="text" placeholder="e.g. Golden Retriever" value={rescueForm.breed} onChange={e => setRescueForm({...rescueForm, breed: e.target.value})} />
+                  </div>
+                </div>
+
+                <div className="input-row">
+                  <div className="input-group">
+                    <label>Listing Type</label>
+                    <div className="segmented-control">
+                      {['Adopt', 'Sell', 'Donate'].map(type => (
+                        <button 
+                          key={type}
+                          type="button"
+                          className={rescueForm.listing_type === type ? 'active' : ''}
+                          onClick={() => setRescueForm({...rescueForm, listing_type: type})}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {rescueForm.listing_type === 'Sell' && (
+                    <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="input-group">
+                      <label><DollarSign size={14} /> Asking Price (USD)</label>
+                      <input type="number" placeholder="0.00" value={rescueForm.price} onChange={e => setRescueForm({...rescueForm, price: e.target.value})} />
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+
+              <div className="form-sidebar-content">
+                <label className="image-upload-label">Pet Photography</label>
+                <div 
+                  className={`image-dropzone ${rescueForm.media_url ? 'has-image' : ''}`}
+                  onClick={() => document.getElementById('pet-photo-upload').click()}
+                >
+                  {rescueForm.media_url ? (
+                    <img src={rescueForm.media_url} alt="Preview" className="upload-preview" />
+                  ) : (
+                    <div className="dropzone-content">
+                      <Camera size={32} />
+                      <p>{isUploading ? 'Processing...' : 'Click to Upload Photo'}</p>
+                      <span>Supports JPG, PNG</span>
+                    </div>
+                  )}
+                  <input type="file" id="pet-photo-upload" hidden onChange={handleFileChange} accept="image/*" />
+                </div>
+                
+                <button type="submit" className="btn btn-primary submit-rescue-btn">
+                  <CheckCircle size={18} /> Complete Registration
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="adoption-grid">
         {filteredAnimals.map((animal) => (
-          <motion.div whileHover={{ y: -5 }} className="glass-panel adoption-card" key={animal.id}>
+          <motion.div whileHover={{ y: -5 }} className={`glass-panel adoption-card ${!animal.is_available ? 'offline' : ''}`} key={animal.id}>
             <div className="card-image">
-              <img 
-                src={animal.media_url || animal.img} 
-                alt={animal.name} 
-                onError={(e) => {
-                  e.target.onerror = null; 
-                  e.target.src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=300&h=300&fit=crop";
-                }} 
-              />
-              <button 
-                className="like-btn" 
-                onClick={() => handleLike(animal.id)}
-                style={{ color: userLikes.includes(animal.id) ? '#ef4444' : 'white' }}
-              >
-                <Heart size={24} fill={userLikes.includes(animal.id) ? '#ef4444' : 'none'} color={userLikes.includes(animal.id) ? '#ef4444' : 'white'} />
-                <span style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{animal.likes}</span>
-              </button>
+              <img src={animal.media_url || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=300&h=300&fit=crop'} alt={animal.name} />
+              <div className="listing-tag">
+                <Tag size={12} /> {animal.listing_type} {animal.price > 0 && `• $${animal.price}`}
+              </div>
+              {!isShelterAdmin && (
+                <button 
+                  className="like-btn" 
+                  onClick={() => handleLike(animal.id)}
+                  style={{ color: userLikes.includes(animal.id) ? '#ef4444' : 'white' }}
+                >
+                  <Heart size={20} fill={userLikes.includes(animal.id) ? '#ef4444' : 'none'} />
+                  <span>{animal.likes}</span>
+                </button>
+              )}
+              {isShelterAdmin && !animal.is_available && (
+                <div className="offline-overlay">
+                  <span>UNPUBLISHED</span>
+                </div>
+              )}
             </div>
             <div className="card-content">
-              <h3>{animal.name}</h3>
-              <p className="breed-text">{animal.breed} • {animal.intake_date ? `Intake: ${animal.intake_date}` : animal.age}</p>
-              <div className="shelter-text">
-                <MapPin size={14} /> {animal.shelterName || animal.shelter}
+              <div className="card-title-row">
+                <h3>{animal.name}</h3>
+                {animal.is_available && <div className="status-dot-active" title="Available for Users" />}
               </div>
-              <button 
-                className={`btn ${appliedIds.includes(animal.id) ? 'btn-secondary' : 'btn-primary'} btn-block`} 
-                style={{width: '100%', marginTop: '1rem', opacity: appliedIds.includes(animal.id) ? 0.7 : 1}}
-                onClick={() => handleAdoptClick(animal.id)}
-                disabled={appliedIds.includes(animal.id)}
-              >
-                {appliedIds.includes(animal.id) ? 'Application Pending' : 'Apply to Adopt'}
-              </button>
+              <p className="breed-text">{animal.breed || animal.species} • {animal.intake_date || 'New Arrival'}</p>
+              
+              <div className="shelter-info-line">
+                <MapPin size={14} /> {animal.shelterName || animal.shelter_name}
+              </div>
+
+              {isShelterAdmin ? (
+                <div className="admin-card-actions">
+                  <button 
+                    onClick={() => toggleAvailability(animal)}
+                    className={`btn ${animal.is_available ? 'btn-secondary' : 'btn-primary'} flex-1`}
+                  >
+                    {animal.is_available ? 'Unpublish' : 'Publish to Market'}
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  className={`btn ${appliedIds.includes(animal.id) ? 'btn-secondary' : 'btn-primary'} btn-block w-full mt-4`} 
+                  onClick={() => {
+                    setSelectedAnimal(animal);
+                    setIsModalOpen(true);
+                  }}
+                  disabled={appliedIds.includes(animal.id)}
+                >
+                  {appliedIds.includes(animal.id) ? 'Application Pending' : (animal.listing_type === 'Sell' ? 'Inquiry to Buy' : 'Apply to Adopt')}
+                </button>
+              )}
             </div>
           </motion.div>
         ))}
       </div>
 
-      {isModalOpen && selectedAnimal && (
-        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-panel" style={{ padding: '2rem', maxWidth: '500px', width: '90%', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
-            <button 
-              onClick={() => setIsModalOpen(false)} 
-              style={{ position: 'absolute', top: '10px', right: '15px', background: 'none', border: 'none', color: '#fff', fontSize: '1.5rem', cursor: 'pointer' }}>
-              &times;
-            </button>
-            <h2 style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Pet Details from Shelter</h2>
-            <img src={selectedAnimal.media_url} alt={selectedAnimal.name} style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '8px', marginBottom: '1rem' }} />
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', margin: 0 }}>Species / Breed</p>
-                <p style={{ margin: 0, fontWeight: 'bold' }}>{selectedAnimal.species} - {selectedAnimal.breed || 'Unknown'}</p>
+      <AnimatePresence>
+        {isModalOpen && selectedAnimal && (
+          <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="glass-panel pet-modal"
+              onClick={e => e.stopPropagation()}
+            >
+              <button className="modal-close" onClick={() => setIsModalOpen(false)}><X size={24} /></button>
+              <div className="modal-pet-header">
+                <img src={selectedAnimal.media_url || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=300&h=300&fit=crop'} alt={selectedAnimal.name} />
+                <div className="modal-title-wrap">
+                  <h2>{selectedAnimal.name}</h2>
+                  <span className="modal-badge">{selectedAnimal.listing_type}</span>
+                </div>
               </div>
-              <div>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', margin: 0 }}>Medical Triage Status</p>
-                <p style={{ margin: 0, fontWeight: 'bold', color: selectedAnimal.medical_triage_status === 'Healthy' ? '#10b981' : '#f59e0b' }}>{selectedAnimal.medical_triage_status || 'Pending'}</p>
+              
+              <div className="modal-details-grid">
+                <div className="detail-item">
+                  <span className="label">Medical Status</span>
+                  <span className="value status-healthy">{selectedAnimal.medical_triage_status}</span>
+                </div>
+                <div className="detail-item">
+                  <span className="label">Breed Info</span>
+                  <span className="value">{selectedAnimal.breed || 'Unknown'}</span>
+                </div>
+                {selectedAnimal.listing_type === 'Sell' && (
+                  <div className="detail-item price-item">
+                    <span className="label">Price</span>
+                    <span className="value">${selectedAnimal.price}</span>
+                  </div>
+                )}
               </div>
-              <div>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', margin: 0 }}>Behavior / Age</p>
-                <p style={{ margin: 0, fontWeight: 'bold' }}>{selectedAnimal.behavioral_traits || 'None noted'}</p>
-              </div>
-              <div>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', margin: 0 }}>Kennel Zone</p>
-                <p style={{ margin: 0, fontWeight: 'bold' }}>{selectedAnimal.kennel_zone_id || 'Unassigned'}</p>
-              </div>
-            </div>
 
-            <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', marginBottom: '1.5rem' }}>
-              By confirming, your details will be securely transmitted to the Shelter Administrator. You will be scheduled for an interview process.
-            </p>
-            
-            <button 
-              onClick={confirmAdoption} 
-              disabled={isApplying}
-              className="btn btn-primary btn-block" style={{ width: '100%' }}>
-              {isApplying ? 'Submitting...' : 'Confirm Adoption Request'}
-            </button>
-          </motion.div>
-        </div>
-      )}
+              <div className="modal-footer">
+                <p className="disclaimer">By proceeding, your verified profile will be shared with the shelter for review.</p>
+                <button className="btn btn-primary btn-block w-full" onClick={() => { alert("Application Sent!"); setIsModalOpen(false); }}>
+                   Confirm {selectedAnimal.listing_type === 'Sell' ? 'Purchase Request' : 'Adoption Intent'} <ChevronRight size={18} />
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

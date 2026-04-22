@@ -59,7 +59,7 @@ class DigitalPrescription(models.Model):
 
 class DiagnosticMedia(models.Model):
     consultation = models.ForeignKey(ConsultationLog, on_delete=models.CASCADE, related_name='media', null=True, blank=True)
-    media_url = models.URLField(max_length=500) # Lightweight AWS S3 URL
+    media_url = models.TextField() # Supports direct URLs or Base64 Data URLs for prototype
     media_type = models.CharField(max_length=50) # image/jpeg, application/pdf
     diagnostic_tags = models.JSONField(blank=True, null=True) # e.g. ["Thoracic X-ray"]
     uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -67,3 +67,32 @@ class DiagnosticMedia(models.Model):
     def __str__(self):
         pet_name = self.consultation.pet.name if self.consultation else "Unknown"
         return f"Media for {pet_name}"
+
+class Appointment(models.Model):
+    STATUS_CHOICES = (
+        ('Scheduled', 'Scheduled'),
+        ('Completed', 'Completed'),
+        ('Cancelled', 'Cancelled'),
+    )
+    pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name='appointments')
+    vet = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='vet_appointments', limit_choices_to={'role': 'veterinarian'})
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='owner_appointments', limit_choices_to={'role': 'citizen'})
+    date = models.DateTimeField()
+    reason = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Scheduled')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Appointment: {self.pet.name} with Dr. {self.vet.username} on {self.date}"
+
+class SelfReportedRecord(models.Model):
+    pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name='self_reports')
+    title = models.CharField(max_length=255)
+    date = models.DateField()
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Self-Report: {self.title} for {self.pet.name}"
+
+

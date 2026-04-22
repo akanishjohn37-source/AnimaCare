@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Clock, Heart, AlertTriangle, ArrowRight, FileText, Trash2 } from 'lucide-react';
+import { Shield, Clock, Heart, AlertTriangle, ArrowRight, FileText, Trash2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './Dashboard.css';
@@ -8,23 +8,26 @@ import './Dashboard.css';
 const Dashboard = () => {
   const { user, authFetch } = useAuth();
   const [pets, setPets] = useState([]);
+  const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchPets = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const res = await authFetch('http://localhost:8000/api/citizens/pets/');
-        if (res.ok) {
-          const data = await res.json();
-          setPets(data);
-        }
+        const [petsRes, appsRes] = await Promise.all([
+          authFetch('http://localhost:8000/api/citizens/pets/'),
+          authFetch('http://localhost:8000/api/shelter/applications/')
+        ]);
+        
+        if (petsRes.ok) setPets(await petsRes.json());
+        if (appsRes.ok) setApplications(await appsRes.json());
       } catch (err) {
-        console.error("Failed to fetch pets", err);
+        console.error("Failed to fetch dashboard data", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchPets();
+    fetchDashboardData();
   }, [authFetch]);
 
   const handleDelete = async (petId) => {
@@ -42,6 +45,38 @@ const Dashboard = () => {
     } catch (err) {
       console.error(err);
       alert(`Error deleting pet: ${err.message}`);
+    }
+  };
+
+  const handleCancelAdoption = async (appId) => {
+    if (!window.confirm("Are you sure you want to cancel this adoption application?")) return;
+    try {
+      const res = await authFetch(`http://localhost:8000/api/shelter/applications/${appId}/cancel/`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        setApplications(applications.map(app => app.id === appId ? { ...app, status: 'Cancelled' } : app));
+      } else {
+        const text = await res.text();
+        alert(`Failed to cancel: ${text}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error cancelling application.");
+    }
+  };
+
+  const handleClearCancelled = async () => {
+    const cancelledApps = applications.filter(a => a.status === 'Cancelled');
+    if (cancelledApps.length === 0) return;
+    
+    try {
+      await Promise.all(cancelledApps.map(app => 
+        authFetch(`http://localhost:8000/api/shelter/applications/${app.id}/`, { method: 'DELETE' })
+      ));
+      setApplications(applications.filter(a => a.status !== 'Cancelled'));
+    } catch (err) {
+      console.error("Clear cancelled error", err);
     }
   };
 
@@ -130,9 +165,48 @@ const Dashboard = () => {
           <motion.div variants={itemVariants} className="glass-panel dashboard-card">
             <div className="card-header">
               <h2><Clock size={20} className="icon-accent" /> Adoption Status</h2>
+              {applications.some(a => a.status === 'Cancelled') && (
+                <button 
+                  onClick={handleClearCancelled}
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.65rem', padding: '0.2rem 0.6rem' }}
+                >
+                  Clear
+                </button>
+              )}
             </div>
-            <div style={{ padding: '2rem 1rem', textAlign: 'center' }}>
-              <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem' }}>No pending adoption applications.</p>
+            <div className="adoption-status-list" style={{ padding: '1rem', minHeight: '100px' }}>
+              {applications.length > 0 ? (
+                applications.map(app => (
+                  <div key={app.id} className="status-item" style={{ marginBottom: '1rem', paddingBottom: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 'bold' }}>{app.animal_detail?.name || 'Animal'}</span>
+                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        <span className={`badge ${app.status === 'Approved' ? 'badge-success' : app.status === 'Rejected' ? 'badge-danger' : app.status === 'Cancelled' ? 'badge-secondary' : 'badge-primary'}`} style={{ fontSize: '0.7rem' }}>
+                          {app.status}
+                        </span>
+                        {(app.status === 'Pending' || app.status === 'Under Review') && (
+                          <button 
+                            onClick={() => handleCancelAdoption(app.id)}
+                            className="action-btn" 
+                            style={{ color: 'rgba(255,255,255,0.3)', padding: '2px' }}
+                            title="Cancel Application"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>
+                      Applied on: {new Date(app.timestamp).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div style={{ padding: '1rem', textAlign: 'center' }}>
+                  <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem' }}>No pending adoption applications.</p>
+                </div>
+              )}
             </div>
           </motion.div>
 

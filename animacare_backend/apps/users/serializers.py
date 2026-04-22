@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.utils import timezone
-from .models import User, VeterinarianProfile, ShelterAdminProfile, CivicAuthorityProfile
+from .models import User, VeterinarianProfile, ShelterAdminProfile, CivicAuthorityProfile, Notification
 
 
 # ── Sub-profile serializers ──────────────────────────────────────────────────
@@ -178,3 +178,8 @@ class UserAdminSerializer(serializers.ModelSerializer):
 
     def get_status_display(self, obj):
         return obj.get_account_status_display()
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = '__all__'

@@ -1,14 +1,16 @@
 import jwt
 import datetime
 from django.conf import settings
+from rest_framework import viewsets
+from rest_framework.decorators import action
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes
-from .serializers import RegisterSerializer, LoginSerializer, UserProfileSerializer
-from .models import VeterinarianProfile, ShelterAdminProfile, CivicAuthorityProfile
+from .serializers import RegisterSerializer, LoginSerializer, UserProfileSerializer, NotificationSerializer
+from .models import VeterinarianProfile, ShelterAdminProfile, CivicAuthorityProfile, Notification
 
 User = get_user_model()
 
@@ -227,6 +229,13 @@ class UserStatsView(APIView):
         except Exception:
             return False
 
+class VetsView(APIView):
+    """List all active veterinarians."""
+    def get(self, request):
+        vets = User.objects.filter(role='veterinarian', account_status='active')
+        return Response(UserProfileSerializer(vets, many=True).data)
+
+
 class ChangePasswordDirectView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -246,3 +255,27 @@ class ChangePasswordDirectView(APIView):
             return Response({"error": "User does not exist."}, status=status.HTTP_404_NOT_FOUND)
         except User.MultipleObjectsReturned:
             return Response({"error": "Multiple users found with this email. Use username instead."}, status=status.HTTP_400_BAD_REQUEST)
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = NotificationSerializer
+    
+    def get_queryset(self):
+        user_id = self.request.user.id
+        if not user_id:
+             # Fallback for manual token decoding if default auth fails
+             auth_header = self.request.headers.get('Authorization', '')
+             if auth_header.startswith('Bearer '):
+                 token = auth_header.split(' ', 1)[1]
+                 try:
+                     payload = decode_token(token)
+                     user_id = payload['user_id']
+                 except: pass
+        
+        return Notification.objects.filter(recipient_id=user_id).order_by('-created_at')
+
+    @action(detail=True, methods=['post'])
+    def mark_as_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save()
+        return Response({'status': 'marked as read'})

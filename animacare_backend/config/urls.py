@@ -20,4 +20,5 @@ urlpatterns = [
     path('api/superadmin/', include('apps.governance.urls')),
     path('api/citizens/', include('apps.citizens.urls')),
     path('api/public-health/', include('apps.public_health.urls')),
+    path('api/clinical/', include('apps.clinical.urls')),
 ]

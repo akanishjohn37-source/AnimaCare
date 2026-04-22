@@ -1,6 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
 from .models import SOSAlert, Pet
 from .serializers import SOSAlertSerializer, PetSerializer
 from apps.shelter.models import Shelter
@@ -8,6 +9,14 @@ from apps.shelter.models import Shelter
 class SOSAlertViewSet(viewsets.ModelViewSet):
     queryset = SOSAlert.objects.all()
     serializer_class = SOSAlertSerializer
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def nearby(self, request):
+        # In a real GIS app, we'd use shelter.location to filter by radius.
+        # For prototype, we'll return all unresolved alerts as 'nearby' for now.
+        alerts = SOSAlert.objects.filter(is_resolved=False).order_by('-timestamp')
+        serializer = self.get_serializer(alerts, many=True)
+        return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         # Expecting lat, lng, animal_description, reporter
@@ -46,3 +55,33 @@ class PetViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # Automatically assign the logged-in user as the owner
         serializer.save(owner=self.request.user)
+
+    @action(detail=True, methods=['get'])
+    def medical_report(self, request, pk=None):
+        pet = self.get_object()
+        user = request.user
+        
+        # Owners can always see their pets
+        is_owner = pet.owner == user
+        # Veterinarians can see if they have an appointment
+        from apps.clinical.models import Appointment
+        has_appointment = Appointment.objects.filter(
+            pet=pet, 
+            vet=user, 
+            status__in=['Scheduled', 'Completed']
+        ).exists()
+        
+        if not is_owner and not has_appointment and user.role != 'admin':
+            return Response({"error": "Unauthorized access to medical records."}, status=403)
+        
+        # Fetch detailed history
+        from apps.clinical.serializers import ConsultationLogSerializer, SelfReportedRecordSerializer
+        consultations = pet.consultations.all().order_by('-date')
+        self_reports = pet.self_reports.all().order_by('-date')
+        
+        return Response({
+            "pet": PetSerializer(pet).data,
+            "medical_history": ConsultationLogSerializer(consultations, many=True).data,
+            "self_reports": SelfReportedRecordSerializer(self_reports, many=True).data
+        })
+

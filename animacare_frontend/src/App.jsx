@@ -18,6 +18,8 @@ const SOSMap             = lazy(() => import('./pages/citizens/SOSMap'));
 const PetPassportForm    = lazy(() => import('./pages/citizens/PetPassportForm'));
 const AdoptionPortal     = lazy(() => import('./pages/citizens/AdoptionPortal'));
 const MedicalViewer      = lazy(() => import('./pages/citizens/MedicalViewer'));
+const Appointments       = lazy(() => import('./pages/citizens/Appointments'));
+
 
 // Shelter Admin
 const ShelterDashboard   = lazy(() => import('./pages/ShelterDashboard'));
@@ -131,6 +133,12 @@ function App() {
                       <SOSMap />
                     </ProtectedRoute>
                   } />
+                  <Route path="/appointments" element={
+                    <ProtectedRoute roles={['citizen']}>
+                      <Appointments />
+                    </ProtectedRoute>
+                  } />
+
 
                   {/* ── Veterinarian routes ────────────────────── */}
                   <Route path="/vet-dashboard" element={

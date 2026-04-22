@@ -1,14 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, AlertCircle, Phone, Camera, Send } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import './SOSMap.css';
+
+const customMarkerIcon = new L.DivIcon({
+  className: 'custom-leaflet-marker',
+  html: `<div style="color: #ef4444; display: flex; justify-content: center; align-items: center; width: 36px; height: 36px; position: relative;">
+           <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="rgba(239, 68, 68, 0.2)" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+         </div>`,
+  iconSize: [36, 36],
+  iconAnchor: [18, 36]
+});
+
+const MapEvents = ({ location, setLocation }) => {
+  const map = useMapEvents({
+    click(e) {
+      setLocation({ lat: e.latlng.lat, lng: e.latlng.lng });
+    }
+  });
+
+  useEffect(() => {
+    map.flyTo([location.lat, location.lng], map.getZoom(), { animate: true, duration: 1.5 });
+  }, [location, map]);
+
+  return null;
+};
 
 const SOSMap = () => {
   const [reportState, setReportState] = useState('idle'); // idle, reporting, submitted
+  const [photo, setPhoto] = useState(null);
+  const [location, setLocation] = useState({ lat: 34.0522, lng: -118.2437 });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setReportState('submitted');
+  };
+
+  const handlePhotoChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setPhoto(e.target.files[0]);
+    }
+  };
+
+  const handleLocateMe = () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.error("Error obtaining location", error);
+          alert("Unable to retrieve your location.");
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      alert("Geolocation is not supported by your browser");
+    }
   };
 
   return (
@@ -24,17 +78,35 @@ const SOSMap = () => {
 
       <div className="sos-layout">
         <div className="map-view glass-panel">
-          <div className="map-placeholder">
-            {/* Embedded map will go here */}
-            <div className="map-overlay">
-              <MapPin size={48} className="map-pin pulse" />
-              <p>Lat: 34.0522 N, Long: -118.2437 W</p>
+          <div className="map-placeholder" style={{ position: 'relative', zIndex: 1, height: '450px' }}>
+            <MapContainer 
+              center={[location.lat, location.lng]} 
+              zoom={14} 
+              style={{ height: '100%', width: '100%', borderRadius: '12px' }}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <Marker position={[location.lat, location.lng]} icon={customMarkerIcon}>
+                <Popup>
+                  Incident Location<br />
+                  {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+                </Popup>
+              </Marker>
+              <MapEvents location={location} setLocation={setLocation} />
+            </MapContainer>
+            
+            <div style={{ position: 'absolute', bottom: '10px', left: '10px', zIndex: 1000, background: 'rgba(0,0,0,0.7)', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--glass-border)', color: '#fff' }}>
+              <p style={{ margin: 0, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <MapPin size={16} color="var(--danger)" />
+                Lat: {location.lat.toFixed(4)} N, Long: {Math.abs(location.lng).toFixed(4)} {location.lng < 0 ? 'W' : 'E'}
+              </p>
             </div>
-            <img src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&q=80&w=800&h=600" alt="Map Area" className="map-img-bg" />
           </div>
           <div className="map-controls">
-             <button className="btn btn-secondary"><MapPin size={16} /> Locate Me</button>
-             <p className="helper-text">You can drag the pin to adjust the precise location.</p>
+             <button type="button" className="btn btn-secondary" onClick={handleLocateMe}><MapPin size={16} /> Locate Me</button>
+             <p className="helper-text">Click on the map to adjust the precise location.</p>
           </div>
         </div>
 
@@ -60,10 +132,23 @@ const SOSMap = () => {
 
               <div className="form-group">
                 <label className="form-label">Attach Photo Evidence (Optional)</label>
-                <div className="photo-upload-box">
-                  <Camera size={24} />
-                  <span>Tap to upload photo</span>
-                </div>
+                <input 
+                  type="file" 
+                  id="evidence-upload" 
+                  accept="image/*" 
+                  style={{ display: 'none' }} 
+                  onChange={handlePhotoChange} 
+                />
+                <label htmlFor="evidence-upload" className="photo-upload-box">
+                  {photo ? (
+                    <span style={{color: 'var(--text-primary)', wordBreak: 'break-all'}}>{photo.name}</span>
+                  ) : (
+                    <>
+                      <Camera size={24} />
+                      <span>Tap to upload photo</span>
+                    </>
+                  )}
+                </label>
               </div>
 
               <button type="submit" className="btn btn-danger btn-block" style={{width: '100%'}}>

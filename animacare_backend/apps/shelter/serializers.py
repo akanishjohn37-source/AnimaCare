@@ -10,6 +10,7 @@ class AnimalInventorySerializer(serializers.ModelSerializer):
     class Meta:
         model = AnimalInventory
         fields = '__all__'
+        read_only_fields = ('shelter',)
 
 class AdoptionApplicationSerializer(serializers.ModelSerializer):
     animal_detail = AnimalInventorySerializer(source='animal', read_only=True)
