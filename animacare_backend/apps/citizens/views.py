@@ -12,11 +12,39 @@ class SOSAlertViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def nearby(self, request):
-        # In a real GIS app, we'd use shelter.location to filter by radius.
-        # For prototype, we'll return all unresolved alerts as 'nearby' for now.
+        # Return all unresolved alerts OR alerts accepted by this specific shelter
         alerts = SOSAlert.objects.filter(is_resolved=False).order_by('-timestamp')
         serializer = self.get_serializer(alerts, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def accept_mission(self, request, pk=None):
+        sos = self.get_object()
+        if sos.status != 'Pending':
+            return Response({'error': 'Mission already accepted by another unit.'}, status=400)
+        
+        # Link to the admin's shelter
+        try:
+            shelter = Shelter.objects.get(admin=request.user)
+            sos.status = 'Accepted'
+            sos.assigned_shelter = shelter
+            sos.save()
+            return Response({'message': 'Mission Accepted. GPS Lock engaged.'})
+        except Shelter.DoesNotExist:
+            return Response({'error': 'Unauthorized: No shelter linked to this admin.'}, status=403)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def complete_mission(self, request, pk=None):
+        sos = self.get_object()
+        shelter = Shelter.objects.get(admin=request.user)
+        
+        if sos.assigned_shelter != shelter:
+            return Response({'error': 'Only the assigned shelter can complete this mission.'}, status=403)
+            
+        sos.status = 'Resolved'
+        sos.is_resolved = True
+        sos.save()
+        return Response({'message': 'Rescue Mission Complete. Record Archived.'})
 
     def create(self, request, *args, **kwargs):
         # Expecting lat, lng, animal_description, reporter

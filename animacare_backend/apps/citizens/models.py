@@ -16,11 +16,19 @@ class Pet(models.Model):
         return f"{self.name} ({self.species})"
 
 class SOSAlert(models.Model):
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('Accepted', 'Accepted'),
+        ('Resolved', 'Resolved'),
+    ]
+    
     reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sos_alerts')
     animal_description = models.TextField()
-    location = models.CharField(max_length=255) # Replaced PointField with CharField for local dev
+    location = models.CharField(max_length=255) 
     timestamp = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    assigned_shelter = models.ForeignKey('shelter.Shelter', on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_missions')
     is_resolved = models.BooleanField(default=False)
     
     def __str__(self):
-        return f"SOS by {self.reporter.username} at {self.timestamp}"
+        return f"SOS by {self.reporter.username} ({self.status}) at {self.timestamp}"

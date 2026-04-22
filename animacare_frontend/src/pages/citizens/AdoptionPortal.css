@@ -283,11 +283,27 @@
 .admin-card-actions { margin-top: 1.5rem; display: flex; gap: 0.75rem; }
 
 /* Modal Styling */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
 .pet-modal {
   max-width: 550px !important;
   width: 95% !important;
   padding: 0 !important;
   border: 1px solid rgba(255,255,255,0.15);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
 }
 
 .modal-pet-header { position: relative; height: 300px; }
