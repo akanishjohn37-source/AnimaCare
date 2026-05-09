@@ -52,7 +52,7 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
         return AdoptionApplication.objects.all()
 
     def perform_create(self, serializer):
-        application = serializer.save()
+        application = serializer.save(applicant=self.request.user)
         # Notify the Shelter Admin
         shelter_admin = application.animal.shelter.admin
         Notification.objects.create(

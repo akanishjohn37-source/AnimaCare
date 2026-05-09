@@ -8,6 +8,7 @@ class User(AbstractUser):
         ('veterinarian', 'Veterinary Doctor'),
         ('shelter_admin', 'Shelter Administrator'),
         ('civic_authority', 'Civic Authority'),
+        ('agricultural_facility', 'Agricultural Facility'),
         ('admin', 'System Administrator'),
     )
     ACCOUNT_STATUS_CHOICES = (
@@ -17,7 +18,7 @@ class User(AbstractUser):
         ('rejected', 'Rejected'),
     )
 
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='citizen')
+    role = models.CharField(max_length=30, choices=ROLE_CHOICES, default='citizen')
     account_status = models.CharField(
         max_length=20, choices=ACCOUNT_STATUS_CHOICES, default='pending'
     )
@@ -91,6 +92,20 @@ class CivicAuthorityProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.get_full_name()} — {self.department_name}"
+
+class AgriculturalFacilityProfile(models.Model):
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name='agricultural_profile'
+    )
+    facility_name = models.CharField(max_length=255)
+    facility_type = models.CharField(max_length=100) # e.g. Poultry Farm, Dairy, Stud Farm
+    registration_number = models.CharField(max_length=100, unique=True)
+    facility_address = models.TextField()
+    contact_person = models.CharField(max_length=150)
+    contact_number = models.CharField(max_length=20)
+    
+    def __str__(self):
+        return f"{self.facility_name} ({self.facility_type})"
 
 class Notification(models.Model):
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')

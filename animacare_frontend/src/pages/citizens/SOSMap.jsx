@@ -36,7 +36,7 @@ const SOSMap = () => {
   const [description, setDescription] = useState('');
   const [animalType, setAnimalType] = useState('Dog');
   const [photo, setPhoto] = useState(null);
-  const [location, setLocation] = useState({ lat: 40.7128, lng: -74.0060 });
+  const [location, setLocation] = useState({ lat: 10.8505, lng: 76.2711 });
 
   const handleSubmit = async (e) => {
     e.preventDefault();

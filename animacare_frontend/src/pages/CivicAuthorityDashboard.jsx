@@ -19,17 +19,18 @@ const CivicAuthorityDashboard = () => {
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [diseaseFilter, setDiseaseFilter] = useState('Rabies');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [targetGroup, setTargetGroup] = useState('all_citizens');
   
   const { authFetch } = useAuth();
   
   // Livestock Data
   const [rowData] = useState([
-    { id: 'LIV-8821', species: 'Bovine', location: 'Zone 4 North', status: 'Healthy', tags: '12', lastChecked: '2026-04-01' },
-    { id: 'LIV-8822', species: 'Avian', location: 'Zone 2 East', status: 'Quarantine', tags: '450', lastChecked: '2026-04-03' },
-    { id: 'WLD-0091', species: 'Canine (Wild)', location: 'Metro Periphery', status: 'Monitored', tags: '1', lastChecked: '2026-04-05' },
-    { id: 'LIV-8823', species: 'Porcine', location: 'Zone 1 South', status: 'Healthy', tags: '80', lastChecked: '2026-04-02' },
-    { id: 'WLD-0092', species: 'Feline (Feral)', location: 'Urban Center', status: 'At Risk', tags: '5', lastChecked: '2026-04-06' },
-    { id: 'LIV-8824', species: 'Equine', location: 'Zone 5 West', status: 'Healthy', tags: '8', lastChecked: '2026-03-29' },
+    { id: 'LIV-8821', species: 'Bovine', location: 'Palakkad District', status: 'Healthy', tags: '12', lastChecked: '2026-04-01' },
+    { id: 'LIV-8822', species: 'Avian', location: 'Kozhikode North', status: 'Quarantine', tags: '450', lastChecked: '2026-04-03' },
+    { id: 'WLD-0091', species: 'Canine (Wild)', location: 'Wayanad Forest', status: 'Monitored', tags: '1', lastChecked: '2026-04-05' },
+    { id: 'LIV-8823', species: 'Porcine', location: 'Idukki Range', status: 'Healthy', tags: '80', lastChecked: '2026-04-02' },
+    { id: 'WLD-0092', species: 'Feline (Feral)', location: 'Kochi Urban', status: 'At Risk', tags: '5', lastChecked: '2026-04-06' },
+    { id: 'LIV-8824', species: 'Equine', location: 'Thiruvananthapuram', status: 'Healthy', tags: '8', lastChecked: '2026-03-29' },
   ]);
 
   useEffect(() => {
@@ -61,8 +62,8 @@ const CivicAuthorityDashboard = () => {
       console.error(err);
       // Mock Data if API fails
       const mockPoints = Array.from({length: 15}).map((_, i) => ({
-        latitude: 34.0522 + (Math.random() - 0.5) * 0.2,
-        longitude: -118.2437 + (Math.random() - 0.5) * 0.2,
+        latitude: 10.8505 + (Math.random() - 0.5) * 0.8,
+        longitude: 76.2711 + (Math.random() - 0.5) * 0.8,
         intensity: Math.floor(Math.random() * 8) + 2,
         disease: disease,
         anonymized_region: `Zone-${Math.floor(Math.random() * 5) + 1}`
@@ -79,7 +80,8 @@ const CivicAuthorityDashboard = () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: broadcastMessage,
-        polygon: [[34.0, -118.2], [34.1, -118.1], [33.9, -118.3]]
+        polygon: [[10.8, 76.2], [10.9, 76.3], [10.7, 76.1]],
+        target_group: targetGroup
       })
     }).then(res => res.json())
     .then(data => {
@@ -170,7 +172,7 @@ const CivicAuthorityDashboard = () => {
             </select>
           </div>
           <div className="map-container-wrapper" style={{ height: '400px', backgroundColor: '#1e1e2d', borderRadius: '8px', overflow: 'hidden' }}>
-            <MapContainer center={[34.0522, -118.2437]} zoom={11} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+            <MapContainer center={[10.8505, 76.2711]} zoom={8} style={{ height: '100%', width: '100%' }} zoomControl={false}>
               <TileLayer
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 attribution='&copy; <a href="https://carto.com/">CartoDB</a>'
@@ -216,10 +218,10 @@ const CivicAuthorityDashboard = () => {
             </div>
             <div className="form-group">
               <label>Priority Target Group</label>
-              <select className="civic-input">
-                <option>All Citizens in Radius</option>
-                <option>Pet Owners Only</option>
-                <option>Registered Agricultural Facilities</option>
+              <select className="civic-input" value={targetGroup} onChange={(e) => setTargetGroup(e.target.value)}>
+                <option value="all_citizens">All Citizens in Radius</option>
+                <option value="pet_owners">Pet Owners Only</option>
+                <option value="agricultural">Registered Agricultural Facilities</option>
               </select>
             </div>
             <div className="form-group">

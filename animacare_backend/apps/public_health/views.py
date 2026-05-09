@@ -2,13 +2,27 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import get_user_model
+from apps.users.models import Notification
+from django.conf import settings
+import jwt
 import random
+
+def _get_role(request):
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        try:
+            token = auth_header.split(' ', 1)[1]
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            return payload.get('role')
+        except:
+            return None
+    return None
 
 User = get_user_model()
 
 class ZoonoticHeatmapView(APIView):
   def get(self, request):
-        if not request.user.is_authenticated or request.user.role not in ['civic_authority', 'admin']:
+        if _get_role(request) not in ['civic_authority', 'admin']:
             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
         
         disease = request.query_params.get("disease", "Rabies")
@@ -17,8 +31,8 @@ class ZoonoticHeatmapView(APIView):
         clusters = []
         for i in range(15):
             clusters.append({
-                "latitude": 34.0522 + random.uniform(-0.1, 0.1),
-                "longitude": -118.2437 + random.uniform(-0.1, 0.1),
+                "latitude": 10.8505 + random.uniform(-0.5, 0.5),
+                "longitude": 76.2711 + random.uniform(-0.5, 0.5),
                 "intensity": random.randint(3, 10),
                 "disease": disease,
                 "anonymized_region": f"Zone-{random.randint(1, 5)}"
@@ -28,23 +42,53 @@ class ZoonoticHeatmapView(APIView):
 
 class BroadcastAlertView(APIView):
   def post(self, request):
-        if not request.user.is_authenticated or request.user.role not in ['civic_authority', 'admin']:
+        if _get_role(request) not in ['civic_authority', 'admin']:
             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
         
         polygon = request.data.get("polygon", [])
         message = request.data.get("message", "")
+        target_group = request.data.get("target_group", "all_citizens")
         
         if not polygon or not message:
             return Response({"error": "Polygon coordinates and message are required."}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Determine target users based on group
+        target_users = User.objects.none()
+        
+        # Note: In a production PostGIS setup, we would append a spatial filter here:
+        # e.g., location__within=polygon_obj
+        
+        if target_group == "all_citizens":
+            target_users = User.objects.filter(role='citizen')
+        elif target_group == "pet_owners":
+            target_users = User.objects.filter(role='citizen', pets__isnull=False).distinct()
+        elif target_group == "agricultural":
+            target_users = User.objects.filter(role='agricultural_facility')
+            
+        estimated_reach = target_users.count()
+        
+        # Create actual notifications for targeted users
+        notifications = []
+        for u in target_users:
+            notifications.append(
+                Notification(
+                    recipient=u,
+                    title="CIVIC HEALTH ALERT",
+                    message=message
+                )
+            )
+            
+        if notifications:
+            Notification.objects.bulk_create(notifications)
+        
         return Response({
-            "message": "Broadcast triggered successfully. Celery queue processing alert for affected users.", 
-            "estimated_reach": random.randint(100, 5000)
+            "message": "Broadcast triggered successfully. Alerts sent.", 
+            "estimated_reach": estimated_reach
         })
 
 class PublicHealthAnalyticsView(APIView):
   def get(self, request):
-        if not request.user.is_authenticated or request.user.role not in ['civic_authority', 'admin']:
+        if _get_role(request) not in ['civic_authority', 'admin']:
             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
         
         return Response({

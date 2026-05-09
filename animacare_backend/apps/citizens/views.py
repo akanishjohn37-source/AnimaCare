@@ -46,6 +46,21 @@ class SOSAlertViewSet(viewsets.ModelViewSet):
         sos.save()
         return Response({'message': 'Rescue Mission Complete. Record Archived.'})
 
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def cancel_mission(self, request, pk=None):
+        sos = self.get_object()
+        try:
+            shelter = Shelter.objects.get(admin=request.user)
+            if sos.assigned_shelter != shelter:
+                return Response({'error': 'You can only cancel missions assigned to your shelter.'}, status=403)
+            
+            sos.status = 'Pending'
+            sos.assigned_shelter = None
+            sos.save()
+            return Response({'message': 'Mission Canceled. Alert is now available to other responders.'})
+        except Shelter.DoesNotExist:
+            return Response({'error': 'Unauthorized: No shelter linked to this admin.'}, status=403)
+
     def create(self, request, *args, **kwargs):
         # Expecting lat, lng, animal_description, reporter
         data = request.data

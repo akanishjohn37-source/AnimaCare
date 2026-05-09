@@ -17,6 +17,7 @@ const VetDashboard = () => {
   const [consultationData, setConsultationData] = useState({
     vital_signs: { weight: '', temp: '', heartRate: '' },
     notes: '',
+    zoonotic_disease_flag: '',
     media: null
   });
   const [patientHistory, setPatientHistory] = useState(null);
@@ -84,13 +85,14 @@ const VetDashboard = () => {
           pet: selectedPatient.pet,
           vital_signs: consultationData.vital_signs,
           consultation_notes: consultationData.notes,
+          zoonotic_disease_flag: consultationData.zoonotic_disease_flag || null,
           media_url: consultationData.media ? "https://images.unsplash.com/photo-1574701292021-99529ccf0e21?auto=format&fit=crop&q=80&w=400" : null
         })
       });
       if (res.ok) {
         alert("Medical record successfully submitted!");
         setSelectedPatient(null);
-        setConsultationData({ vital_signs: { weight: '', temp: '', heartRate: '' }, notes: '', media: null });
+        setConsultationData({ vital_signs: { weight: '', temp: '', heartRate: '' }, notes: '', zoonotic_disease_flag: '', media: null });
         setSelectedFileName('');
       }
     } catch (err) {
@@ -217,6 +219,19 @@ const VetDashboard = () => {
                   style={{ width: '100%', padding: '0.75rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', marginBottom: '1.5rem' }}
                />
 
+               <label style={{ display: 'block', color: '#ef4444', fontSize: '0.75rem', marginBottom: '0.5rem', fontWeight: 600 }}>⚠️ Report Communicable Disease (Civic Alert)</label>
+               <select 
+                  value={consultationData.zoonotic_disease_flag}
+                  onChange={(e) => setConsultationData({...consultationData, zoonotic_disease_flag: e.target.value})}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: 8, background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#fff', marginBottom: '1.5rem', outline: 'none' }}
+               >
+                  <option value="">None (Routine Case)</option>
+                  <option value="Rabies">Rabies</option>
+                  <option value="Canine Parvovirus">Canine Parvovirus</option>
+                  <option value="Avian Flu">Avian Flu (H5N1)</option>
+                  <option value="Feline Leukemia">Feline Leukemia</option>
+               </select>
+
                <h3 style={{ color: '#22d3ee', fontSize: '1rem', marginBottom: '1rem' }}>Diagnostic Media (X-Rays / Reports)</h3>
                <div style={{ 
                   border: '2px dashed rgba(255,255,255,0.1)', 
@@ -262,13 +277,14 @@ const VetDashboard = () => {
                             pet: selectedPatient.pet,
                             vital_signs: consultationData.vital_signs,
                             consultation_notes: consultationData.notes,
+                            zoonotic_disease_flag: consultationData.zoonotic_disease_flag || null,
                             media_url: consultationData.media // This is now the Base64 string
                           })
                         });
                         if (res.ok) {
                           alert("Medical record successfully submitted!");
                           setSelectedPatient(null);
-                          setConsultationData({ vital_signs: { weight: '', temp: '', heartRate: '' }, notes: '', media: null });
+                          setConsultationData({ vital_signs: { weight: '', temp: '', heartRate: '' }, notes: '', zoonotic_disease_flag: '', media: null });
                           setSelectedFileName('');
                         }
                       } catch (err) {

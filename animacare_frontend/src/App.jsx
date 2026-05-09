@@ -104,22 +104,22 @@ function App() {
 
                   {/* ── Citizen routes ─────────────────────────── */}
                   <Route path="/dashboard" element={
-                    <ProtectedRoute roles={['citizen']}>
+                    <ProtectedRoute roles={['citizen', 'agricultural_facility']}>
                       <Dashboard />
                     </ProtectedRoute>
                   } />
                   <Route path="/pet/new" element={
-                    <ProtectedRoute roles={['citizen']}>
+                    <ProtectedRoute roles={['citizen', 'agricultural_facility']}>
                       <PetPassportForm />
                     </ProtectedRoute>
                   } />
                   <Route path="/medical/:petId" element={
-                    <ProtectedRoute roles={['citizen', 'veterinarian']}>
+                    <ProtectedRoute roles={['citizen', 'veterinarian', 'agricultural_facility']}>
                       <MedicalViewer />
                     </ProtectedRoute>
                   } />
                   <Route path="/medical/all" element={
-                    <ProtectedRoute roles={['citizen', 'veterinarian']}>
+                    <ProtectedRoute roles={['citizen', 'veterinarian', 'agricultural_facility']}>
                       <MedicalViewer />
                     </ProtectedRoute>
                   } />
@@ -129,7 +129,7 @@ function App() {
                     </ProtectedRoute>
                   } />
                   <Route path="/sos" element={
-                    <ProtectedRoute roles={['citizen', 'shelter_admin']}>
+                    <ProtectedRoute roles={['citizen', 'shelter_admin', 'agricultural_facility']}>
                       <SOSMap />
                     </ProtectedRoute>
                   } />

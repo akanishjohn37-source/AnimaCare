@@ -273,6 +273,23 @@ class NotificationViewSet(viewsets.ModelViewSet):
         
         return Notification.objects.filter(recipient_id=user_id).order_by('-created_at')
 
+    @action(detail=False, methods=['post'])
+    def clear_all(self, request):
+        user_id = self.request.user.id
+        if not user_id:
+             auth_header = self.request.headers.get('Authorization', '')
+             if auth_header.startswith('Bearer '):
+                 token = auth_header.split(' ', 1)[1]
+                 try:
+                     payload = decode_token(token)
+                     user_id = payload['user_id']
+                 except: pass
+        
+        if user_id:
+            Notification.objects.filter(recipient_id=user_id).delete()
+            return Response({'status': 'all notifications cleared'})
+        return Response({'error': 'Unauthorized'}, status=401)
+
     @action(detail=True, methods=['post'])
     def mark_as_read(self, request, pk=None):
         notification = self.get_object()

@@ -37,9 +37,16 @@ export default function ShelterDashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
   
-  const [totalCapacity, setTotalCapacity] = useState(50);
+  const [totalCapacity, setTotalCapacity] = useState(() => {
+    const saved = localStorage.getItem('shelter_capacity');
+    return saved ? parseInt(saved, 10) : 50;
+  });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
+
+  useEffect(() => {
+    localStorage.setItem('shelter_capacity', totalCapacity);
+  }, [totalCapacity]);
 
   // Rescue Mission State
   const [isProcessingRescue, setIsProcessingRescue] = useState(false);
@@ -80,7 +87,7 @@ export default function ShelterDashboard() {
 
         if (data.length > 0) {
           const parsedData = data.map(alert => {
-            let parsedLat = 40.7128; let parsedLng = -74.0060;
+            let parsedLat = 10.8505; let parsedLng = 76.2711;
             let displayLoc = alert.location || "Unknown Location";
             if (alert.location && alert.location.includes(',')) {
               const parts = alert.location.split(',');
@@ -93,16 +100,7 @@ export default function ShelterDashboard() {
           });
           setNearbyAlerts(parsedData);
         } else {
-          setNearbyAlerts([{ 
-            id: 'mock-1', 
-            reporter_name: "Anish",
-            animal_description: "Injured golden retriever spotted near the central park fountain. Appears to have a paw injury and is limping.", 
-            location: "Central Park, Fountain Area", 
-            timestamp: new Date().toISOString(), 
-            lat: 40.7128, lng: -74.0060,
-            is_new: true,
-            status: 'Pending'
-          }]);
+          setNearbyAlerts([]);
         }
       }
     } catch (err) { console.error(err); }
@@ -138,7 +136,8 @@ export default function ShelterDashboard() {
             dbId: app.id,
             applicant: app.applicant_name,
             animal: app.animal_detail?.name || 'Unknown',
-            breed: app.animal_detail?.breed || ''
+            breed: app.animal_detail?.breed || '',
+            animal_detail: app.animal_detail || {}
           };
           if (columns[app.status]) columns[app.status].taskIds.push(taskId);
           else columns['Pending'].taskIds.push(taskId);
@@ -265,6 +264,22 @@ export default function ShelterDashboard() {
     finally { setIsProcessingRescue(false); }
   };
 
+  const handleCancelMission = async (alert) => {
+    setIsProcessingRescue(true);
+    try {
+      const res = await authFetch(`http://localhost:8000/api/citizens/sos/${alert.id}/cancel_mission/`, { method: 'POST' });
+      if (res.ok) {
+        fetchNearbyAlerts();
+        setSelectedMapAlert(null);
+        alert("Mission Canceled. It is now back to pending status.");
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to cancel mission.");
+      }
+    } catch (err) { console.error(err); }
+    finally { setIsProcessingRescue(false); }
+  };
+
   const handleCompleteMissionAndIntake = async (e) => {
     e.preventDefault();
     setIsProcessingRescue(true);
@@ -317,8 +332,14 @@ export default function ShelterDashboard() {
     const slots = [];
     const midPoint = Math.floor(totalCapacity / 2);
     for (let i = 1; i <= totalCapacity; i++) {
-      const isOccupied = inventory.length >= i;
-      slots.push({ id: i, status: isOccupied ? 'Occupied' : 'Available', pet: isOccupied ? inventory[i-1] : null, zone: i <= midPoint ? 'Zone Alpha' : 'Zone Beta' });
+      const pet = inventory[i-1];
+      const isOccupied = !!pet;
+      slots.push({ 
+        id: i, 
+        status: isOccupied ? 'Occupied' : 'Available', 
+        pet: isOccupied ? pet : null, 
+        zone: isOccupied && pet.kennel_zone_id ? pet.kennel_zone_id : (i <= midPoint ? 'Zone Alpha' : 'Zone Beta') 
+      });
     }
     return slots;
   };
@@ -428,9 +449,14 @@ export default function ShelterDashboard() {
                                 <Handshake size={18} /> ACCEPT
                              </button>
                           ) : (
-                             <button onClick={() => { setMissionToIntake(alert); setIntakeForm({...intakeForm, species: alert.animal_description.split(':')[0] || 'Dog', breed: '' }); }} disabled={isProcessingRescue} className="bg-emerald-500 hover:bg-emerald-400 px-6 py-3 rounded-xl font-black flex items-center gap-2 transition-all shadow-lg shadow-emerald-900/20">
-                                <CheckSquare size={18} /> COMPLETE & INTAKE
-                             </button>
+                             <div className="flex gap-2">
+                               <button onClick={() => handleCancelMission(alert)} disabled={isProcessingRescue} className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-4 py-3 rounded-xl font-black flex items-center gap-2 transition-all shadow-lg">
+                                  <X size={18} /> CANCEL
+                               </button>
+                               <button onClick={() => { setMissionToIntake(alert); setIntakeForm({...intakeForm, species: alert.animal_description.split(':')[0] || 'Dog', breed: '' }); }} disabled={isProcessingRescue} className="bg-emerald-500 hover:bg-emerald-400 px-6 py-3 rounded-xl font-black flex items-center gap-2 transition-all shadow-lg shadow-emerald-900/20">
+                                  <CheckSquare size={18} /> COMPLETE & INTAKE
+                               </button>
+                             </div>
                           )}
                        </div>
                     </div>
@@ -476,13 +502,17 @@ export default function ShelterDashboard() {
                                         </div>
                                         <button onClick={() => setSelectedApplication(task)} className="p-1.5 rounded-lg bg-neutral-900 text-neutral-500 hover:text-emerald-400 hover:bg-neutral-700 transition-all"><ExternalLink size={14} /></button>
                                       </div>
-                                      <div className="bg-neutral-900/50 rounded-lg p-3 border border-neutral-700/50 flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                          <PawPrint size={14} className="text-emerald-500" />
-                                          <span className="text-white text-xs font-bold">{task.animal}</span>
+                                        <div className="bg-neutral-900/50 rounded-lg p-3 border border-neutral-700/50 flex items-center justify-between">
+                                          <div className="flex items-center gap-2">
+                                            {task.animal_detail?.media_url ? (
+                                              <img src={task.animal_detail.media_url} className="w-6 h-6 rounded-full object-cover border border-neutral-700" />
+                                            ) : (
+                                              <PawPrint size={14} className="text-emerald-500" />
+                                            )}
+                                            <span className="text-white text-xs font-bold">{task.animal}</span>
+                                          </div>
+                                          <span className="text-neutral-500 text-[10px] uppercase font-bold tracking-wider truncate max-w-[100px]">{task.breed}</span>
                                         </div>
-                                        <span className="text-neutral-500 text-[10px] uppercase font-bold tracking-wider">{task.breed}</span>
-                                      </div>
                                       <div className="text-[10px] text-neutral-600">Applied: {new Date(task.applied_at || task.timestamp).toLocaleDateString()}</div>
                                     </div>
                                   )}
@@ -520,7 +550,7 @@ export default function ShelterDashboard() {
                 <div className="flex items-center gap-6"><div className="text-right"><p className="text-[10px] text-neutral-600 uppercase font-black mb-1">Overall Occupancy</p><h3 className="text-4xl font-black text-emerald-400">{inventory.length} <span className="text-neutral-600">/ {totalCapacity}</span></h3></div><button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className="p-3 bg-neutral-900 border border-neutral-700 rounded-xl hover:bg-neutral-800 transition-all text-neutral-400 hover:text-white"><Settings size={24} /></button></div>
               </div>
               <AnimatePresence>{isSettingsOpen && (<motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-8"><div className="bg-neutral-900 p-6 rounded-2xl border border-emerald-500/20 flex justify-between items-center"><div><h4 className="font-black text-white uppercase tracking-widest text-sm">Scale Facility Capacity</h4><p className="text-neutral-500 text-xs mt-1">Adjust total units for the entire shelter.</p></div><div className="flex items-center gap-4"><button onClick={() => setTotalCapacity(Math.max(1, totalCapacity - 5))} className="p-3 bg-neutral-800 hover:bg-red-600/20 text-red-400 rounded-xl transition-all border border-neutral-700"><Minus size={20} /></button><div className="w-20 text-center font-black text-2xl text-white">{totalCapacity}</div><button onClick={() => setTotalCapacity(totalCapacity + 5)} className="p-3 bg-neutral-800 hover:bg-emerald-600/20 text-emerald-400 rounded-xl transition-all border border-neutral-700"><Plus size={20} /></button></div></div></motion.div>)}</AnimatePresence>
-              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar"><div className="grid grid-cols-5 md:grid-cols-10 gap-3 pb-4">{capacitySlots.map(slot => (<div key={slot.id} onClick={() => setSelectedSlot(slot)} className={`aspect-square rounded-xl border-2 flex flex-col items-center justify-center transition-all relative group cursor-pointer ${slot.status === 'Occupied' ? 'bg-emerald-600/10 border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : 'bg-neutral-900 border-neutral-800 hover:border-emerald-500/30'}`}><span className="text-[10px] font-black text-neutral-600 mb-1">{slot.id}</span>{slot.status === 'Occupied' ? <PawPrint size={20} className="text-emerald-400" /> : <div className="w-1.5 h-1.5 rounded-full bg-neutral-800" />}</div>))}</div></div>
+              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar"><div className="grid grid-cols-5 md:grid-cols-10 gap-3 pb-4">{capacitySlots.map(slot => (<div key={slot.id} onClick={() => setSelectedSlot(slot)} className={`aspect-square rounded-xl border-2 flex flex-col items-center justify-center transition-all relative group cursor-pointer overflow-hidden ${slot.status === 'Occupied' ? 'bg-emerald-600/10 border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : 'bg-neutral-900 border-neutral-800 hover:border-emerald-500/30'}`}><span className="text-[10px] font-black text-neutral-600 mb-1 z-10 bg-neutral-900/80 px-1 rounded">{slot.id}</span>{slot.status === 'Occupied' ? (slot.pet?.media_url ? <img src={slot.pet.media_url} className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity" /> : <PawPrint size={20} className="text-emerald-400 z-10" />) : <div className="w-1.5 h-1.5 rounded-full bg-neutral-800" />}</div>))}</div></div>
             </motion.div>
           )}
         </main>
@@ -629,7 +659,7 @@ export default function ShelterDashboard() {
                            <div className="flex justify-between items-center">
                               <div>
                                  <p className="text-white font-black text-base">{selectedSlot.pet.name}</p>
-                                 <p className="text-xs text-neutral-500">{selectedSlot.pet.species} • {selectedPet.breed || 'Mixed'}</p>
+                                 <p className="text-xs text-neutral-500">{selectedSlot.pet.species} • {selectedSlot.pet.breed || 'Mixed'}</p>
                               </div>
                               <button onClick={() => { setSelectedPet(selectedSlot.pet); setSelectedSlot(null); }} className="p-2 bg-neutral-900 hover:bg-neutral-700 rounded-lg text-emerald-400 transition-all border border-neutral-700">
                                  <ExternalLink size={16} />
@@ -698,12 +728,20 @@ export default function ShelterDashboard() {
                      <Handshake size={18} /> ACCEPT MISSION
                    </button>
                 ) : (
-                   <button 
-                     onClick={() => { setMissionToIntake(selectedMapAlert); setSelectedMapAlert(null); }} 
-                     className="bg-emerald-500 hover:bg-emerald-400 px-8 py-3 rounded-xl font-black flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all active:scale-95"
-                   >
-                     <CheckSquare size={18} /> COMPLETE RESCUE
-                   </button>
+                   <div className="flex gap-3">
+                     <button 
+                       onClick={() => handleCancelMission(selectedMapAlert)} 
+                       className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-6 py-3 rounded-xl font-black flex items-center gap-2 transition-all active:scale-95"
+                     >
+                       <X size={18} /> CANCEL
+                     </button>
+                     <button 
+                       onClick={() => { setMissionToIntake(selectedMapAlert); setSelectedMapAlert(null); }} 
+                       className="bg-emerald-500 hover:bg-emerald-400 px-8 py-3 rounded-xl font-black flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all active:scale-95"
+                     >
+                       <CheckSquare size={18} /> COMPLETE RESCUE
+                     </button>
+                   </div>
                 )}
               </div>
             </div>
@@ -736,8 +774,13 @@ export default function ShelterDashboard() {
                      
                      <div className="bg-neutral-800/50 rounded-2xl p-6 border border-neutral-700 mb-8">
                         <p className="text-[10px] text-neutral-500 uppercase font-black mb-4 tracking-widest flex items-center gap-2"><PawPrint size={12}/> Requested Animal</p>
-                        <div className="flex justify-between items-end">
-                           <div>
+                        <div className="flex items-center gap-4">
+                           {selectedApplication.animal_detail?.media_url ? (
+                              <img src={selectedApplication.animal_detail.media_url} className="w-16 h-16 rounded-xl object-cover border border-neutral-700" alt="Pet" />
+                           ) : (
+                              <div className="w-16 h-16 rounded-xl bg-neutral-900 flex items-center justify-center border border-neutral-700"><PawPrint size={24} className="text-emerald-500/50" /></div>
+                           )}
+                           <div className="flex-1">
                               <h5 className="text-xl font-black text-white">{selectedApplication.animal}</h5>
                               <p className="text-sm font-bold text-neutral-400 mt-1">{selectedApplication.breed || 'Unknown Breed'}</p>
                            </div>
@@ -746,15 +789,48 @@ export default function ShelterDashboard() {
                               <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-xs font-bold uppercase">{selectedApplication.status}</span>
                            </div>
                         </div>
+                        {selectedApplication.status === 'Approved' && (
+                           <div className="mt-6 p-4 bg-emerald-900/20 border border-emerald-500/30 rounded-xl">
+                              <h6 className="text-emerald-400 font-black text-sm mb-2 flex items-center gap-2"><CheckCircle size={14} /> ADOPTION FINALIZED</h6>
+                              <div className="grid grid-cols-3 gap-2 mt-2">
+                                 <div>
+                                    <p className="text-[10px] text-neutral-500 uppercase font-black">Name</p>
+                                    <p className="text-sm text-white font-bold">{selectedApplication.animal}</p>
+                                 </div>
+                                 <div>
+                                    <p className="text-[10px] text-neutral-500 uppercase font-black">Age/DOB</p>
+                                    <p className="text-sm text-white font-bold">{selectedApplication.animal_detail?.dob || 'Unknown'}</p>
+                                 </div>
+                                 <div>
+                                    <p className="text-[10px] text-neutral-500 uppercase font-black">Location</p>
+                                    <p className="text-sm text-white font-bold">{selectedApplication.animal_detail?.kennel_zone_id || 'Facility'}</p>
+                                 </div>
+                              </div>
+                           </div>
+                        )}
                      </div>
 
-                     <div className="grid grid-cols-2 gap-4">
-                        <button className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-4 rounded-xl border border-neutral-700 transition-all flex items-center justify-center gap-2" onClick={() => handleApplicationAction('Interview Scheduled')}>
-                           <Calendar size={18} /> Schedule
-                        </button>
-                        <button className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2" onClick={() => handleApplicationAction('Approved')}>
-                           <CheckCircle size={18} /> Approve
-                        </button>
+                     <div className="grid grid-cols-1 gap-4">
+                        {selectedApplication.status === 'Pending' && (
+                           <button className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 w-full" onClick={() => handleApplicationAction('Under Review')}>
+                              <Search size={18} /> Review Applicant Details
+                           </button>
+                        )}
+                        {selectedApplication.status === 'Under Review' && (
+                           <button className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 w-full" onClick={() => handleApplicationAction('Interview Scheduled')}>
+                              <Calendar size={18} /> Schedule Interview
+                           </button>
+                        )}
+                        {selectedApplication.status === 'Interview Scheduled' && (
+                           <button className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 w-full" onClick={() => handleApplicationAction('Approved')}>
+                              <CheckCircle size={18} /> Complete Adoption
+                           </button>
+                        )}
+                        {selectedApplication.status === 'Approved' && (
+                           <button className="bg-neutral-800 hover:bg-neutral-700 text-white font-black py-4 rounded-xl transition-all flex items-center justify-center gap-2 w-full" onClick={() => setSelectedApplication(null)}>
+                              Close File
+                           </button>
+                        )}
                      </div>
                   </div>
                </motion.div>

@@ -18,6 +18,11 @@ const NAV_MAP = {
     { to: '/appointments', icon: Stethoscope,     label: 'Appointments' },
     { to: '/adopt',        icon: Heart,           label: 'Adoption'     },
   ],
+  agricultural_facility: [
+    { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard'     },
+    { to: '/pet/new',      icon: PlusCircle,      label: 'Add Livestock' },
+    { to: '/medical/all',  icon: FileText,        label: 'Medical'       },
+  ],
   veterinarian: [
     { to: '/vet-dashboard',     icon: LayoutDashboard, label: 'Clinical Portal' },
     { to: '/predictive-health', icon: BarChart2,        label: 'Analytics'    },
@@ -88,6 +93,17 @@ const Navbar = () => {
       });
   };
 
+  const clearAllNotifications = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    authFetch(`http://localhost:8000/api/auth/notifications/clear_all/`, { method: 'POST' })
+      .then(() => {
+        setNotifications([]);
+        setUnreadCount(0);
+      })
+      .catch(err => console.error("Error clearing notifications", err));
+  };
+
   const role      = user?.role;
   const color     = ROLE_COLORS[role] || '#8b5cf6';
   const navItems  = NAV_MAP[role] || [];
@@ -142,8 +158,8 @@ const Navbar = () => {
 
         {/* Right actions */}
         <div className="nav-actions">
-          {/* SOS — citizens only */}
-          {role === 'citizen' && (
+          {/* SOS */}
+          {['citizen', 'agricultural_facility', 'shelter_admin'].includes(role) && (
             <NavLink to="/sos" className="sos-btn">
               <AlertCircle size={18} />
               <span>SOS</span>
@@ -158,8 +174,11 @@ const Navbar = () => {
             </button>
             {notifOpen && (
               <div className="nav-dropdown" style={{ width: '300px', right: 0 }}>
-                <div className="nav-dropdown-header">
+                <div className="nav-dropdown-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <strong>Notifications</strong>
+                  {notifications.length > 0 && (
+                     <button onMouseDown={clearAllNotifications} style={{ background: 'none', border: 'none', color: '#f43f5e', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}>Clear All</button>
+                  )}
                 </div>
                 <div className="notif-list" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                    {notifications.length > 0 ? (

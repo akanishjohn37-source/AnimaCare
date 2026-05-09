@@ -13,6 +13,7 @@ class ConsultationLog(models.Model):
     date = models.DateTimeField(auto_now_add=True)
     vital_signs = models.JSONField(blank=True, null=True) # e.g. weight, temperature, heart rate
     consultation_notes = models.TextField(blank=True, null=True)
+    zoonotic_disease_flag = models.CharField(max_length=100, blank=True, null=True, help_text="Flags this record for Civic Authority Heatmaps")
 
     def __str__(self):
         return f"Consultation for {self.pet.name} on {self.date}"
