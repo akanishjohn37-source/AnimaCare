@@ -120,47 +120,73 @@ const Dashboard = () => {
           
           <div className="pet-list" style={{ minHeight: '150px' }}>
             {loading ? (
-              <p style={{ textAlign: 'center', marginTop: '2rem', color: 'rgba(255,255,255,0.4)' }}>Loading passports...</p>
-            ) : pets.length > 0 ? (
-              pets.map(pet => (
-                <div key={pet.id} className="pet-item">
-                  {pet.media_url ? (
-                    <img src={pet.media_url} alt={pet.name} className="pet-avatar" />
-                  ) : (
-                    <div className="pet-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', fontSize: '0.65rem', textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>
-                      No Image Uploaded
-                    </div>
-                  )}
-                  <div className="pet-info">
-                    <h3>{pet.name}</h3>
-                    {pet.breed || pet.species || pet.gender ? (
-                      <p>{pet.breed || pet.species} {pet.gender ? `• ${pet.gender}` : ''}</p>
+              <p style={{ textAlign: 'center', marginTop: '2rem', color: 'rgba(255,255,255,0.4)' }}>Loading profiles...</p>
+            ) : (pets.length > 0 || applications.filter(a => a.status !== 'Cancelled' && a.status !== 'Rejected').length > 0) ? (
+              <>
+                {/* Real Owned Pets */}
+                {pets.map(pet => (
+                  <div key={pet.id} className="pet-item">
+                    {pet.media_url ? (
+                      <img src={pet.media_url} alt={pet.name} className="pet-avatar" />
                     ) : (
-                      <p style={{fontStyle: 'italic', color: 'rgba(255,255,255,0.3)'}}>No details provided</p>
+                      <div className="pet-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', fontSize: '0.65rem', textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>
+                        No Image
+                      </div>
                     )}
-                    <div className="pet-badges">
-                      {pet.rfid_tag && <span className="badge badge-success">Microchipped</span>}
-                      {pet.health_status && <span className="badge badge-primary">{pet.health_status}</span>}
+                    <div className="pet-info">
+                      <h3>{pet.name}</h3>
+                      <p>{pet.breed || pet.species || 'Unknown Breed'}</p>
+                      <div className="pet-badges">
+                        {pet.rfid_tag && <span className="badge badge-success">Microchipped</span>}
+                        <span className="badge badge-primary">{pet.health_status || 'Healthy'}</span>
+                      </div>
+                    </div>
+                    <div className="pet-actions">
+                      <Link to={`/medical/${pet.id}`} className="action-btn"><FileText size={18} /></Link>
+                      <button onClick={() => handleDelete(pet.id)} className="action-btn" style={{color: '#ef4444'}}><Trash2 size={18} /></button>
                     </div>
                   </div>
-                  <div className="pet-actions" style={{ display: 'flex', gap: '0.5rem' }}>
-                    <Link to={`/medical/${pet.id}`} className="action-btn" title="View Medical History">
-                      <FileText size={18} />
-                    </Link>
-                    <button onClick={() => handleDelete(pet.id)} className="action-btn" style={{color: '#ef4444'}} title="Delete Pet">
-                      <Trash2 size={18} />
-                    </button>
+                ))}
+                
+                {/* Pending & Approved Applications from Shelter */}
+                {applications.filter(a => a.status === 'Approved').map(app => (
+                  <div key={`app-${app.id}`} className="pet-item">
+                    <div className="pet-avatar">
+                      {app.animal_detail?.media_url ? (
+                        <img src={app.animal_detail.media_url} alt="Adopted" className="pet-avatar" style={{ margin: 0 }} />
+                      ) : (
+                        <div className="pet-avatar" style={{ background: 'rgba(255,255,255,0.05)' }} />
+                      )}
+                    </div>
+                    <div className="pet-info">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <h3>{app.animal_detail?.name || 'Animal'}</h3>
+                        <span style={{ fontSize: '10px', background: 'var(--success-bg)', color: 'var(--success)', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>ADOPTED</span>
+                      </div>
+                      <p>{app.animal_detail?.breed || app.animal_detail?.species} • Age: {app.animal_detail?.age?.split(':').map((v,i) => v !== '0' ? v + (['y','m','d'][i]) : '').filter(Boolean).join(' ') || 'Newborn'}</p>
+                      <div className="pet-badges">
+                         <span className="badge badge-success">SHELTER VERIFIED</span>
+                         <span className="badge badge-primary">{app.animal_detail?.medical_triage_status}</span>
+                      </div>
+                    </div>
+                    <div className="pet-actions" style={{ display: 'flex', gap: '0.5rem' }}>
+                      <Link to={`/medical/shelter-${app.id}`} className="action-btn"><FileText size={18} /></Link>
+                      <button 
+                        onClick={() => handleCancelAdoption(app.id)} 
+                        className="action-btn" 
+                        style={{ color: '#ef4444' }} 
+                        title="Remove Record"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+              </>
             ) : (
               <div style={{ padding: '3rem 1rem', textAlign: 'center' }}>
                 <Heart size={48} color="rgba(255,255,255,0.05)" style={{ margin: '0 auto 1rem' }} />
-                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.95rem' }}>
-                  {user?.role === 'agricultural_facility' 
-                     ? <><br/>No active livestock registered yet.<br/>Click "Register Livestock" to get started.</>
-                     : <><br/>No active pet profiles yet.<br/>Click "Register New Pet" to get started.</>}
-                </p>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.95rem' }}>No active pet profiles yet.</p>
               </div>
             )}
           </div>

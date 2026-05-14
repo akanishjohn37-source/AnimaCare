@@ -17,6 +17,7 @@ class AnimalInventory(models.Model):
     name = models.CharField(max_length=100)
     species = models.CharField(max_length=50) # Dog, Cat, etc.
     breed = models.CharField(max_length=100, blank=True, null=True)
+    age = models.CharField(max_length=50, blank=True, null=True)
     behavioral_traits = models.TextField(blank=True)
     medical_triage_status = models.CharField(max_length=50) # e.g., Healthy, Needs Surgery, Quarantine
     intake_date = models.DateField(auto_now_add=True)

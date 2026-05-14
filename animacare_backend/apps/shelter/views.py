@@ -20,7 +20,9 @@ class AnimalInventoryViewSet(viewsets.ModelViewSet):
         # If requested by a citizen (assuming no auth or standard user), filter them
         is_citizen = self.request.query_params.get('citizen_view')
         if is_citizen == 'true':
-            queryset = queryset.filter(is_adopted=False, is_available=True)
+            # Include available pets AND adopted pets so we can show 'Sold Out' status
+            from django.db.models import Q
+            queryset = queryset.filter(Q(is_available=True) | Q(is_adopted=True))
         elif user.is_authenticated and user.role == 'shelter_admin':
             # Admins see only their shelter's inventory
             queryset = queryset.filter(shelter__admin=user)
@@ -70,10 +72,26 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
             application.save()
             
             # Notify the Applicant
+            if new_status == 'Interview Scheduled':
+                title = "Interview Scheduled!"
+                message = f"Great news! The shelter has scheduled an interview for your adoption application for {application.animal.name}. Please check your email for the meeting link and details."
+            elif new_status == 'Approved':
+                title = "Adoption Approved! 🎉"
+                message = f"Congratulations! Your adoption application for {application.animal.name} has been approved. Welcome to your new best friend!"
+                
+                # Mark animal as adopted and remove from public market
+                animal = application.animal
+                animal.is_adopted = True
+                animal.is_available = False
+                animal.save()
+            else:
+                title = "Adoption Update"
+                message = f"The status of your application for {application.animal.name} has been updated to {new_status}."
+
             Notification.objects.create(
                 recipient=application.applicant,
-                title="Adoption Update",
-                message=f"The status of your application for {application.animal.name} has been updated to {new_status}."
+                title=title,
+                message=message
             )
             return Response({'status': 'Status updated'})
         return Response({'error': 'Invalid status'}, status=400)

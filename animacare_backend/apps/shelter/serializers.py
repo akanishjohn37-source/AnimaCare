@@ -16,6 +16,7 @@ class AnimalInventorySerializer(serializers.ModelSerializer):
 class AdoptionApplicationSerializer(serializers.ModelSerializer):
     animal_detail = AnimalInventorySerializer(source='animal', read_only=True)
     applicant_name = serializers.CharField(source='applicant.username', read_only=True)
+    applicant_email = serializers.EmailField(source='applicant.email', read_only=True)
 
     class Meta:
         model = AdoptionApplication
