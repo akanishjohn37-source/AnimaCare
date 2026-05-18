@@ -96,7 +96,8 @@ const Register = () => {
     let val = e.target.value;
     
     // Strict mobile number validation: only digits, max 10
-    if (e.target.name === 'phone_number') {
+    const phoneFields = ['phone_number', 'professional_contact_number', 'shelter_contact_number', 'official_contact', 'contact_number'];
+    if (phoneFields.includes(e.target.name)) {
       val = val.replace(/\D/g, '').slice(0, 10);
     }
 
@@ -122,16 +123,16 @@ const Register = () => {
     }
     if (step === 2) {
       if (selectedRole === 'veterinarian') {
-        return Object.values(form.veterinarian_profile).every(v => v.trim() !== '');
+        return Object.values(form.veterinarian_profile).every(v => v.trim() !== '') && form.veterinarian_profile.professional_contact_number.length === 10;
       }
       if (selectedRole === 'shelter_admin') {
-        return Object.values(form.shelter_profile).every(v => v.trim() !== '');
+        return Object.values(form.shelter_profile).every(v => v.trim() !== '') && form.shelter_profile.shelter_contact_number.length === 10;
       }
       if (selectedRole === 'civic_authority') {
-        return Object.values(form.civic_profile).every(v => v.trim() !== '');
+        return Object.values(form.civic_profile).every(v => v.trim() !== '') && form.civic_profile.official_contact.length === 10;
       }
       if (selectedRole === 'agricultural_facility') {
-        return Object.values(form.agricultural_profile).every(v => v.trim() !== '');
+        return Object.values(form.agricultural_profile).every(v => v.trim() !== '') && form.agricultural_profile.contact_number.length === 10;
       }
     }
     return true;

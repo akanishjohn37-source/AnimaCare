@@ -232,6 +232,22 @@ const Dashboard = () => {
                     <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>
                       Applied on: {new Date(app.timestamp).toLocaleDateString()}
                     </p>
+                    {app.feedback && (
+                      <div style={{ 
+                        marginTop: '0.8rem', 
+                        padding: '0.8rem', 
+                        background: app.status === 'Rejected' ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255, 255, 255, 0.03)', 
+                        borderRadius: '10px', 
+                        border: app.status === 'Rejected' ? '1px solid rgba(239, 68, 68, 0.15)' : '1px solid rgba(255, 255, 255, 0.05)'
+                      }}>
+                        <p style={{ fontSize: '0.65rem', color: app.status === 'Rejected' ? '#f87171' : 'var(--primary)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                          Shelter Feedback
+                        </p>
+                        <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.8)', fontStyle: 'italic', lineHeight: '1.4' }}>
+                          "{app.feedback}"
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ))
               ) : (

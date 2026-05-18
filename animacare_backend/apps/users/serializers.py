@@ -83,6 +83,16 @@ class RegisterSerializer(serializers.ModelSerializer):
             VeterinarianProfile.objects.create(user=user, **vet_data)
         elif role == 'shelter_admin' and shelter_data:
             ShelterAdminProfile.objects.create(user=user, **shelter_data)
+            # Create corresponding Shelter object
+            from apps.shelter.models import Shelter
+            Shelter.objects.create(
+                name=shelter_data.get('shelter_name', ''),
+                tax_id=shelter_data.get('shelter_registration_number', ''),
+                address=shelter_data.get('shelter_address', ''),
+                location="Pending",
+                admin=user,
+                is_verified=False
+            )
         elif role == 'civic_authority' and civic_data:
             CivicAuthorityProfile.objects.create(user=user, **civic_data)
         elif role == 'agricultural_facility' and agri_data:

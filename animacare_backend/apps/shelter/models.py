@@ -45,6 +45,7 @@ class AdoptionApplication(models.Model):
     applicant = models.ForeignKey(User, on_delete=models.CASCADE, related_name='adoption_applications', limit_choices_to={'role': 'citizen'})
     animal = models.ForeignKey(AnimalInventory, on_delete=models.CASCADE, related_name='applications')
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending')
+    feedback = models.TextField(blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):

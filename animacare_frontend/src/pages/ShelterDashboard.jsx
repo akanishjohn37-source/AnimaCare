@@ -8,7 +8,7 @@ import {
   Navigation, Shield, Search, Filter, Calendar, Tag, Info,
   Mail, Clock, ChevronRight, User, ExternalLink, X, Heart, DollarSign,
   LayoutGrid, Home, Thermometer, Droplets, Plus, Minus, Settings, Trash2, Edit3, Save,
-  BellRing, Zap, UserCircle, Map as MapIcon, Handshake, CheckSquare, Loader2, Camera, Upload
+  BellRing, Zap, UserCircle, Map as MapIcon, Handshake, CheckSquare, Loader2, Camera, Upload, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -31,7 +31,16 @@ export default function ShelterDashboard() {
   const [inventory, setInventory] = useState([]);
   const [isLoadingInventory, setIsLoadingInventory] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
-  
+  const [pdfApplication, setPdfApplication] = useState(null);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [rejectionFeedback, setRejectionFeedback] = useState('');
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [interviewDate, setInterviewDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    return d.toISOString().slice(0, 16);
+  });
+  const [interviewLocation, setInterviewLocation] = useState('Shelter Facility');
   const [selectedPet, setSelectedPet] = useState(null);
   const [isUpdatingPet, setIsUpdatingPet] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -61,15 +70,18 @@ export default function ShelterDashboard() {
   const prevAlertCountRef = useRef(0);
 
   const [kanban, setKanban] = useState({
-    columnOrder: ['Pending', 'Under Review', 'Interview Scheduled', 'Approved'],
+    columnOrder: ['Pending', 'Under Review', 'Interview Scheduled', 'Approved', 'Rejected', 'Cancelled'],
     columns: {
       'Pending': { id: 'Pending', title: 'Pending', taskIds: [] },
       'Under Review': { id: 'Under Review', title: 'Under Review', taskIds: [] },
       'Interview Scheduled': { id: 'Interview Scheduled', title: 'Interview Scheduled', taskIds: [] },
-      'Approved': { id: 'Approved', title: 'Approved', taskIds: [] }
+      'Approved': { id: 'Approved', title: 'Approved', taskIds: [] },
+      'Rejected': { id: 'Rejected', title: 'Rejected', taskIds: [] },
+      'Cancelled': { id: 'Cancelled', title: 'Cancelled', taskIds: [] }
     },
     tasks: {}
   });
+
 
   const fetchNearbyAlerts = async () => {
     try {
@@ -120,14 +132,17 @@ export default function ShelterDashboard() {
       const res = await authFetch('http://localhost:8000/api/shelter/applications/');
       if (res.ok) {
         const rawData = await res.json();
-        const data = rawData.length > 0 ? rawData : [
-          { id: 'mock-1', applicant_name: 'Anish John', animal_detail: { name: 'Oliver', breed: 'Tabby Cat' }, status: 'Pending', applied_at: new Date(Date.now() - 3600000).toISOString() },
-          { id: 'mock-2', applicant_name: 'Sarah Williams', animal_detail: { name: 'Bella', breed: 'German Shepherd' }, status: 'Under Review', applied_at: new Date(Date.now() - 86400000).toISOString() },
-          { id: 'mock-3', applicant_name: 'Michael Chen', animal_detail: { name: 'Charlie', breed: 'Rabbit' }, status: 'Interview Scheduled', applied_at: new Date(Date.now() - 172800000).toISOString() }
-        ];
+        const data = rawData;
         
         const tasks = {};
-        const columns = { 'Pending': { id: 'Pending', title: 'Pending', taskIds: [] }, 'Under Review': { id: 'Under Review', title: 'Under Review', taskIds: [] }, 'Interview Scheduled': { id: 'Interview Scheduled', title: 'Interview Scheduled', taskIds: [] }, 'Approved': { id: 'Approved', title: 'Approved', taskIds: [] } };
+        const columns = { 
+          'Pending': { id: 'Pending', title: 'Pending', taskIds: [] }, 
+          'Under Review': { id: 'Under Review', title: 'Under Review', taskIds: [] }, 
+          'Interview Scheduled': { id: 'Interview Scheduled', title: 'Interview Scheduled', taskIds: [] }, 
+          'Approved': { id: 'Approved', title: 'Approved', taskIds: [] },
+          'Rejected': { id: 'Rejected', title: 'Rejected', taskIds: [] },
+          'Cancelled': { id: 'Cancelled', title: 'Cancelled', taskIds: [] }
+        };
         data.forEach(app => {
           const taskId = `app-${app.id}`;
           tasks[taskId] = { 
@@ -142,7 +157,11 @@ export default function ShelterDashboard() {
           if (columns[app.status]) columns[app.status].taskIds.push(taskId);
           else columns['Pending'].taskIds.push(taskId);
         });
-        setKanban({ columnOrder: ['Pending', 'Under Review', 'Interview Scheduled', 'Approved'], columns, tasks });
+        setKanban({ 
+          columnOrder: ['Pending', 'Under Review', 'Interview Scheduled', 'Approved', 'Rejected', 'Cancelled'], 
+          columns, 
+          tasks 
+        });
       }
     } catch (err) { console.error(err); }
   };
@@ -175,27 +194,28 @@ export default function ShelterDashboard() {
     authFetch(`http://localhost:8000/api/shelter/applications/${task.dbId}/update_status/`, { method: 'PATCH', body: JSON.stringify({ status: destination.droppableId }) }).catch(e => console.error("Mock fallback"));
   };
 
-  const handleApplicationAction = async (newStatus) => {
+  const handleApplicationAction = async (newStatus, feedback = '') => {
     if (!selectedApplication) return;
     
     const taskId = selectedApplication.id;
     const oldStatus = selectedApplication.status || 'Pending';
-    if (oldStatus === newStatus) {
-       setSelectedApplication(null);
-       return;
-    }
     
     const startColumn = kanban.columns[oldStatus] || kanban.columns['Pending'];
     const finishColumn = kanban.columns[newStatus];
     
+    if (!finishColumn) {
+      console.error("Invalid destination column:", newStatus);
+      return;
+    }
+
     const startTaskIds = Array.from(startColumn.taskIds);
     const indexToRemove = startTaskIds.indexOf(taskId);
     if(indexToRemove !== -1) startTaskIds.splice(indexToRemove, 1);
     
     const finishTaskIds = Array.from(finishColumn.taskIds);
-    finishTaskIds.push(taskId);
+    if (!finishTaskIds.includes(taskId)) finishTaskIds.push(taskId);
     
-    const updatedTask = { ...selectedApplication, status: newStatus };
+    const updatedTask = { ...selectedApplication, status: newStatus, feedback: feedback || selectedApplication.feedback };
     
     setKanban(prev => ({
       ...prev,
@@ -209,13 +229,16 @@ export default function ShelterDashboard() {
     
     try {
        await authFetch(`http://localhost:8000/api/shelter/applications/${selectedApplication.dbId}/update_status/`, { 
-         method: 'PATCH', 
+         method: 'POST', 
          headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ status: newStatus }) 
+         body: JSON.stringify({ status: newStatus, feedback: feedback }) 
        });
-    } catch (e) { console.error("Mock environment fallback"); }
+    } catch (e) { console.error("Update status error:", e); }
 
-    setSelectedApplication(null);
+    setSelectedApplication(updatedTask);
+    setIsRejecting(false);
+    setIsScheduling(false);
+    setRejectionFeedback('');
   };
 
   const handleUpdatePet = async (fields) => {
@@ -349,10 +372,11 @@ export default function ShelterDashboard() {
   };
 
   const generateCapacitySlots = () => {
+    const activeInventory = inventory.filter(pet => !pet.is_adopted);
     const slots = [];
     const midPoint = Math.floor(totalCapacity / 2);
     for (let i = 1; i <= totalCapacity; i++) {
-      const pet = inventory[i-1];
+      const pet = activeInventory[i-1];
       const isOccupied = !!pet;
       slots.push({ 
         id: i, 
@@ -413,7 +437,8 @@ export default function ShelterDashboard() {
             { id: 'rescue', icon: AlertCircle, label: 'Rescue Missions', count: nearbyAlerts.filter(a => a.status !== 'Resolved').length, color: 'text-red-400' },
             { id: 'kanban', icon: Activity, label: 'Adoption Pipeline', color: 'text-emerald-400' },
             { id: 'inventory', icon: PawPrint, label: 'Animal Inventory', color: 'text-emerald-400' },
-            { id: 'capacity', icon: LayoutGrid, label: 'Capacity Tracker', color: 'text-emerald-400' }
+            { id: 'capacity', icon: LayoutGrid, label: 'Capacity Tracker', color: 'text-emerald-400' },
+            { id: 'adopted', icon: CheckCircle, label: 'Completed Adoptions', color: 'text-emerald-400' }
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`p-4 rounded-xl flex items-center justify-between transition-all group ${activeTab === tab.id ? 'bg-emerald-600 shadow-lg shadow-emerald-900/20' : 'bg-neutral-800/50 hover:bg-neutral-800 border border-transparent hover:border-neutral-700'}`}>
               <div className="flex items-center gap-3"><tab.icon size={20} className={activeTab === tab.id ? 'text-white' : tab.color} /><span className={`text-sm font-medium ${activeTab === tab.id ? 'text-white' : 'text-neutral-400'}`}>{tab.label}</span></div>
@@ -510,8 +535,19 @@ export default function ShelterDashboard() {
                             <div ref={provided.innerRef} {...provided.droppableProps} className="flex-1 min-h-[200px] flex flex-col gap-4">
                               {tasks.map((task, index) => (
                                 <Draggable key={task.id} draggableId={task.id} index={index}>
-                                  {(provided) => (
-                                    <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className="bg-neutral-800 p-5 rounded-xl border border-neutral-700 shadow-lg hover:border-emerald-500/50 transition-all group flex flex-col gap-3">
+                                  {(provided, snapshot) => (
+                                    <div 
+                                      ref={provided.innerRef} 
+                                      {...provided.draggableProps} 
+                                      {...provided.dragHandleProps} 
+                                      style={{
+                                        ...provided.draggableProps.style,
+                                        cursor: 'grab',
+                                        zIndex: snapshot.isDragging ? 1000 : 1,
+                                        opacity: snapshot.isDragging ? 0.95 : 1,
+                                      }}
+                                      className={`bg-neutral-800 p-5 rounded-xl border border-neutral-700 shadow-lg flex flex-col gap-3 ${snapshot.isDragging ? 'border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.3)] ring-2 ring-emerald-500/20 scale-[1.02]' : 'hover:border-emerald-500/50'}`}
+                                    >
                                       <div className="flex justify-between items-start">
                                         <div className="flex items-center gap-3">
                                           <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400"><User size={20} /></div>
@@ -555,7 +591,7 @@ export default function ShelterDashboard() {
               <h2 className="text-2xl font-bold mb-8 flex items-center gap-2"><PawPrint className="text-emerald-400"/> Animal Tracking Inventory</h2>
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                  <div className="grid grid-cols-1 gap-4 pb-6">
-                    {inventory.map(pet => (
+                    {inventory.filter(pet => !pet.is_adopted).map(pet => (
                        <div key={pet.id} className="bg-neutral-900/80 border border-neutral-700/50 rounded-2xl p-5 flex items-center gap-8 hover:bg-neutral-900 transition-all"><div className="w-24 h-24 rounded-2xl overflow-hidden bg-neutral-800 shrink-0 border border-neutral-700"><img src={pet.media_url || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=200&h=200&fit=crop'} alt={pet.name} className="w-full h-full object-cover" /></div><div className="flex-1 flex flex-col md:flex-row md:items-center justify-between gap-6"><div className="min-w-[180px]"><h4 className="text-white font-black text-xl leading-tight">{pet.name}</h4><p className="text-neutral-500 text-sm font-medium mt-1">{pet.species} • {pet.breed || 'Unknown'} {pet.age ? `• ${pet.age.split(':').map((v,i) => v !== '0' ? v + (['y','m','d'][i]) : '').filter(Boolean).join(' ')}` : ''}</p></div><div className="grid grid-cols-2 lg:grid-cols-3 gap-8 flex-1"><div><p className="text-[10px] text-neutral-600 uppercase font-black mb-1">Health Status</p><div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${pet.medical_triage_status === 'Healthy' ? 'bg-emerald-500' : 'bg-amber-500'}`} /><span className="text-sm font-bold text-neutral-300">{pet.medical_triage_status}</span></div></div><div><p className="text-[10px] text-neutral-600 uppercase font-black mb-1">Intake Date</p><p className="text-sm font-bold text-neutral-300">{new Date(pet.intake_date).toLocaleDateString()}</p></div><div className="hidden lg:block"><p className="text-[10px] text-neutral-600 uppercase font-black mb-1">Market Status</p><div className={`flex items-center gap-1.5 font-black text-sm ${pet.is_available ? 'text-emerald-400' : 'text-neutral-500'}`}><Tag size={14} /> {pet.is_available ? `Listed` : 'Rescued'}</div></div></div></div><div className="flex gap-3"><button onClick={() => { setSelectedPet(pet); setIsEditing(false); }} className="p-3.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-all border border-neutral-700"><Info size={18} /></button></div></div>
                     ))}
                  </div>
@@ -563,11 +599,54 @@ export default function ShelterDashboard() {
             </div>
           )}
 
+          {activeTab === 'adopted' && (
+             <div className="h-full flex flex-col">
+               <h2 className="text-2xl font-bold mb-8 flex items-center gap-2"><CheckCircle className="text-emerald-400"/> Completed Adoptions</h2>
+               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="grid grid-cols-1 gap-4 pb-6">
+                     {Object.values(kanban.tasks).filter(task => task.status === 'Approved').map(task => (
+                        <div key={task.id} className="bg-neutral-900/80 border border-emerald-500/30 rounded-2xl p-5 flex items-center gap-8 hover:bg-neutral-900 transition-all">
+                           <div className="w-24 h-24 rounded-2xl overflow-hidden bg-neutral-800 shrink-0 border border-neutral-700">
+                              <img src={task.animal_detail?.media_url || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=200&h=200&fit=crop'} alt={task.animal} className="w-full h-full object-cover" />
+                           </div>
+                           <div className="flex-1 flex flex-col md:flex-row justify-between gap-6">
+                              <div className="min-w-[180px]">
+                                 <h4 className="text-white font-black text-xl leading-tight">{task.animal}</h4>
+                                 <p className="text-neutral-500 text-sm font-medium mt-1">{task.breed || 'Unknown Breed'}</p>
+                              </div>
+                              <div className="flex-1 grid grid-cols-2 gap-8 border-l border-neutral-700 pl-8">
+                                 <div>
+                                    <p className="text-[10px] text-neutral-600 uppercase font-black mb-1 flex items-center gap-1"><User size={12} className="text-emerald-400" /> Receiver Details</p>
+                                    <p className="text-sm font-bold text-white">{task.applicant_name}</p>
+                                    <p className="text-xs text-neutral-400">{task.applicant_email || 'No email provided'}</p>
+                                 </div>
+                                 <div>
+                                    <p className="text-[10px] text-neutral-600 uppercase font-black mb-1 flex items-center gap-1"><Calendar size={12} className="text-emerald-400" /> Adoption Date</p>
+                                    <p className="text-sm font-bold text-emerald-400">{new Date(task.applied_at || task.timestamp).toLocaleDateString()}</p>
+                                 </div>
+                              </div>
+                           </div>
+                           <div className="flex gap-3">
+                              <button onClick={() => setSelectedApplication(task)} className="p-3.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-all border border-neutral-700"><ExternalLink size={18} /></button>
+                           </div>
+                        </div>
+                     ))}
+                     {Object.values(kanban.tasks).filter(task => task.status === 'Approved').length === 0 && (
+                        <div className="text-center py-20">
+                           <Heart size={48} className="mx-auto text-neutral-700 mb-4" />
+                           <p className="text-neutral-500 font-bold">No completed adoptions yet.</p>
+                        </div>
+                     )}
+                  </div>
+               </div>
+             </div>
+          )}
+
           {activeTab === 'capacity' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col">
               <div className="flex justify-between items-end mb-8">
                 <div><h2 className="text-3xl font-black text-white flex items-center gap-3"><Home className="text-emerald-400" size={32}/> Facility Control Center</h2><p className="text-neutral-500 font-bold mt-1 uppercase tracking-widest text-xs">Dynamic Capacity & Grid Management</p></div>
-                <div className="flex items-center gap-6"><div className="text-right"><p className="text-[10px] text-neutral-600 uppercase font-black mb-1">Overall Occupancy</p><h3 className="text-4xl font-black text-emerald-400">{inventory.length} <span className="text-neutral-600">/ {totalCapacity}</span></h3></div><button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className="p-3 bg-neutral-900 border border-neutral-700 rounded-xl hover:bg-neutral-800 transition-all text-neutral-400 hover:text-white"><Settings size={24} /></button></div>
+                <div className="flex items-center gap-6"><div className="text-right"><p className="text-[10px] text-neutral-600 uppercase font-black mb-1">Overall Occupancy</p><h3 className="text-4xl font-black text-emerald-400">{inventory.filter(pet => !pet.is_adopted).length} <span className="text-neutral-600">/ {totalCapacity}</span></h3></div><button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className="p-3 bg-neutral-900 border border-neutral-700 rounded-xl hover:bg-neutral-800 transition-all text-neutral-400 hover:text-white"><Settings size={24} /></button></div>
               </div>
               <AnimatePresence>{isSettingsOpen && (<motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-8"><div className="bg-neutral-900 p-6 rounded-2xl border border-emerald-500/20 flex justify-between items-center"><div><h4 className="font-black text-white uppercase tracking-widest text-sm">Scale Facility Capacity</h4><p className="text-neutral-500 text-xs mt-1">Adjust total units for the entire shelter.</p></div><div className="flex items-center gap-4"><button onClick={() => setTotalCapacity(Math.max(1, totalCapacity - 5))} className="p-3 bg-neutral-800 hover:bg-red-600/20 text-red-400 rounded-xl transition-all border border-neutral-700"><Minus size={20} /></button><div className="w-20 text-center font-black text-2xl text-white">{totalCapacity}</div><button onClick={() => setTotalCapacity(totalCapacity + 5)} className="p-3 bg-neutral-800 hover:bg-emerald-600/20 text-emerald-400 rounded-xl transition-all border border-neutral-700"><Plus size={20} /></button></div></div></motion.div>)}</AnimatePresence>
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar"><div className="grid grid-cols-5 md:grid-cols-10 gap-3 pb-4">{capacitySlots.map(slot => (<div key={slot.id} onClick={() => setSelectedSlot(slot)} className={`aspect-square rounded-xl border-2 flex flex-col items-center justify-center transition-all relative group cursor-pointer overflow-hidden ${slot.status === 'Occupied' ? 'bg-emerald-600/10 border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : 'bg-neutral-900 border-neutral-800 hover:border-emerald-500/30'}`}><span className="text-[10px] font-black text-neutral-600 mb-1 z-10 bg-neutral-900/80 px-1 rounded">{slot.id}</span>{slot.status === 'Occupied' ? (slot.pet?.media_url ? <img src={slot.pet.media_url} className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity" /> : <PawPrint size={20} className="text-emerald-400 z-10" />) : <div className="w-1.5 h-1.5 rounded-full bg-neutral-800" />}</div>))}</div></div>
@@ -821,16 +900,20 @@ export default function ShelterDashboard() {
                               <h6 className="text-emerald-400 font-black text-sm mb-2 flex items-center gap-2"><CheckCircle size={14} /> ADOPTION FINALIZED</h6>
                               <div className="grid grid-cols-3 gap-2 mt-2">
                                  <div>
-                                    <p className="text-[10px] text-neutral-500 uppercase font-black">Name</p>
-                                    <p className="text-sm text-white font-bold">{selectedApplication.animal}</p>
+                                    <p className="text-[10px] text-neutral-500 uppercase font-black">Date Finalized</p>
+                                    <p className="text-sm text-white font-bold">{new Date(selectedApplication.timestamp).toLocaleDateString()}</p>
                                  </div>
                                  <div>
-                                    <p className="text-[10px] text-neutral-500 uppercase font-black">Age/DOB</p>
-                                    <p className="text-sm text-white font-bold">{selectedApplication.animal_detail?.dob || 'Unknown'}</p>
+                                    <p className="text-[10px] text-neutral-500 uppercase font-black">Age at Adoption</p>
+                                    <p className="text-sm text-white font-bold">
+                                      {selectedApplication.animal_detail?.age 
+                                          ? selectedApplication.animal_detail.age.split(':').map((v,i) => v !== '0' ? v + (['y','m','d'][i]) : '').filter(Boolean).join(' / ') 
+                                          : 'Unknown'}
+                                    </p>
                                  </div>
                                  <div>
-                                    <p className="text-[10px] text-neutral-500 uppercase font-black">Location</p>
-                                    <p className="text-sm text-white font-bold">{selectedApplication.animal_detail?.kennel_zone_id || 'Facility'}</p>
+                                    <p className="text-[10px] text-neutral-500 uppercase font-black">Citizen Location</p>
+                                    <p className="text-sm text-white font-bold">{selectedApplication.applicant_address || 'Not Provided'}</p>
                                  </div>
                               </div>
                            </div>
@@ -838,26 +921,181 @@ export default function ShelterDashboard() {
                      </div>
 
                      <div className="grid grid-cols-1 gap-4">
-                        {selectedApplication.status === 'Pending' && (
-                           <button className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 w-full" onClick={() => handleApplicationAction('Under Review')}>
-                              <Search size={18} /> Review Applicant Details
-                           </button>
+                        {isRejecting ? (
+                           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                              <div className="bg-neutral-800 p-4 rounded-2xl border border-red-500/30">
+                                 <label className="text-[10px] text-red-400 uppercase font-black mb-2 block">Rejection Feedback</label>
+                                 <textarea 
+                                    value={rejectionFeedback}
+                                    onChange={e => setRejectionFeedback(e.target.value)}
+                                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-3 text-white text-sm outline-none focus:border-red-500 min-h-[100px]"
+                                    placeholder="Provide a reason for the applicant..."
+                                 />
+                                 <div className="flex flex-wrap gap-2 mt-3">
+                                    {['Insufficient space', 'Incompatible lifestyle', 'Missing documentation', 'Home visit failed'].map(suggestion => (
+                                       <button 
+                                          key={suggestion}
+                                          onClick={() => setRejectionFeedback(suggestion)}
+                                          className="text-[10px] bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-2 py-1 rounded transition-colors"
+                                       >
+                                          {suggestion}
+                                       </button>
+                                    ))}
+                                 </div>
+                              </div>
+                              <div className="flex gap-3">
+                                 <button className="flex-1 bg-neutral-800 text-white font-bold py-3 rounded-xl hover:bg-neutral-700 transition-all" onClick={() => setIsRejecting(false)}>Back</button>
+                                 <button className="flex-1 bg-red-600 text-white font-black py-3 rounded-xl hover:bg-red-500 transition-all" onClick={() => handleApplicationAction('Rejected', rejectionFeedback)}>Confirm Rejection</button>
+                              </div>
+                           </motion.div>
+                        ) : isScheduling ? (
+                           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                              <div className="bg-neutral-800 p-4 rounded-2xl border border-emerald-500/30">
+                                 <label className="text-[10px] text-emerald-400 uppercase font-black mb-2 block">Interview Date</label>
+                                 <input 
+                                    type="datetime-local" 
+                                    value={interviewDate}
+                                    onChange={e => setInterviewDate(e.target.value)}
+                                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-3 text-white text-sm outline-none focus:border-emerald-500 mb-4"
+                                 />
+                                 <label className="text-[10px] text-emerald-400 uppercase font-black mb-2 block">Location</label>
+                                 <input 
+                                    type="text" 
+                                    value={interviewLocation}
+                                    onChange={e => setInterviewLocation(e.target.value)}
+                                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-3 text-white text-sm outline-none focus:border-emerald-500"
+                                    placeholder="Shelter Facility Address"
+                                 />
+                              </div>
+                              <div className="flex gap-3">
+                                 <button className="flex-1 bg-neutral-800 text-white font-bold py-3 rounded-xl hover:bg-neutral-700 transition-all" onClick={() => setIsScheduling(false)}>Back</button>
+                                 <button className="flex-1 bg-emerald-600 text-white font-black py-3 rounded-xl hover:bg-emerald-500 transition-all" onClick={() => handleApplicationAction('Interview Scheduled', `Date: ${new Date(interviewDate).toLocaleString()} at ${interviewLocation}`)}>Confirm Schedule</button>
+                              </div>
+                           </motion.div>
+                        ) : (
+                           <>
+                              {selectedApplication.status === 'Pending' && (
+                                 <button className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 w-full" onClick={() => handleApplicationAction('Under Review')}>
+                                    <Search size={18} /> Review Applicant Details
+                                 </button>
+                              )}
+                              {selectedApplication.status === 'Under Review' && (
+                                 <button className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 w-full" onClick={() => setIsScheduling(true)}>
+                                    <Calendar size={18} /> Schedule Interview
+                                 </button>
+                              )}
+                              {selectedApplication.status === 'Interview Scheduled' && (
+                                 <button className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 w-full" onClick={() => handleApplicationAction('Approved')}>
+                                    <CheckCircle size={18} /> Complete Adoption
+                                 </button>
+                              )}
+                              {['Pending', 'Under Review', 'Interview Scheduled'].includes(selectedApplication.status) && (
+                                 <button className="text-red-400 hover:text-red-300 text-[10px] font-black uppercase tracking-widest mt-2 hover:underline" onClick={() => setIsRejecting(true)}>
+                                    Reject Application
+                                 </button>
+                              )}
+                              {['Approved'].includes(selectedApplication.status) && (
+                                 <button className="bg-neutral-800 hover:bg-neutral-700 text-white font-black py-4 rounded-xl transition-all flex items-center justify-center gap-2 w-full" onClick={() => setSelectedApplication(null)}>
+                                    Close File
+                                 </button>
+                              )}
+                              {['Rejected', 'Cancelled'].includes(selectedApplication.status) && (
+                                 <div className="flex gap-3">
+                                    <button className="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 font-black py-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-red-500/30" onClick={() => setPdfApplication(selectedApplication)}>
+                                       <ExternalLink size={18} /> Clear Details Sheet
+                                    </button>
+                                    <button className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white font-black py-4 rounded-xl transition-all flex items-center justify-center gap-2" onClick={() => setSelectedApplication(null)}>
+                                       Close File
+                                    </button>
+                                 </div>
+                              )}
+                           </>
                         )}
-                        {selectedApplication.status === 'Under Review' && (
-                           <button className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 w-full" onClick={() => handleApplicationAction('Interview Scheduled')}>
-                              <Calendar size={18} /> Schedule Interview
-                           </button>
-                        )}
-                        {selectedApplication.status === 'Interview Scheduled' && (
-                           <button className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 w-full" onClick={() => handleApplicationAction('Approved')}>
-                              <CheckCircle size={18} /> Complete Adoption
-                           </button>
-                        )}
-                        {selectedApplication.status === 'Approved' && (
-                           <button className="bg-neutral-800 hover:bg-neutral-700 text-white font-black py-4 rounded-xl transition-all flex items-center justify-center gap-2 w-full" onClick={() => setSelectedApplication(null)}>
-                              Close File
-                           </button>
-                        )}
+                     </div>
+                  </div>
+               </motion.div>
+            </div>
+         )}
+      </AnimatePresence>
+
+      {/* PDF View Modal for Rejected/Cancelled */}
+      <AnimatePresence>
+         {pdfApplication && (
+            <div className="fixed inset-0 bg-black/90 z-[300] flex items-center justify-center p-4 backdrop-blur-md" onClick={() => setPdfApplication(null)}>
+               <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} onClick={e => e.stopPropagation()} className="bg-white text-black w-full max-w-2xl shadow-2xl rounded-sm overflow-hidden flex flex-col max-h-[90vh]">
+                  {/* PDF Header / Toolbar */}
+                  <div className="bg-neutral-800 p-3 flex justify-between items-center text-white shrink-0">
+                     <span className="text-xs font-bold font-mono bg-neutral-700 px-2 py-1 rounded">AnimaCare_Official_{pdfApplication.status.toUpperCase()}_Notice.pdf</span>
+                     <div className="flex gap-2">
+                        <button className="p-1 hover:bg-neutral-700 rounded"><Download size={16} /></button>
+                        <button onClick={() => setPdfApplication(null)} className="p-1 hover:bg-red-500 rounded"><X size={16}/></button>
+                     </div>
+                  </div>
+                  
+                  {/* PDF Document Body */}
+                  <div className="p-10 flex-1 overflow-y-auto bg-gray-50 custom-scrollbar">
+                     <div className="max-w-xl mx-auto bg-white p-8 border border-gray-200 shadow-sm relative min-h-[600px]">
+                        {/* Stamp */}
+                        <div className="absolute top-10 right-10 border-4 border-red-500 text-red-500 font-black text-2xl uppercase tracking-widest p-2 opacity-30 transform rotate-12">
+                           {pdfApplication.status}
+                        </div>
+
+                        {/* Letterhead */}
+                        <div className="border-b-2 border-emerald-800 pb-6 mb-6">
+                           <div className="flex items-center gap-3 mb-2">
+                              <PawPrint size={32} className="text-emerald-700" />
+                              <h1 className="text-3xl font-black text-emerald-800 tracking-tighter">AnimaCare</h1>
+                           </div>
+                           <p className="text-xs text-gray-500 uppercase font-bold tracking-widest">Official Animal Welfare Department</p>
+                        </div>
+
+                        {/* Content */}
+                        <div className="space-y-6 text-sm text-gray-800">
+                           <div className="flex justify-between">
+                              <div>
+                                 <p className="text-xs font-bold text-gray-500 uppercase">To Applicant</p>
+                                 <p className="font-black text-lg">{pdfApplication.applicant_name}</p>
+                                 <p>{pdfApplication.applicant_email || 'Email not provided'}</p>
+                              </div>
+                              <div className="text-right">
+                                 <p className="text-xs font-bold text-gray-500 uppercase">Date Issued</p>
+                                 <p className="font-bold">{new Date().toLocaleDateString()}</p>
+                                 <p className="text-xs mt-1 text-gray-400">Ref: AC-{pdfApplication.id}</p>
+                              </div>
+                           </div>
+
+                           <div className="bg-gray-100 p-4 rounded border border-gray-200">
+                              <p className="text-xs font-bold text-gray-500 uppercase mb-2">Subject</p>
+                              <p className="font-bold text-lg">Application for Adoption of {pdfApplication.animal} ({pdfApplication.breed})</p>
+                           </div>
+
+                           <div>
+                              <p className="mb-4">Dear {pdfApplication.applicant_name},</p>
+                              <p className="leading-relaxed mb-4">
+                                 This document serves as an official notice regarding your recent adoption application. After careful review by our shelter administration team, we must inform you that your application has been officially marked as <strong>{pdfApplication.status.toUpperCase()}</strong>.
+                              </p>
+                              
+                              <div className="bg-red-50 border-l-4 border-red-500 p-4 my-6">
+                                 <p className="text-xs font-bold text-red-700 uppercase mb-2">Official Feedback / Reason</p>
+                                 <p className="font-serif italic text-red-900">"{pdfApplication.feedback || 'No specific feedback provided by administration.'}"</p>
+                              </div>
+
+                              <p className="leading-relaxed">
+                                 We appreciate your interest in providing a home for our rescues. If you believe this decision was made in error, or if your circumstances change, you are welcome to apply for other animals in the future.
+                              </p>
+                           </div>
+
+                           <div className="pt-12 mt-12 border-t border-gray-200 flex justify-between items-end">
+                              <div>
+                                 <div className="w-40 border-b border-black mb-2"></div>
+                                 <p className="text-xs font-bold text-gray-500 uppercase">Authorized Signature</p>
+                                 <p className="font-bold text-sm">Shelter Administrator</p>
+                              </div>
+                              <div className="text-right">
+                                 <PawPrint size={48} className="text-gray-200 inline-block" />
+                              </div>
+                           </div>
+                        </div>
                      </div>
                   </div>
                </motion.div>

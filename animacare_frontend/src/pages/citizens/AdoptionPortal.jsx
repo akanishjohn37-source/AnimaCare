@@ -59,7 +59,8 @@ const AdoptionPortal = () => {
         .then(res => res.json())
         .then(data => {
            if (Array.isArray(data)) {
-             setAppliedIds(data.map(app => app.animal_detail?.id || app.animal));
+             const activeApps = data.filter(app => app.status !== 'Rejected' && app.status !== 'Cancelled');
+             setAppliedIds(activeApps.map(app => app.animal_detail?.id || app.animal));
              setUserApplications(data);
            }
         })

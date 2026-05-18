@@ -20,9 +20,8 @@ class AnimalInventoryViewSet(viewsets.ModelViewSet):
         # If requested by a citizen (assuming no auth or standard user), filter them
         is_citizen = self.request.query_params.get('citizen_view')
         if is_citizen == 'true':
-            # Include available pets AND adopted pets so we can show 'Sold Out' status
-            from django.db.models import Q
-            queryset = queryset.filter(Q(is_available=True) | Q(is_adopted=True))
+            # Only show available, unadopted pets
+            queryset = queryset.filter(is_available=True, is_adopted=False)
         elif user.is_authenticated and user.role == 'shelter_admin':
             # Admins see only their shelter's inventory
             queryset = queryset.filter(shelter__admin=user)
@@ -33,10 +32,24 @@ class AnimalInventoryViewSet(viewsets.ModelViewSet):
         # Automatically assign the shelter belonging to the logged-in admin
         try:
             shelter = self.request.user.authorized_shelter
-            serializer.save(shelter=shelter)
-        except AttributeError:
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError({"error": "Your account is not linked to an authorized shelter. Please contact support."})
+        except Exception:
+            # Fallback: create Shelter if user has ShelterAdminProfile but no Shelter instance yet
+            if hasattr(self.request.user, 'shelter_profile'):
+                profile = self.request.user.shelter_profile
+                from apps.shelter.models import Shelter
+                shelter = Shelter.objects.create(
+                    name=profile.shelter_name,
+                    tax_id=profile.shelter_registration_number,
+                    address=profile.shelter_address,
+                    location="Pending",
+                    admin=self.request.user,
+                    is_verified=(self.request.user.account_status == 'active')
+                )
+            else:
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError({"error": "Your account is not linked to an authorized shelter. Please contact support."})
+        
+        serializer.save(shelter=shelter)
 
 class AdoptionApplicationViewSet(viewsets.ModelViewSet):
     queryset = AdoptionApplication.objects.all()
@@ -63,18 +76,25 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
             message=f"Citizen {self.request.user.username} has applied to adopt {application.animal.name}."
         )
 
-    @action(detail=True, methods=['patch'])
+    @action(detail=True, methods=['post'])
     def update_status(self, request, pk=None):
         application = self.get_object()
         new_status = request.data.get('status')
+        feedback = request.data.get('feedback', '')
+
         if new_status in dict(AdoptionApplication.STATUS_CHOICES):
             application.status = new_status
+            if feedback:
+                application.feedback = feedback
             application.save()
             
             # Notify the Applicant
             if new_status == 'Interview Scheduled':
                 title = "Interview Scheduled!"
-                message = f"Great news! The shelter has scheduled an interview for your adoption application for {application.animal.name}. Please check your email for the meeting link and details."
+                if feedback:
+                    message = f"Great news! The shelter has scheduled an interview for your adoption application for {application.animal.name}. Details: {feedback}. Please check your dashboard."
+                else:
+                    message = f"Great news! The shelter has scheduled an interview for your adoption application for {application.animal.name}. Please check your dashboard for details."
             elif new_status == 'Approved':
                 title = "Adoption Approved! 🎉"
                 message = f"Congratulations! Your adoption application for {application.animal.name} has been approved. Welcome to your new best friend!"
@@ -84,6 +104,16 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
                 animal.is_adopted = True
                 animal.is_available = False
                 animal.save()
+            elif new_status == 'Rejected':
+                title = "Adoption Application Update"
+                message = f"We regret to inform you that your adoption application for {application.animal.name} was not approved at this time."
+                if feedback:
+                    message += f" Feedback: {feedback}"
+            elif new_status == 'Cancelled':
+                title = "Application Cancelled"
+                message = f"Your application for {application.animal.name} has been cancelled."
+                if feedback:
+                    message += f" Reason: {feedback}"
             else:
                 title = "Adoption Update"
                 message = f"The status of your application for {application.animal.name} has been updated to {new_status}."
@@ -93,7 +123,7 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
                 title=title,
                 message=message
             )
-            return Response({'status': 'Status updated'})
+            return Response({'status': 'Status updated', 'feedback': application.feedback})
         return Response({'error': 'Invalid status'}, status=400)
 
     @action(detail=True, methods=['post'])
