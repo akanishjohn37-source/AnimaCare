@@ -108,6 +108,21 @@ const Appointments = () => {
     }
   };
 
+  const handleClearCompleted = async () => {
+    const completed = appointments.filter(a => a.status === 'Completed');
+    if (completed.length === 0) return;
+    if (!window.confirm("Are you sure you want to clear all completed appointments?")) return;
+    try {
+      await Promise.all(completed.map(a => 
+        authFetch(`http://localhost:8000/api/clinical/appointments/${a.id}/`, { method: 'DELETE' })
+      ));
+      setAppointments(appointments.filter(a => a.status !== 'Completed'));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+
   const openBookingForVet = (vet) => {
     setSelectedVet(vet);
     setNewAppt({ ...newAppt, vet: vet.id });
@@ -204,9 +219,20 @@ const Appointments = () => {
 
         {/* Your Visits */}
         <div>
-          <h2 style={{ color: '#fff', fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <Calendar size={20} className="icon-accent" /> Upcoming Visits
-          </h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h2 style={{ color: '#fff', fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <Calendar size={20} className="icon-accent" /> Upcoming Visits
+            </h2>
+            {appointments.some(a => a.status === 'Completed') && (
+              <button 
+                onClick={handleClearCompleted} 
+                className="btn btn-secondary" 
+                style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', border: '1px solid #10b981', color: '#10b981' }}
+              >
+                Clear Completed
+              </button>
+            )}
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {loading ? <p>Loading...</p> : appointments.length > 0 ? (
               appointments.sort((a,b) => new Date(a.date) - new Date(b.date)).map(appt => (
@@ -218,7 +244,7 @@ const Appointments = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '4px' }}>
-                         <h4 style={{ color: '#fff', margin: 0, fontSize: '1rem' }}>{appt.pet_detail?.name}</h4>
+                         <h4 style={{ color: '#fff', margin: 0, fontSize: '1rem' }}>{appt.pet_detail?.name}{appt.pet_detail?.species ? ` (${appt.pet_detail.species})` : ''}</h4>
                          <span className={`badge ${appt.status === 'Completed' ? 'badge-success' : appt.status === 'Cancelled' ? 'badge-secondary' : 'badge-primary'}`} style={{ fontSize: '0.6rem' }}>
                             {appt.status}
                          </span>

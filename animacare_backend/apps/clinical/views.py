@@ -29,7 +29,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         Notification.objects.create(
             recipient=appointment.vet,
             title="New Appointment Booked",
-            message=f"Citizen {self.request.user.username} has booked an appointment for {appointment.pet.name} on {appointment.date}."
+            message=f"Citizen {self.request.user.username} has booked an appointment for {appointment.pet.name} ({appointment.pet.species}) on {appointment.date}."
         )
 
     @action(detail=True, methods=['post'])

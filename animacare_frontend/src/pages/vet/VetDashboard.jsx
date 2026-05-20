@@ -152,7 +152,7 @@ const VetDashboard = () => {
                     <div key={appt.id} className="glass-panel" style={{ padding: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
-                          <h4 style={{ color: '#fff', margin: 0 }}>{appt.pet_detail?.name}</h4>
+                          <h4 style={{ color: '#fff', margin: 0 }}>{appt.pet_detail?.name}{appt.pet_detail?.species ? ` (${appt.pet_detail.species})` : ''}</h4>
                           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', margin: '4px 0' }}>Owner: {appt.owner_name}</p>
                           <span style={{ fontSize: '0.75rem', color: '#4ade80' }}>{new Date(appt.date).toLocaleString()}</span>
                         </div>
@@ -174,9 +174,9 @@ const VetDashboard = () => {
               <h3 style={{ color: '#fff', marginBottom: '1.5rem' }}>⚡ Recent Completed</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {appointments.filter(a => a.status === 'Completed').slice(0, 5).map(appt => (
-                  <div key={appt.id} style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.6 }}>
-                    <span style={{ color: '#fff' }}>{appt.pet_detail?.name}</span>
-                    <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' }}>{new Date(appt.date).toLocaleDateString()}</span>
+                  <div key={appt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flex: 1 }}>
+                    <span style={{ color: '#fff' }}>{appt.pet_detail?.name}{appt.pet_detail?.species ? ` (${appt.pet_detail.species})` : ''}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>• {new Date(appt.date).toLocaleDateString()}</span>
                   </div>
                 ))}
               </div>
@@ -188,7 +188,7 @@ const VetDashboard = () => {
       {selectedPatient && (
         <div className="glass-panel" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-             <h2 style={{ color: '#fff', margin: 0 }}>Clinical Examination: {selectedPatient.pet_detail?.name}</h2>
+             <h2 style={{ color: '#fff', margin: 0 }}>Clinical Examination: {selectedPatient.pet_detail?.name}{selectedPatient.pet_detail?.species ? ` (${selectedPatient.pet_detail.species})` : ''}</h2>
              <button onClick={() => setSelectedPatient(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
                 <X size={24} />
              </button>
@@ -318,7 +318,7 @@ const VetDashboard = () => {
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
                      <img src={selectedPatient.pet_detail?.media_url || "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=150&h=150&fit=crop"} alt="Pet" style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover' }} />
                      <div>
-                        <h4 style={{ color: '#fff', margin: 0 }}>{selectedPatient.pet_detail?.name}</h4>
+                        <h4 style={{ color: '#fff', margin: 0 }}>{selectedPatient.pet_detail?.name}{selectedPatient.pet_detail?.species ? ` (${selectedPatient.pet_detail.species})` : ''}</h4>
                         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>Microchip: {selectedPatient.pet_detail?.microchip_id || 'N/A'}</p>
                      </div>
                   </div>

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import * as Yup from 'yup';
 import { motion } from 'framer-motion';
@@ -57,8 +57,41 @@ const compressImage = (file) => {
 
 const PetPassportForm = () => {
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [initialData, setInitialData] = useState({ name: '', species: '', breed: '', gender: '', dob: '', microchipId: '' });
+  const [isFetching, setIsFetching] = useState(false);
+  const { id } = useParams();
   const navigate = useNavigate();
   const { authFetch } = useAuth();
+
+  useEffect(() => {
+    if (id) {
+      setIsFetching(true);
+      authFetch(`http://localhost:8000/api/citizens/pets/${id}/`)
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error("Failed to load pet data");
+        })
+        .then(data => {
+          setInitialData({
+            name: data.name || '',
+            species: data.species || '',
+            breed: data.breed || '',
+            gender: data.gender || '',
+            dob: data.dob ? new Date(data.dob).toISOString().split('T')[0] : '',
+            microchipId: data.rfid_tag || ''
+          });
+          if (data.media_url) {
+            setAvatarPreview(data.media_url);
+          }
+        })
+        .catch(err => console.error(err))
+        .finally(() => setIsFetching(false));
+    }
+  }, [id, authFetch]);
+
+  if (isFetching) {
+    return <div style={{ color: 'white', padding: '3rem', textAlign: 'center' }}>Loading Pet Data...</div>;
+  }
 
   return (
     <motion.div 
@@ -67,12 +100,13 @@ const PetPassportForm = () => {
       className="passport-container glass-panel"
     >
       <div className="passport-header">
-        <h1 className="page-title gradient-text">Initialize Pet Passport</h1>
-        <p className="page-subtitle">Register your pet on the blockchain-secured AnimaCare network.</p>
+        <h1 className="page-title gradient-text">{id ? 'Update Pet Profile' : 'Initialize Pet Passport'}</h1>
+        <p className="page-subtitle">{id ? 'Edit your pet\'s details on the blockchain-secured network.' : 'Register your pet on the blockchain-secured AnimaCare network.'}</p>
       </div>
 
       <Formik
-        initialValues={{ name: '', species: '', breed: '', gender: '', dob: '', microchipId: '' }}
+        enableReinitialize={true}
+        initialValues={initialData}
         validationSchema={PetSchema}
         onSubmit={async (values, { setSubmitting, setStatus }) => {
           try {
@@ -85,16 +119,19 @@ const PetPassportForm = () => {
             };
             if (values.microchipId) data.rfid_tag = values.microchipId;
             if (values.avatar) data.media_url = values.avatar;
+            const url = id 
+              ? `http://localhost:8000/api/citizens/pets/${id}/` 
+              : 'http://localhost:8000/api/citizens/pets/';
             
-            const response = await authFetch('http://localhost:8000/api/citizens/pets/', {
-              method: 'POST',
+            const response = await authFetch(url, {
+              method: id ? 'PATCH' : 'POST',
               body: JSON.stringify(data)
             });
 
             if (!response.ok) {
               const errData = await response.json();
               // Extract specific field errors from DRF response (e.g. { rfid_tag: ["pet with this rfid tag already exists."] })
-              let errorMsg = 'Failed to create pet record. Please try again.';
+              let errorMsg = `Failed to ${id ? 'update' : 'create'} pet record. Please try again.`;
               if (errData.detail) {
                   errorMsg = errData.detail;
               } else if (typeof errData === 'object' && Object.keys(errData).length > 0) {
@@ -204,7 +241,7 @@ const PetPassportForm = () => {
 
             <div className="form-actions">
               <button type="submit" disabled={isSubmitting} className="btn btn-primary btn-lg">
-                <Save size={20} /> Initialize Digital Passport
+                <Save size={20} /> {id ? 'Save Changes' : 'Initialize Digital Passport'}
               </button>
             </div>
           </Form>

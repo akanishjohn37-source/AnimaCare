@@ -113,6 +113,11 @@ function App() {
                       <PetPassportForm />
                     </ProtectedRoute>
                   } />
+                  <Route path="/pet/edit/:id" element={
+                    <ProtectedRoute roles={['citizen', 'agricultural_facility']}>
+                      <PetPassportForm />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/medical/:petId" element={
                     <ProtectedRoute roles={['citizen', 'veterinarian', 'agricultural_facility']}>
                       <MedicalViewer />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Shield, Clock, Heart, AlertTriangle, ArrowRight, FileText, Trash2, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Shield, Clock, Heart, AlertTriangle, ArrowRight, FileText, Trash2, X, Edit2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './Dashboard.css';
@@ -66,17 +66,18 @@ const Dashboard = () => {
     }
   };
 
-  const handleClearCancelled = async () => {
-    const cancelledApps = applications.filter(a => a.status === 'Cancelled');
-    if (cancelledApps.length === 0) return;
+  const handleClearFinishedApps = async () => {
+    const finishedApps = applications.filter(a => a.status === 'Cancelled' || a.status === 'Rejected');
+    if (finishedApps.length === 0) return;
+    if (!window.confirm("Are you sure you want to clear these application records?")) return;
     
     try {
-      await Promise.all(cancelledApps.map(app => 
+      await Promise.all(finishedApps.map(app => 
         authFetch(`http://localhost:8000/api/shelter/applications/${app.id}/`, { method: 'DELETE' })
       ));
-      setApplications(applications.filter(a => a.status !== 'Cancelled'));
+      setApplications(applications.filter(a => a.status !== 'Cancelled' && a.status !== 'Rejected'));
     } catch (err) {
-      console.error("Clear cancelled error", err);
+      console.error("Clear apps error", err);
     }
   };
 
@@ -149,8 +150,9 @@ const Dashboard = () => {
                         </div>
                       </div>
                       <div className="pet-actions">
-                        <Link to={`/medical/${pet.id}`} className="action-btn"><FileText size={18} /></Link>
-                        <button onClick={() => handleDelete(pet.id)} className="action-btn" style={{color: '#ef4444'}}><Trash2 size={18} /></button>
+                        <Link to={`/pet/edit/${pet.id}`} className="action-btn" title="Edit Pet Details"><Edit2 size={18} /></Link>
+                        <Link to={`/medical/${pet.id}`} className="action-btn" title="View Medical Records"><FileText size={18} /></Link>
+                        <button onClick={() => handleDelete(pet.id)} className="action-btn" style={{color: '#ef4444'}} title="Delete Pet"><Trash2 size={18} /></button>
                       </div>
                     </div>
                   );
@@ -172,13 +174,13 @@ const Dashboard = () => {
           <motion.div variants={itemVariants} className="glass-panel dashboard-card">
             <div className="card-header">
               <h2><Clock size={20} className="icon-accent" /> Adoption Status</h2>
-              {applications.some(a => a.status === 'Cancelled') && (
+              {applications.some(a => a.status === 'Cancelled' || a.status === 'Rejected') && (
                 <button 
-                  onClick={handleClearCancelled}
+                  onClick={handleClearFinishedApps}
                   className="btn btn-secondary btn-sm"
                   style={{ fontSize: '0.65rem', padding: '0.2rem 0.6rem' }}
                 >
-                  Clear
+                  Clear Finished
                 </button>
               )}
             </div>
@@ -247,5 +249,6 @@ const Dashboard = () => {
     </motion.div>
   );
 };
+
 
 export default Dashboard;

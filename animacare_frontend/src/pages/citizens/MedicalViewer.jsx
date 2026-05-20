@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Download, ShieldCheck, Activity, Image as ImageIcon, Plus, Syringe, User as UserIcon, X, FileText, Clock } from 'lucide-react';
+import { Download, ShieldCheck, Activity, Image as ImageIcon, Plus, Syringe, User as UserIcon, X, FileText, Clock, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import './MedicalViewer.css';
 
@@ -13,6 +13,7 @@ const MedicalViewer = () => {
   const [pets, setPets] = useState([]);
   const [selectedPetData, setSelectedPetData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Owner self-report state
   const [showModal, setShowModal] = useState(false);
@@ -71,6 +72,50 @@ const MedicalViewer = () => {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const deleteSelfReport = async (reportId) => {
+    if (!window.confirm("Are you sure you want to delete this self-reported detail?")) return;
+    try {
+      const res = await authFetch(`http://localhost:8000/api/clinical/self-reports/${reportId}/`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setSelectedPetData(prev => ({
+          ...prev,
+          self_reports: prev.self_reports.filter(r => r.id !== reportId)
+        }));
+      } else {
+        alert("Failed to delete self-report.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting self-report.");
+    }
+  };
+
+  const deleteConsultation = async (logId) => {
+    if (!window.confirm("Are you sure you want to delete this old consultation record?")) return;
+    setIsDeleting(true);
+    try {
+      const res = await authFetch(`http://localhost:8000/api/clinical/consultations/${logId}/`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        // Remove from UI immediately
+        setSelectedPetData(prev => ({
+          ...prev,
+          medical_history: prev.medical_history.filter(log => log.id !== logId)
+        }));
+      } else {
+        alert("Failed to delete record.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting record.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -158,11 +203,24 @@ const MedicalViewer = () => {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '2rem' }}>
-                  {selectedPetData.medical_history.map(log => (
-                    <div key={log.id} className="glass-panel log-card" style={{ borderLeft: '4px solid #4ade80' }}>
+                  {selectedPetData.medical_history.map((log, index) => (
+                    <div key={log.id} className="glass-panel log-card" style={{ borderLeft: '4px solid #4ade80', position: 'relative' }}>
                       <div className="log-header">
                         <h3 style={{ color: '#4ade80' }}>Clinical Consultation</h3>
-                        <span className="log-date">{new Date(log.date).toLocaleDateString()}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <span className="log-date">{new Date(log.date).toLocaleDateString()}</span>
+                          {index !== 0 && (
+                            <button 
+                              onClick={() => deleteConsultation(log.id)}
+                              disabled={isDeleting}
+                              className="btn btn-secondary no-print" 
+                              style={{ padding: '0.2rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                              title="Delete old record"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="log-body">
                         <p><strong>Attending Vet:</strong> Dr. {log.vet_name}</p>
@@ -186,10 +244,22 @@ const MedicalViewer = () => {
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {selectedPetData.self_reports.map(report => (
-                  <div key={report.id} className="glass-panel log-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+                  <div key={report.id} className="glass-panel log-card" style={{ borderLeft: '4px solid #8b5cf6', position: 'relative' }}>
                     <div className="log-header">
                       <h3 style={{ color: '#fff' }}>{report.title}</h3>
-                      <span className="log-date">{new Date(report.date).toLocaleDateString()}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <span className="log-date">{new Date(report.date).toLocaleDateString()}</span>
+                        {user.role === 'citizen' && (
+                          <button 
+                            onClick={() => deleteSelfReport(report.id)}
+                            className="btn btn-secondary no-print" 
+                            style={{ padding: '0.2rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                            title="Delete self-report"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="log-body">
                       <p style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.4 }}>{report.description}</p>
