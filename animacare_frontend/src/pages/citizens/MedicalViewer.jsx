@@ -106,6 +106,14 @@ const MedicalViewer = () => {
         <div className="header-divider"></div>
       </div>
 
+      <button 
+        onClick={() => window.history.length > 2 ? navigate(-1) : window.close()} 
+        className="btn btn-secondary no-print" 
+        style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', zIndex: 100 }}
+      >
+        <X size={18} /> Close
+      </button>
+
       {/* Pet Selector */}
       <div className="no-print" style={{ display: 'flex', gap: '1rem', overflowX: 'auto', marginBottom: '2rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         {pets.map(p => (

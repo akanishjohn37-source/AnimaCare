@@ -285,7 +285,11 @@ const Appointments = () => {
                     style={inputStyle}
                   >
                     <option value="" style={{ background: '#1e293b', color: '#fff' }}>-- Choose Your Pet --</option>
-                    {pets.map(p => <option key={p.id} value={p.id} style={{ background: '#1e293b', color: '#fff' }}>{p.name} ({p.species})</option>)}
+                    {pets.map(p => (
+                      <option key={p.id} value={p.id} style={{ background: '#1e293b', color: '#fff' }}>
+                        {p.name} ({p.species}{p.breed ? ` - ${p.breed}` : ''})
+                      </option>
+                    ))}
                   </select>
                   <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
                 </div>

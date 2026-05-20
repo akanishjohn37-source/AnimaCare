@@ -104,6 +104,19 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
                 animal.is_adopted = True
                 animal.is_available = False
                 animal.save()
+                
+                # Auto-create the Pet record in the Citizen's profile
+                from apps.citizens.models import Pet
+                Pet.objects.get_or_create(
+                    owner=application.applicant,
+                    name=animal.name,
+                    species=animal.species,
+                    defaults={
+                        'breed': animal.breed,
+                        'health_status': animal.medical_triage_status,
+                        'media_url': animal.media_url
+                    }
+                )
             elif new_status == 'Rejected':
                 title = "Adoption Application Update"
                 message = f"We regret to inform you that your adoption application for {application.animal.name} was not approved at this time."

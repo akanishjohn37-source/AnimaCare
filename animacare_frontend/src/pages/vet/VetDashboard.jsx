@@ -91,9 +91,15 @@ const VetDashboard = () => {
       });
       if (res.ok) {
         alert("Medical record successfully submitted!");
-        setSelectedPatient(null);
+        const updatedHistoryRes = await authFetch(`http://localhost:8000/api/citizens/pets/${selectedPatient.pet}/medical_report/`);
+        if (updatedHistoryRes.ok) {
+          setPatientHistory(await updatedHistoryRes.json());
+        }
         setConsultationData({ vital_signs: { weight: '', temp: '', heartRate: '' }, notes: '', zoonotic_disease_flag: '', media: null });
         setSelectedFileName('');
+      } else {
+        const errText = await res.text();
+        alert("Failed to save: " + errText);
       }
     } catch (err) {
       console.error(err);
@@ -283,9 +289,15 @@ const VetDashboard = () => {
                         });
                         if (res.ok) {
                           alert("Medical record successfully submitted!");
-                          setSelectedPatient(null);
+                          const updatedHistoryRes = await authFetch(`http://localhost:8000/api/citizens/pets/${selectedPatient.pet}/medical_report/`);
+                          if (updatedHistoryRes.ok) {
+                            setPatientHistory(await updatedHistoryRes.json());
+                          }
                           setConsultationData({ vital_signs: { weight: '', temp: '', heartRate: '' }, notes: '', zoonotic_disease_flag: '', media: null });
                           setSelectedFileName('');
+                        } else {
+                          const errText = await res.text();
+                          alert("Failed to save: " + errText);
                         }
                       } catch (err) {
                         console.error(err);
@@ -317,6 +329,8 @@ const VetDashboard = () => {
 
                <Link 
                 to={`/medical/${selectedPatient.pet}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#22d3ee', textDecoration: 'none', fontSize: '0.9rem', marginBottom: '1.5rem', fontWeight: 600 }}
                >
                  <ImageIcon size={18} /> View Full Diagnostic History <ChevronRight size={16} />
