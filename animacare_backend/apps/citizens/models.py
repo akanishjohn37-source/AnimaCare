@@ -15,6 +15,14 @@ class Pet(models.Model):
     def __str__(self):
         return f"{self.name} ({self.species})"
 
+class Livestock(Pet):
+    livestock_type = models.CharField(max_length=100) # e.g. Poultry, Cattle, Sheep
+    herd_size = models.PositiveIntegerField(default=1)
+    farm_location = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Livestock: {self.name} ({self.livestock_type}) - Herd size: {self.herd_size}"
+
 class SOSAlert(models.Model):
     STATUS_CHOICES = [
         ('Pending', 'Pending'),
@@ -22,7 +30,13 @@ class SOSAlert(models.Model):
         ('Resolved', 'Resolved'),
     ]
     
+    ALERT_TYPE_CHOICES = [
+        ('rescue', 'Rescue Needed'),
+        ('disease_report', 'Disease Sighted'),
+    ]
+    
     reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sos_alerts')
+    alert_type = models.CharField(max_length=20, choices=ALERT_TYPE_CHOICES, default='rescue')
     animal_description = models.TextField()
     location = models.CharField(max_length=255) 
     timestamp = models.DateTimeField(auto_now_add=True)

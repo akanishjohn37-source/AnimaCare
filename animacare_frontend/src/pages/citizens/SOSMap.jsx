@@ -35,6 +35,7 @@ const SOSMap = () => {
   const [reportState, setReportState] = useState('idle'); // idle, reporting, submitting, submitted
   const [description, setDescription] = useState('');
   const [animalType, setAnimalType] = useState('Dog');
+  const [alertType, setAlertType] = useState('rescue');
   const [photo, setPhoto] = useState(null);
   const [location, setLocation] = useState({ lat: 10.8505, lng: 76.2711 });
 
@@ -50,7 +51,8 @@ const SOSMap = () => {
           reporter: user.id,
           animal_description: `${animalType}: ${description}`,
           lat: location.lat,
-          lng: location.lng
+          lng: location.lng,
+          alert_type: alertType
         })
       });
       
@@ -96,8 +98,8 @@ const SOSMap = () => {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="sos-container">
       <div className="sos-header">
-        <h1 className="page-title text-danger">Emergency SOS Alert</h1>
-        <p className="page-subtitle">Report an animal in immediate danger. This will notify the nearest shelter.</p>
+        <h1 className="page-title text-danger">Emergency & Disease Alert</h1>
+        <p className="page-subtitle">Report an animal in immediate danger or log a disease sighting. This will notify the authorities.</p>
       </div>
 
       <div className="sos-layout">
@@ -127,6 +129,13 @@ const SOSMap = () => {
           {reportState !== 'submitted' ? (
             <form onSubmit={handleSubmit}>
               <h2 className="panel-title">Incident Details</h2>
+              <div className="form-group">
+                <label className="form-label">Alert Type</label>
+                <select className="form-control" value={alertType} onChange={e => setAlertType(e.target.value)}>
+                  <option value="rescue">Rescue Needed</option>
+                  <option value="disease_report">Disease Sighted</option>
+                </select>
+              </div>
               <div className="form-group">
                 <label className="form-label">Animal Type</label>
                 <select className="form-control" value={animalType} onChange={e => setAnimalType(e.target.value)}>

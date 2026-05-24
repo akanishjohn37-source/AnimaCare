@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import * as Yup from 'yup';
 import { motion } from 'framer-motion';
@@ -8,16 +8,14 @@ import { Camera, Save } from 'lucide-react';
 import './PetPassport.css';
 
 const PetSchema = Yup.object().shape({
-  name: Yup.string().required('Pet name is required'),
+  name: Yup.string().required('Name is required'),
   species: Yup.string().required('Species is required'),
-  breed: Yup.string().required('Breed is required'),
+  breed: Yup.string().when('isLivestock', { is: false, then: () => Yup.string().required('Breed is required') }),
+  livestock_type: Yup.string().when('isLivestock', { is: true, then: () => Yup.string().required('Livestock type is required') }),
+  herd_size: Yup.number().when('isLivestock', { is: true, then: () => Yup.number().min(1).required('Herd size is required') }),
   gender: Yup.string().required('Gender is required'),
-  dob: Yup.date()
-    .max(new Date(), 'Date of birth cannot be in the future')
-    .required('Date of birth is required'),
-  microchipId: Yup.string()
-    .matches(/^[0-9]*$/, 'Microchip ID must contain only digits')
-    .max(15, 'Microchip ID cannot exceed 15 digits'),
+  dob: Yup.date().max(new Date(), 'Date cannot be in the future').required('Date is required'),
+  microchipId: Yup.string().matches(/^[0-9]*$/, 'Must contain only digits').max(15, 'Cannot exceed 15 digits'),
 });
 
 const compressImage = (file) => {
@@ -29,24 +27,11 @@ const compressImage = (file) => {
       img.src = event.target.result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400;
-        const MAX_HEIGHT = 400;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
+        const MAX_WIDTH = 400; const MAX_HEIGHT = 400;
+        let width = img.width; let height = img.height;
+        if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } }
+        else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
+        canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
         resolve(canvas.toDataURL('image/jpeg', 0.8));
@@ -57,20 +42,28 @@ const compressImage = (file) => {
 
 const PetPassportForm = () => {
   const [avatarPreview, setAvatarPreview] = useState(null);
-  const [initialData, setInitialData] = useState({ name: '', species: '', breed: '', gender: '', dob: '', microchipId: '' });
+  const [initialData, setInitialData] = useState({ 
+    name: '', species: '', breed: '', gender: '', dob: '', microchipId: '',
+    livestock_type: '', herd_size: 1, farm_location: ''
+  });
   const [isFetching, setIsFetching] = useState(false);
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const type = queryParams.get('type') || 'pet';
+  const isLivestock = type === 'livestock';
   const { authFetch } = useAuth();
 
   useEffect(() => {
     if (id) {
       setIsFetching(true);
-      authFetch(`http://localhost:8000/api/citizens/pets/${id}/`)
-        .then(res => {
-          if (res.ok) return res.json();
-          throw new Error("Failed to load pet data");
-        })
+      const url = isLivestock 
+        ? `http://localhost:8000/api/citizens/livestocks/${id}/` 
+        : `http://localhost:8000/api/citizens/pets/${id}/`;
+      
+      authFetch(url)
+        .then(res => { if (res.ok) return res.json(); throw new Error("Failed to load data"); })
         .then(data => {
           setInitialData({
             name: data.name || '',
@@ -78,63 +71,59 @@ const PetPassportForm = () => {
             breed: data.breed || '',
             gender: data.gender || '',
             dob: data.dob ? new Date(data.dob).toISOString().split('T')[0] : '',
-            microchipId: data.rfid_tag || ''
+            microchipId: data.rfid_tag || '',
+            livestock_type: data.livestock_type || '',
+            herd_size: data.herd_size || 1,
+            farm_location: data.farm_location || ''
           });
-          if (data.media_url) {
-            setAvatarPreview(data.media_url);
-          }
+          if (data.media_url) setAvatarPreview(data.media_url);
         })
         .catch(err => console.error(err))
         .finally(() => setIsFetching(false));
     }
-  }, [id, authFetch]);
+  }, [id, authFetch, isLivestock]);
 
-  if (isFetching) {
-    return <div style={{ color: 'white', padding: '3rem', textAlign: 'center' }}>Loading Pet Data...</div>;
-  }
+  if (isFetching) return <div style={{ color: 'white', padding: '3rem', textAlign: 'center' }}>Loading Data...</div>;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="passport-container glass-panel"
-    >
+    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="passport-container glass-panel">
       <div className="passport-header">
-        <h1 className="page-title gradient-text">{id ? 'Update Pet Profile' : 'Initialize Pet Passport'}</h1>
-        <p className="page-subtitle">{id ? 'Edit your pet\'s details on the blockchain-secured network.' : 'Register your pet on the blockchain-secured AnimaCare network.'}</p>
+        <h1 className="page-title gradient-text">{id ? `Update ${isLivestock ? 'Livestock' : 'Pet'} Profile` : `Register ${isLivestock ? 'Livestock' : 'Pet'}`}</h1>
+        <p className="page-subtitle">{isLivestock ? 'Manage livestock herds on the network.' : 'Register your pet on the AnimaCare network.'}</p>
       </div>
 
       <Formik
         enableReinitialize={true}
-        initialValues={initialData}
+        initialValues={{ ...initialData, isLivestock }}
         validationSchema={PetSchema}
         onSubmit={async (values, { setSubmitting, setStatus }) => {
           try {
             const data = {
               name: values.name,
               species: values.species,
-              breed: values.breed,
               gender: values.gender,
               dob: values.dob,
             };
+            if (!isLivestock) {
+              data.breed = values.breed;
+            } else {
+              data.livestock_type = values.livestock_type;
+              data.herd_size = values.herd_size;
+              data.farm_location = values.farm_location;
+            }
             if (values.microchipId) data.rfid_tag = values.microchipId;
             if (values.avatar) data.media_url = values.avatar;
-            const url = id 
-              ? `http://localhost:8000/api/citizens/pets/${id}/` 
-              : 'http://localhost:8000/api/citizens/pets/';
             
-            const response = await authFetch(url, {
-              method: id ? 'PATCH' : 'POST',
-              body: JSON.stringify(data)
-            });
+            const baseUrl = isLivestock ? 'http://localhost:8000/api/citizens/livestocks/' : 'http://localhost:8000/api/citizens/pets/';
+            const url = id ? `${baseUrl}${id}/` : baseUrl;
+            
+            const response = await authFetch(url, { method: id ? 'PATCH' : 'POST', body: JSON.stringify(data) });
 
             if (!response.ok) {
               const errData = await response.json();
-              // Extract specific field errors from DRF response (e.g. { rfid_tag: ["pet with this rfid tag already exists."] })
-              let errorMsg = `Failed to ${id ? 'update' : 'create'} pet record. Please try again.`;
-              if (errData.detail) {
-                  errorMsg = errData.detail;
-              } else if (typeof errData === 'object' && Object.keys(errData).length > 0) {
+              let errorMsg = `Failed to ${id ? 'update' : 'create'} record.`;
+              if (errData.detail) errorMsg = errData.detail;
+              else if (typeof errData === 'object' && Object.keys(errData).length > 0) {
                   const firstKey = Object.keys(errData)[0];
                   errorMsg = Array.isArray(errData[firstKey]) ? `${firstKey.replace('_', ' ').toUpperCase()}: ${errData[firstKey][0]}` : errData[firstKey];
               }
@@ -142,7 +131,7 @@ const PetPassportForm = () => {
             }
             
             setSubmitting(false);
-            navigate('/dashboard'); // Route back to see the new pet
+            navigate('/dashboard');
           } catch(err) {
             setStatus({ error: err.message });
             setSubmitting(false);
@@ -151,36 +140,21 @@ const PetPassportForm = () => {
       >
         {({ isSubmitting, setFieldValue, status }) => (
           <Form className="passport-form">
-            {status && status.error && (
-               <div style={{ color: '#ef4444', textAlign: 'center', marginBottom: '1rem', background: 'rgba(239,68,68,0.1)', padding: '0.5rem', borderRadius: '8px' }}>
-                 {status.error}
-               </div>
-            )}
+            {status && status.error && <div style={{ color: '#ef4444', textAlign: 'center', marginBottom: '1rem', background: 'rgba(239,68,68,0.1)', padding: '0.5rem', borderRadius: '8px' }}>{status.error}</div>}
+            
             <div className="avatar-upload">
               <label htmlFor="pet-avatar" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div className="avatar-preview" style={{ overflow: 'hidden' }}>
-                  {avatarPreview ? (
-                    <img src={avatarPreview} alt="Pet Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <Camera size={32} />
-                  )}
+                  {avatarPreview ? <img src={avatarPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Camera size={32} />}
                 </div>
                 <p style={{ marginTop: '0.5rem', marginBottom: '0.2rem' }}>Upload Avatar</p>
                 <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>(Max 5MB, Auto-compressed)</p>
               </label>
-              <input 
-                id="pet-avatar"
-                name="avatar"
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
+              <input id="pet-avatar" name="avatar" type="file" accept="image/*" style={{ display: 'none' }}
                 onChange={async (event) => {
                   const file = event.currentTarget.files[0];
                   if (file) {
-                    if (file.size > 5 * 1024 * 1024) {
-                      alert("File is too large! Please upload an image smaller than 5MB.");
-                      return;
-                    }
+                    if (file.size > 5 * 1024 * 1024) { alert("File too large!"); return; }
                     const compressedBase64 = await compressImage(file);
                     setFieldValue('avatar', compressedBase64);
                     setAvatarPreview(compressedBase64);
@@ -191,8 +165,8 @@ const PetPassportForm = () => {
 
             <div className="form-grid">
               <div className="form-group">
-                <label className="form-label">Pet Name *</label>
-                <Field type="text" name="name" className="form-control" placeholder="Buddy" />
+                <label className="form-label">{isLivestock ? 'Herd / Animal Name *' : 'Pet Name *'}</label>
+                <Field type="text" name="name" className="form-control" placeholder={isLivestock ? 'Dairy Herd A' : 'Buddy'} />
                 <ErrorMessage name="name" component="div" className="form-error" />
               </div>
 
@@ -200,20 +174,48 @@ const PetPassportForm = () => {
                 <label className="form-label">Species *</label>
                 <Field as="select" name="species" className="form-control">
                   <option value="">Select Species</option>
-                  <option value="Dog">Dog</option>
-                  <option value="Cat">Cat</option>
-                  <option value="Bovine">Bovine</option>
-                  <option value="Bird">Bird</option>
+                  {!isLivestock && <>
+                    <option value="Dog">Dog</option>
+                    <option value="Cat">Cat</option>
+                    <option value="Bird">Bird</option>
+                  </>}
+                  {isLivestock && <>
+                    <option value="Bovine">Bovine</option>
+                    <option value="Poultry">Poultry</option>
+                    <option value="Goat">Goat/Sheep</option>
+                    <option value="Equine">Equine</option>
+                  </>}
                   <option value="Other">Other</option>
                 </Field>
                 <ErrorMessage name="species" component="div" className="form-error" />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Breed *</label>
-                <Field type="text" name="breed" className="form-control" placeholder="Golden Retriever" />
-                <ErrorMessage name="breed" component="div" className="form-error" />
-              </div>
+              {!isLivestock && (
+                <div className="form-group">
+                  <label className="form-label">Breed *</label>
+                  <Field type="text" name="breed" className="form-control" placeholder="Golden Retriever" />
+                  <ErrorMessage name="breed" component="div" className="form-error" />
+                </div>
+              )}
+
+              {isLivestock && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Livestock Type *</label>
+                    <Field type="text" name="livestock_type" className="form-control" placeholder="Dairy Cows" />
+                    <ErrorMessage name="livestock_type" component="div" className="form-error" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Herd Size *</label>
+                    <Field type="number" name="herd_size" className="form-control" min="1" />
+                    <ErrorMessage name="herd_size" component="div" className="form-error" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Farm Location</label>
+                    <Field type="text" name="farm_location" className="form-control" placeholder="Sector 4 Farm" />
+                  </div>
+                </>
+              )}
 
               <div className="form-group">
                 <label className="form-label">Gender *</label>
@@ -221,27 +223,27 @@ const PetPassportForm = () => {
                   <option value="">Select Gender</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
-                  <option value="Unknown">Unknown</option>
+                  <option value="Unknown">Mixed/Unknown</option>
                 </Field>
                 <ErrorMessage name="gender" component="div" className="form-error" />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Date of Birth (Approx) *</label>
+                <label className="form-label">Date of Birth / Foundation *</label>
                 <Field type="date" name="dob" className="form-control" max={new Date().toISOString().split('T')[0]} />
                 <ErrorMessage name="dob" component="div" className="form-error" />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Microchip ID (Optional)</label>
-                <Field type="text" name="microchipId" className="form-control" placeholder="15-digit ISO number" maxLength="15" />
+                <label className="form-label">Microchip / Tag ID (Optional)</label>
+                <Field type="text" name="microchipId" className="form-control" placeholder="15-digit ID" maxLength="15" />
                 <ErrorMessage name="microchipId" component="div" className="form-error" />
               </div>
             </div>
 
             <div className="form-actions">
               <button type="submit" disabled={isSubmitting} className="btn btn-primary btn-lg">
-                <Save size={20} /> {id ? 'Save Changes' : 'Initialize Digital Passport'}
+                <Save size={20} /> {id ? 'Save Changes' : `Register ${isLivestock ? 'Livestock' : 'Pet'}`}
               </button>
             </div>
           </Form>

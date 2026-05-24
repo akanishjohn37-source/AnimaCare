@@ -18,11 +18,7 @@ const NAV_MAP = {
     { to: '/appointments', icon: Stethoscope,     label: 'Appointments' },
     { to: '/adopt',        icon: Heart,           label: 'Adoption'     },
   ],
-  agricultural_facility: [
-    { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard'     },
-    { to: '/pet/new',      icon: PlusCircle,      label: 'Add Livestock' },
-    { to: '/medical/all',  icon: FileText,        label: 'Medical'       },
-  ],
+
   veterinarian: [
     { to: '/vet-dashboard',     icon: LayoutDashboard, label: 'Clinical Portal' },
     { to: '/predictive-health', icon: BarChart2,        label: 'Analytics'    },
@@ -158,8 +154,7 @@ const Navbar = () => {
 
         {/* Right actions */}
         <div className="nav-actions">
-          {/* SOS */}
-          {['citizen', 'agricultural_facility', 'shelter_admin'].includes(role) && (
+          {['citizen', 'shelter_admin'].includes(role) && (
             <NavLink to="/sos" className="sos-btn">
               <AlertCircle size={18} />
               <span>SOS</span>

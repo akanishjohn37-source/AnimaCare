@@ -13,6 +13,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser]       = useState(null);
   const [token, setToken]     = useState(() => localStorage.getItem('ac_token'));
+  const [refreshToken, setRefreshToken] = useState(() => localStorage.getItem('ac_refresh_token'));
   const [loading, setLoading] = useState(true);
 
   // Fetch /me on mount if token exists
@@ -26,9 +27,31 @@ export const AuthProvider = ({ children }) => {
         const data = await res.json();
         setUser(data);
       } else {
-        // Token invalid / expired — clear storage
+        // Token invalid / expired
+        const refreshRes = await fetch(`${API}/refresh/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh: localStorage.getItem('ac_refresh_token') }),
+        });
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          localStorage.setItem('ac_token', refreshData.token);
+          localStorage.setItem('ac_refresh_token', refreshData.refresh);
+          setToken(refreshData.token);
+          setRefreshToken(refreshData.refresh);
+          const retryRes = await fetch(`${API}/me/`, {
+            headers: { Authorization: `Bearer ${refreshData.token}` },
+          });
+          if (retryRes.ok) {
+            const retryData = await retryRes.json();
+            setUser(retryData);
+            return;
+          }
+        }
         localStorage.removeItem('ac_token');
+        localStorage.removeItem('ac_refresh_token');
         setToken(null);
+        setRefreshToken(null);
         setUser(null);
       }
     } catch {
@@ -57,6 +80,10 @@ export const AuthProvider = ({ children }) => {
       throw new Error(msg);
     }
     localStorage.setItem('ac_token', data.token);
+    if (data.refresh) {
+      localStorage.setItem('ac_refresh_token', data.refresh);
+      setRefreshToken(data.refresh);
+    }
     setToken(data.token);
     setUser(data.user);
     return data.user;
@@ -79,6 +106,10 @@ export const AuthProvider = ({ children }) => {
     // If token included (citizen auto-approved), log them in
     if (data.token) {
       localStorage.setItem('ac_token', data.token);
+      if (data.refresh) {
+        localStorage.setItem('ac_refresh_token', data.refresh);
+        setRefreshToken(data.refresh);
+      }
       setToken(data.token);
       setUser(data.user);
     }
@@ -87,19 +118,48 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('ac_token');
+    localStorage.removeItem('ac_refresh_token');
     setToken(null);
+    setRefreshToken(null);
     setUser(null);
   };
 
-  const authFetch = useCallback((url, opts = {}) => {
-    return fetch(url, {
+  const authFetch = useCallback(async (url, opts = {}) => {
+    const makeRequest = (currentAuthToken) => fetch(url, {
       ...opts,
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(currentAuthToken ? { Authorization: `Bearer ${currentAuthToken}` } : {}),
         ...(opts.headers || {}),
       },
     });
+
+    let res = await makeRequest(token);
+    if (res.status === 401) {
+      const storedRefreshToken = localStorage.getItem('ac_refresh_token');
+      if (storedRefreshToken) {
+        const refreshRes = await fetch(`${API}/refresh/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh: storedRefreshToken }),
+        });
+        
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          localStorage.setItem('ac_token', refreshData.token);
+          localStorage.setItem('ac_refresh_token', refreshData.refresh);
+          setToken(refreshData.token);
+          setRefreshToken(refreshData.refresh);
+          
+          res = await makeRequest(refreshData.token);
+        } else {
+          logout();
+        }
+      } else {
+        logout();
+      }
+    }
+    return res;
   }, [token]);
 
   const hasRole = (...roles) => roles.includes(user?.role);

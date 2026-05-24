@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.utils import timezone
-from .models import User, VeterinarianProfile, ShelterAdminProfile, CivicAuthorityProfile, AgriculturalFacilityProfile, Notification
+from .models import User, VeterinarianProfile, ShelterAdminProfile, CivicAuthorityProfile, Notification
 
 
 # ── Sub-profile serializers ──────────────────────────────────────────────────
@@ -23,10 +23,6 @@ class CivicAuthorityProfileSerializer(serializers.ModelSerializer):
         model = CivicAuthorityProfile
         exclude = ['user']
 
-class AgriculturalFacilityProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AgriculturalFacilityProfile
-        exclude = ['user']
 
 
 # ── Registration ─────────────────────────────────────────────────────────────
@@ -39,14 +35,13 @@ class RegisterSerializer(serializers.ModelSerializer):
     veterinarian_profile = VeterinarianProfileSerializer(required=False)
     shelter_profile = ShelterAdminProfileSerializer(required=False)
     civic_profile = CivicAuthorityProfileSerializer(required=False)
-    agricultural_profile = AgriculturalFacilityProfileSerializer(required=False)
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'password', 'confirm_password', 'role', 'phone_number', 'address',
-            'veterinarian_profile', 'shelter_profile', 'civic_profile', 'agricultural_profile',
+            'veterinarian_profile', 'shelter_profile', 'civic_profile',
         ]
 
     def validate(self, data):
@@ -67,7 +62,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         vet_data = validated_data.pop('veterinarian_profile', None)
         shelter_data = validated_data.pop('shelter_profile', None)
         civic_data = validated_data.pop('civic_profile', None)
-        agri_data = validated_data.pop('agricultural_profile', None)
 
         role = validated_data.get('role', 'citizen')
         # Citizens are auto-approved; all others require admin approval
@@ -95,8 +89,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             )
         elif role == 'civic_authority' and civic_data:
             CivicAuthorityProfile.objects.create(user=user, **civic_data)
-        elif role == 'agricultural_facility' and agri_data:
-            AgriculturalFacilityProfile.objects.create(user=user, **agri_data)
 
         return user
 
@@ -150,7 +142,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
     veterinarian_profile = VeterinarianProfileSerializer(read_only=True)
     shelter_profile = ShelterAdminProfileSerializer(read_only=True)
     civic_profile = CivicAuthorityProfileSerializer(read_only=True)
-    agricultural_profile = AgriculturalFacilityProfileSerializer(read_only=True)
     full_name = serializers.SerializerMethodField()
     role_display = serializers.SerializerMethodField()
     status_display = serializers.SerializerMethodField()
@@ -162,7 +153,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'role', 'role_display', 'account_status', 'status_display',
             'phone_number', 'address', 'profile_picture',
             'date_joined', 'approved_at',
-            'veterinarian_profile', 'shelter_profile', 'civic_profile', 'agricultural_profile',
+            'veterinarian_profile', 'shelter_profile', 'civic_profile',
         ]
 
     def get_full_name(self, obj):

@@ -122,7 +122,10 @@ export default function ShelterDashboard() {
     setIsLoadingInventory(true);
     try {
       const res = await authFetch('http://localhost:8000/api/shelter/inventory/');
-      if (res.ok) setInventory(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setInventory(data.results ? data.results : (Array.isArray(data) ? data : []));
+      }
     } catch (err) { console.error(err); }
     finally { setIsLoadingInventory(false); }
   };
@@ -132,7 +135,7 @@ export default function ShelterDashboard() {
       const res = await authFetch('http://localhost:8000/api/shelter/applications/');
       if (res.ok) {
         const rawData = await res.json();
-        const data = rawData;
+        const data = rawData.results ? rawData.results : (Array.isArray(rawData) ? rawData : []);
         
         const tasks = {};
         const columns = { 
@@ -169,8 +172,40 @@ export default function ShelterDashboard() {
   useEffect(() => { 
     fetchNearbyAlerts(); 
     fetchApps();
-    const interval = setInterval(fetchNearbyAlerts, 10000); 
-    return () => clearInterval(interval);
+    
+    // Connect to WebSocket for real-time SOS alerts
+    const ws = new WebSocket('ws://localhost:8000/ws/shelter/dashboard/');
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'sos_alert') {
+        const newAlert = data.data;
+        // Parse lat/lng
+        let parsedLat = 10.8505; let parsedLng = 76.2711;
+        let displayLoc = newAlert.location || "Unknown Location";
+        if (newAlert.location && newAlert.location.includes(',')) {
+          const parts = newAlert.location.split(',');
+          if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            parsedLat = parseFloat(parts[0]); parsedLng = parseFloat(parts[1]);
+            displayLoc = `Lat: ${parsedLat.toFixed(4)}, Lng: ${parsedLng.toFixed(4)}`;
+          }
+        }
+        
+        const formattedAlert = { 
+          ...newAlert, 
+          lat: parsedLat, 
+          lng: parsedLng, 
+          location: displayLoc,
+          is_new: true 
+        };
+        
+        setNearbyAlerts(prev => [formattedAlert, ...prev]);
+        setNewAlertNotification(formattedAlert);
+        setTimeout(() => setNewAlertNotification(null), 8000); 
+      }
+    };
+    
+    return () => ws.close();
   }, [authFetch]);
 
   useEffect(() => { if (activeTab === 'inventory') fetchInventory(); }, [activeTab]);

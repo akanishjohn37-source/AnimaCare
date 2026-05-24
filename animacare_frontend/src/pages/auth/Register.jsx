@@ -41,14 +41,6 @@ const ROLES = [
     desc: 'Disease surveillance, GIS heatmaps, public health broadcasts',
     approval: true,
   },
-  {
-    value: 'agricultural_facility',
-    label: 'Agricultural Facility',
-    icon: Building2,
-    color: '#10b981',
-    desc: 'Register livestock herds, farms, dairies and receive critical health alerts',
-    approval: true,
-  },
 ];
 
 const STEPS = ['Select Role', 'Personal Info', 'Professional Details', 'Review'];
@@ -84,11 +76,6 @@ const Register = () => {
     civic_profile: {
       department_name: '', employee_id: '',
       jurisdiction_area: '', designation: '', official_contact: '',
-    },
-    // Agricultural
-    agricultural_profile: {
-      facility_name: '', facility_type: '', registration_number: '',
-      facility_address: '', contact_person: '', contact_number: '',
     },
   });
 
@@ -131,9 +118,6 @@ const Register = () => {
       if (selectedRole === 'civic_authority') {
         return Object.values(form.civic_profile).every(v => v.trim() !== '') && form.civic_profile.official_contact.length === 10;
       }
-      if (selectedRole === 'agricultural_facility') {
-        return Object.values(form.agricultural_profile).every(v => v.trim() !== '') && form.agricultural_profile.contact_number.length === 10;
-      }
     }
     return true;
   };
@@ -166,7 +150,6 @@ const Register = () => {
       if (selectedRole === 'veterinarian') payload.veterinarian_profile = form.veterinarian_profile;
       if (selectedRole === 'shelter_admin') payload.shelter_profile = form.shelter_profile;
       if (selectedRole === 'civic_authority') payload.civic_profile = form.civic_profile;
-      if (selectedRole === 'agricultural_facility') payload.agricultural_profile = form.agricultural_profile;
 
       const result = await register(payload);
 
@@ -418,50 +401,6 @@ const Register = () => {
             <div className="auth-input-wrap"><Phone size={15} className="auth-input-icon" />
               <input name="official_contact" value={cp.official_contact} onChange={ch}
                 placeholder="+91 98765 43210" /></div>
-          </div>
-        </div>
-      );
-    }
-    if (selectedRole === 'agricultural_facility') {
-      const ap = form.agricultural_profile;
-      const ch = (e) => change(e, 'agricultural_profile');
-      return (
-        <div className="auth-fields-grid">
-          <div className="auth-field auth-field--full">
-            <label>Facility / Farm Name</label>
-            <div className="auth-input-wrap"><Building2 size={15} className="auth-input-icon" />
-              <input name="facility_name" value={ap.facility_name} onChange={ch}
-                placeholder="Kerala Dairy & Livestock Farm" /></div>
-          </div>
-          <div className="auth-field">
-            <label>Facility Type</label>
-            <div className="auth-input-wrap"><Award size={15} className="auth-input-icon" />
-              <input name="facility_type" value={ap.facility_type} onChange={ch}
-                placeholder="Poultry / Dairy / Bovine" /></div>
-          </div>
-          <div className="auth-field">
-            <label>Registration Number</label>
-            <div className="auth-input-wrap"><FileText size={15} className="auth-input-icon" />
-              <input name="registration_number" value={ap.registration_number} onChange={ch}
-                placeholder="REG-KL-2024-00123" /></div>
-          </div>
-          <div className="auth-field">
-            <label>Contact Person Name</label>
-            <div className="auth-input-wrap"><User size={15} className="auth-input-icon" />
-              <input name="contact_person" value={ap.contact_person} onChange={ch}
-                placeholder="Manager Name" /></div>
-          </div>
-          <div className="auth-field">
-            <label>Facility Contact Number</label>
-            <div className="auth-input-wrap"><Phone size={15} className="auth-input-icon" />
-              <input name="contact_number" value={ap.contact_number} onChange={ch}
-                placeholder="+91 98765 43210" /></div>
-          </div>
-          <div className="auth-field auth-field--full">
-            <label>Facility Address</label>
-            <div className="auth-input-wrap"><MapPin size={15} className="auth-input-icon" />
-              <input name="facility_address" value={ap.facility_address} onChange={ch}
-                placeholder="Farm Road, District, Kerala" /></div>
           </div>
         </div>
       );

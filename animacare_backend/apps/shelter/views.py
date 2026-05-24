@@ -1,17 +1,26 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, filters
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import AnimalInventory, Shelter, AdoptionApplication
 from .serializers import AnimalInventorySerializer, ShelterSerializer, AdoptionApplicationSerializer
 from apps.users.models import Notification
+from .tasks import send_adoption_status_email
 
 class ShelterViewSet(viewsets.ModelViewSet):
     queryset = Shelter.objects.all()
     serializer_class = ShelterSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['is_verified', 'location']
+    search_fields = ['name', 'address']
 
 class AnimalInventoryViewSet(viewsets.ModelViewSet):
     queryset = AnimalInventory.objects.all()
     serializer_class = AnimalInventorySerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['species', 'is_available', 'is_adopted', 'medical_triage_status']
+    search_fields = ['name', 'breed', 'microchip_id']
+    ordering_fields = ['intake_date']
 
     def get_queryset(self):
         user = self.request.user
@@ -54,6 +63,9 @@ class AnimalInventoryViewSet(viewsets.ModelViewSet):
 class AdoptionApplicationViewSet(viewsets.ModelViewSet):
     queryset = AdoptionApplication.objects.all()
     serializer_class = AdoptionApplicationSerializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['status']
+    ordering_fields = ['application_date']
 
     def get_queryset(self):
         user = self.request.user
@@ -136,6 +148,15 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
                 title=title,
                 message=message
             )
+            
+            # Send Email via Celery
+            if new_status in ['Approved', 'Rejected', 'Interview Scheduled']:
+                send_adoption_status_email.delay(
+                    application.applicant.email,
+                    title,
+                    message
+                )
+                
             return Response({'status': 'Status updated', 'feedback': application.feedback})
         return Response({'error': 'Invalid status'}, status=400)
 

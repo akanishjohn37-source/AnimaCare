@@ -1,4 +1,5 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -14,6 +15,10 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     queryset = Appointment.objects.all()
     serializer_class = AppointmentSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status']
+    search_fields = ['pet__name', 'vet__username', 'reason']
+    ordering_fields = ['date', 'time']
 
     def get_queryset(self):
         user = self.request.user
@@ -46,6 +51,9 @@ class ConsultationLogViewSet(viewsets.ModelViewSet):
     queryset = ConsultationLog.objects.all()
     serializer_class = ConsultationLogSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['diagnosis', 'treatment_plan', 'notes']
+    ordering_fields = ['date']
 
     def perform_create(self, serializer):
         # Verify the vet has an appointment with this pet
@@ -80,6 +88,9 @@ class SelfReportedRecordViewSet(viewsets.ModelViewSet):
     queryset = SelfReportedRecord.objects.all()
     serializer_class = SelfReportedRecordSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['title', 'notes']
+    ordering_fields = ['date']
 
     def get_queryset(self):
         return self.queryset.filter(pet__owner=self.request.user)

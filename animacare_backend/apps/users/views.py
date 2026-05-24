@@ -1,7 +1,8 @@
 import jwt
 import datetime
 from django.conf import settings
-from rest_framework import viewsets
+from rest_framework import viewsets, generics, filters
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -17,9 +18,11 @@ User = get_user_model()
 SECRET = settings.SECRET_KEY
 JWT_EXP_HOURS = 24
 
+REFRESH_EXP_DAYS = 7
 
-def generate_token(user):
-    payload = {
+def generate_tokens(user):
+    access_payload = {
+        'token_type': 'access',
         'user_id': user.id,
         'username': user.username,
         'role': user.role,
@@ -27,7 +30,16 @@ def generate_token(user):
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=JWT_EXP_HOURS),
         'iat': datetime.datetime.utcnow(),
     }
-    return jwt.encode(payload, SECRET, algorithm='HS256')
+    refresh_payload = {
+        'token_type': 'refresh',
+        'user_id': user.id,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=REFRESH_EXP_DAYS),
+        'iat': datetime.datetime.utcnow(),
+    }
+    return {
+        'access': jwt.encode(access_payload, SECRET, algorithm='HS256'),
+        'refresh': jwt.encode(refresh_payload, SECRET, algorithm='HS256')
+    }
 
 
 def decode_token(token):
@@ -44,10 +56,11 @@ class RegisterView(APIView):
             role = user.role
             # Citizens get immediate access; others wait for approval
             if role == 'citizen':
-                token = generate_token(user)
+                tokens = generate_tokens(user)
                 return Response({
                     "message": "Registration successful! Welcome to AnimaCare.",
-                    "token": token,
+                    "token": tokens['access'],
+                    "refresh": tokens['refresh'],
                     "user": UserProfileSerializer(user).data,
                     "requires_approval": False,
                 }, status=status.HTTP_201_CREATED)
@@ -70,13 +83,41 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.validated_data['user']
-            token = generate_token(user)
+            tokens = generate_tokens(user)
             return Response({
                 "message": f"Welcome back, {user.get_full_name() or user.username}!",
-                "token": token,
+                "token": tokens['access'],
+                "refresh": tokens['refresh'],
                 "user": UserProfileSerializer(user).data,
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class TokenRefreshView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response({"error": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            payload = decode_token(refresh_token)
+            if payload.get('token_type') != 'refresh':
+                return Response({"error": "Invalid token type."}, status=status.HTTP_401_UNAUTHORIZED)
+            
+            user = User.objects.get(id=payload['user_id'])
+            if user.account_status not in ['active', 'pending']: # pending citizens are active, other pendings shouldn't have tokens anyway
+                return Response({"error": "Account is not active."}, status=status.HTTP_401_UNAUTHORIZED)
+                
+            tokens = generate_tokens(user)
+            return Response({
+                "token": tokens['access'],
+                "refresh": tokens['refresh']
+            })
+        except jwt.ExpiredSignatureError:
+            return Response({"error": "Refresh token has expired. Please log in again."}, status=status.HTTP_401_UNAUTHORIZED)
+        except (jwt.DecodeError, User.DoesNotExist):
+            return Response({"error": "Invalid refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 class MeView(APIView):
@@ -104,15 +145,21 @@ class LogoutView(APIView):
 
 # ── Admin: Approval management endpoints ─────────────────────────────────────
 
-class PendingUsersView(APIView):
+class PendingUsersView(generics.ListAPIView):
     """List users awaiting approval — admin only."""
+    from .serializers import UserAdminSerializer
+    serializer_class = UserAdminSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['username', 'email']
+    ordering_fields = ['date_joined']
 
-    def get(self, request):
+    def get_queryset(self):
+        return User.objects.filter(account_status='pending').order_by('-date_joined')
+
+    def list(self, request, *args, **kwargs):
         if not self._is_admin(request):
             return Response({"error": "Unauthorized."}, status=403)
-        from .serializers import UserAdminSerializer
-        pending = User.objects.filter(account_status='pending').order_by('-date_joined')
-        return Response(UserAdminSerializer(pending, many=True).data)
+        return super().list(request, *args, **kwargs)
 
     def _is_admin(self, request):
         auth_header = request.headers.get('Authorization', '')
@@ -170,21 +217,22 @@ class ApproveUserView(APIView):
             return False
 
 
-class AllUsersView(APIView):
+class AllUsersView(generics.ListAPIView):
     """All users list for admin panel."""
+    from .serializers import UserAdminSerializer
+    serializer_class = UserAdminSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['role', 'account_status']
+    search_fields = ['username', 'email']
+    ordering_fields = ['date_joined']
 
-    def get(self, request):
+    def get_queryset(self):
+        return User.objects.all().order_by('-date_joined')
+
+    def list(self, request, *args, **kwargs):
         if not self._is_admin(request):
             return Response({"error": "Unauthorized."}, status=403)
-        from .serializers import UserAdminSerializer
-        role_filter = request.query_params.get('role', None)
-        status_filter = request.query_params.get('status', None)
-        qs = User.objects.all().order_by('-date_joined')
-        if role_filter:
-            qs = qs.filter(role=role_filter)
-        if status_filter:
-            qs = qs.filter(account_status=status_filter)
-        return Response(UserAdminSerializer(qs, many=True).data)
+        return super().list(request, *args, **kwargs)
 
     def _is_admin(self, request):
         auth_header = request.headers.get('Authorization', '')
@@ -229,11 +277,14 @@ class UserStatsView(APIView):
         except Exception:
             return False
 
-class VetsView(APIView):
+class VetsView(generics.ListAPIView):
     """List all active veterinarians."""
-    def get(self, request):
-        vets = User.objects.filter(role='veterinarian', account_status='active')
-        return Response(UserProfileSerializer(vets, many=True).data)
+    serializer_class = UserProfileSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['username', 'email', 'veterinarian_profile__clinic_name']
+
+    def get_queryset(self):
+        return User.objects.filter(role='veterinarian', account_status='active')
 
 
 class ChangePasswordDirectView(APIView):

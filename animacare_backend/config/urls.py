@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+
 
 def api_status(request):
     return JsonResponse({
@@ -21,4 +23,9 @@ urlpatterns = [
     path('api/citizens/', include('apps.citizens.urls')),
     path('api/public-health/', include('apps.public_health.urls')),
     path('api/clinical/', include('apps.clinical.urls')),
+    
+    # OpenAPI Swagger Docs
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]

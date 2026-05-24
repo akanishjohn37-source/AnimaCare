@@ -12,7 +12,6 @@ const ROLES_INFO = {
   veterinarian:  { icon: Stethoscope,label: 'Veterinary Doctor',       color: '#4ade80'  },
   shelter_admin: { icon: Building2,  label: 'Shelter Administrator',   color: '#f59e0b'  },
   civic_authority:{ icon: Map,       label: 'Civic Authority',         color: '#a78bfa'  },
-  agricultural_facility: { icon: Building2, label: 'Agricultural Facility', color: '#10b981' },
   admin:         { icon: Shield,     label: 'System Administrator',    color: '#f43f5e'  },
 };
 

@@ -22,6 +22,8 @@ const VetDashboard = () => {
   });
   const [patientHistory, setPatientHistory] = useState(null);
   const [selectedFileName, setSelectedFileName] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [selectedConsultation, setSelectedConsultation] = useState(null);
 
 
   useEffect(() => {
@@ -30,7 +32,7 @@ const VetDashboard = () => {
         const res = await authFetch('http://localhost:8000/api/clinical/appointments/');
         if (res.ok) {
           const data = await res.json();
-          setAppointments(data);
+          setAppointments(data.results || (Array.isArray(data) ? data : []));
         }
       } catch (err) {
         console.error("Vet Dashboard Error", err);
@@ -43,6 +45,7 @@ const VetDashboard = () => {
 
   useEffect(() => {
     if (selectedPatient) {
+      setShowHistory(false);
       const fetchHistory = async () => {
         try {
           const res = await authFetch(`http://localhost:8000/api/citizens/pets/${selectedPatient.pet}/medical_report/`);
@@ -313,46 +316,167 @@ const VetDashboard = () => {
             </div>
 
             <div>
-               <h3 style={{ color: '#22d3ee', fontSize: '1rem', marginBottom: '1rem' }}>Pet Health Profile</h3>
+               <h3 style={{ color: '#22d3ee', fontSize: '1rem', marginBottom: '1rem' }}>Pet / Livestock Profile</h3>
                <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
                      <img src={selectedPatient.pet_detail?.media_url || "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=150&h=150&fit=crop"} alt="Pet" style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover' }} />
                      <div>
-                        <h4 style={{ color: '#fff', margin: 0 }}>{selectedPatient.pet_detail?.name}{selectedPatient.pet_detail?.species ? ` (${selectedPatient.pet_detail.species})` : ''}</h4>
-                        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>Microchip: {selectedPatient.pet_detail?.microchip_id || 'N/A'}</p>
+                        <h4 style={{ color: '#fff', margin: 0 }}>{selectedPatient.pet_detail?.name}</h4>
+                        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+                           Microchip/RFID: {patientHistory?.pet?.rfid_tag || 'Not Registered'}
+                        </p>
                      </div>
                   </div>
-                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                     <strong>Owner's Note:</strong> {selectedPatient.reason || 'No specific concerns mentioned.'}
-                  </p>
+
+                  {patientHistory?.pet && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem', fontSize: '0.85rem' }}>
+                       <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Species:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.species}</span></div>
+                       {patientHistory.pet.breed && <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Breed:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.breed}</span></div>}
+                       {patientHistory.pet.livestock_type && <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Type:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.livestock_type}</span></div>}
+                       <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Gender:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.gender || 'N/A'}</span></div>
+                       <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>DOB:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.dob ? new Date(patientHistory.pet.dob).toLocaleDateString() : 'Unknown'}</span></div>
+                       <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Status:</span> <span style={{ color: patientHistory.pet.health_status === 'Healthy' ? '#4ade80' : '#f59e0b' }}>{patientHistory.pet.health_status}</span></div>
+                    </div>
+                  )}
+
+                  <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                     <p style={{ color: '#22d3ee', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.5rem 0', fontWeight: 600 }}>Owner's Stated Reason for Visit</p>
+                     <p style={{ color: '#fff', fontSize: '0.85rem', lineHeight: 1.5, margin: 0 }}>
+                        {selectedPatient.reason || 'No specific concerns mentioned.'}
+                     </p>
+                  </div>
                </div>
 
-               <Link 
-                to={`/medical/${selectedPatient.pet}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#22d3ee', textDecoration: 'none', fontSize: '0.9rem', marginBottom: '1.5rem', fontWeight: 600 }}
+               <button 
+                onClick={() => setShowHistory(!showHistory)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#22d3ee', textDecoration: 'none', fontSize: '0.9rem', marginBottom: '1.5rem', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                >
-                 <ImageIcon size={18} /> View Full Diagnostic History <ChevronRight size={16} />
-               </Link>
+                 <ImageIcon size={18} /> View Full Diagnostic History <ChevronRight size={16} style={{ transform: showHistory ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+               </button>
                
-               <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 12, padding: '1.5rem', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <h4 style={{ color: '#fff', fontSize: '0.9rem', marginBottom: '1rem' }}>Previous Consultations</h4>
-                  {patientHistory && patientHistory.medical_history && patientHistory.medical_history.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                          {patientHistory.medical_history.slice(0, 3).map(log => (
-                              <div key={log.id} style={{ borderLeft: '3px solid #8b5cf6', paddingLeft: '1rem' }}>
-                                  <p style={{ color: '#fff', fontSize: '0.85rem', margin: '0 0 0.25rem 0' }}>{new Date(log.date).toLocaleDateString()} - Dr. {log.vet_name}</p>
-                                  <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{log.consultation_notes || 'No notes provided.'}</p>
-                              </div>
-                          ))}
-                      </div>
-                  ) : (
-                      <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem', textAlign: 'center', padding: '1rem 0' }}>
-                         No previous clinical records found.
-                      </p>
-                  )}
-               </div>
+               {showHistory && patientHistory ? (
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    {/* Vet Consultations */}
+                    <div>
+                        <h4 style={{ color: '#4ade80', fontSize: '0.95rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Activity size={18} /> Clinical Encounters (Veterinarian)
+                        </h4>
+                        {patientHistory.medical_history && patientHistory.medical_history.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {patientHistory.medical_history.map(log => (
+                                    <div 
+                                      key={`med-${log.id}`} 
+                                      className="glass-panel" 
+                                      style={{ padding: '1.25rem', borderLeft: '4px solid #4ade80', cursor: 'pointer' }}
+                                      onClick={() => setSelectedConsultation(log)}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                            <span style={{ color: '#fff', fontWeight: 600, fontSize: '0.9rem' }}>Dr. {log.vet_name || 'Veterinarian'}</span>
+                                            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>{new Date(log.date).toLocaleDateString()}</span>
+                                        </div>
+                                        {log.vital_signs && (
+                                            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', margin: '0 0 0.75rem 0' }}>
+                                                Vitals: {log.vital_signs.weight ? `${log.vital_signs.weight}kg` : ''} {log.vital_signs.temp ? `| ${log.vital_signs.temp}°C` : ''}
+                                            </p>
+                                        )}
+                                        <p style={{ color: '#fff', fontSize: '0.85rem', margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                            {log.consultation_notes || 'No notes provided.'}
+                                        </p>
+                                        <p style={{ color: '#4ade80', fontSize: '0.75rem', margin: '0.75rem 0 0 0', fontWeight: 600 }}>Click to view details</p>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center' }}>
+                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', margin: 0 }}>No previous clinical records found.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Owner Self Reports */}
+                    <div>
+                        <h4 style={{ color: '#8b5cf6', fontSize: '0.95rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Users size={18} /> Self-Reported Details (Owner)
+                        </h4>
+                        {patientHistory.self_reports && patientHistory.self_reports.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {patientHistory.self_reports.map(report => (
+                                    <div key={`self-${report.id}`} className="glass-panel" style={{ padding: '1.25rem', borderLeft: '4px solid #8b5cf6' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                            <span style={{ color: '#fff', fontWeight: 600, fontSize: '0.9rem' }}>{report.title}</span>
+                                            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>{new Date(report.date).toLocaleDateString()}</span>
+                                        </div>
+                                        <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', margin: 0, lineHeight: 1.5 }}>{report.description || 'No description provided.'}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center' }}>
+                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', margin: 0 }}>No self-reported details found.</p>
+                            </div>
+                        )}
+                    </div>
+                 </div>
+               ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Consultation Details Modal */}
+      {selectedConsultation && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: 600, maxHeight: '90vh', overflowY: 'auto', padding: '2rem', position: 'relative' }}>
+            <button onClick={() => setSelectedConsultation(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
+              <X size={24} />
+            </button>
+            
+            <h2 style={{ color: '#4ade80', marginTop: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Activity size={24} /> Consultation Details
+            </h2>
+            
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', margin: '0 0 0.5rem 0' }}>Date: <span style={{ color: '#fff' }}>{new Date(selectedConsultation.date).toLocaleDateString()}</span></p>
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', margin: '0 0 0.5rem 0' }}>Attending Vet: <span style={{ color: '#fff' }}>Dr. {selectedConsultation.vet_name || 'Veterinarian'}</span></p>
+            </div>
+
+            <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: 8, marginBottom: '1.5rem' }}>
+              <h4 style={{ color: '#fff', margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>Vital Signs</h4>
+              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', margin: 0 }}>
+                {selectedConsultation.vital_signs ? 
+                  `Weight: ${selectedConsultation.vital_signs.weight || 'N/A'}kg | Temp: ${selectedConsultation.vital_signs.temp || 'N/A'}°C` 
+                  : 'No vitals recorded.'}
+              </p>
+            </div>
+
+            <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: 8, marginBottom: '1.5rem' }}>
+              <h4 style={{ color: '#fff', margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>Consultation Notes</h4>
+              <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-wrap' }}>
+                {selectedConsultation.consultation_notes || 'No notes provided.'}
+              </p>
+            </div>
+
+            {selectedConsultation.zoonotic_disease_flag && (
+              <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '1rem', borderRadius: 8, marginBottom: '1.5rem' }}>
+                <h4 style={{ color: '#ef4444', margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>⚠️ Civic Alert</h4>
+                <p style={{ color: '#fff', fontSize: '0.85rem', margin: 0 }}>{selectedConsultation.zoonotic_disease_flag}</p>
+              </div>
+            )}
+
+            <div>
+              <h4 style={{ color: '#fff', margin: '0 0 1rem 0', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <ImageIcon size={18} color="#22d3ee" /> Diagnostic Media
+              </h4>
+              {selectedConsultation.media_url ? (
+                <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <img src={selectedConsultation.media_url} alt="Diagnostic Media" style={{ width: '100%', display: 'block' }} />
+                </div>
+              ) : (
+                <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px dashed rgba(255,255,255,0.1)' }}>
+                  <ImageIcon size={32} color="rgba(255,255,255,0.2)" style={{ margin: '0 auto 0.5rem' }} />
+                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', margin: 0 }}>No diagnostic images available for this consultation.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

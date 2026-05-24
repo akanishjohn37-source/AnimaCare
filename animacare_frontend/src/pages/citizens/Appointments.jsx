@@ -35,9 +35,9 @@ const Appointments = () => {
           authFetch('http://localhost:8000/api/citizens/pets/')
         ]);
         
-        if (apptsRes.ok) setAppointments(await apptsRes.json());
-        if (vetsRes.ok) setVets(await vetsRes.json());
-        if (petsRes.ok) setPets(await petsRes.json());
+        if (apptsRes.ok) { const d = await apptsRes.json(); setAppointments(d.results || (Array.isArray(d) ? d : [])); }
+        if (vetsRes.ok) { const d = await vetsRes.json(); setVets(d.results || (Array.isArray(d) ? d : [])); }
+        if (petsRes.ok) { const d = await petsRes.json(); setPets(d.results || (Array.isArray(d) ? d : [])); }
       } catch (err) {
         console.error("Fetch data error", err);
       } finally {

@@ -75,6 +75,9 @@ const SuperAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('health');
   const [pendingUsers, setPendingUsers] = useState([]);
   const [allUsers, setAllUsers]         = useState([]);
+  const [usersPagination, setUsersPagination] = useState({ count: 0, next: null, previous: null });
+  const [usersPage, setUsersPage]       = useState(1);
+  const [searchQuery, setSearchQuery]   = useState('');
   const [stats, setStats]               = useState(null);
   const [loading, setLoading]           = useState(false);
   const [actionNote, setActionNote]     = useState({});
@@ -88,19 +91,30 @@ const SuperAdminDashboard = () => {
     try {
       const res = await fetch(`${API}/admin/users/pending/`, { headers: authHeaders });
       const data = await res.json();
-      setPendingUsers(Array.isArray(data) ? data : []);
+      // Handle both unpaginated and paginated (if applied globally)
+      setPendingUsers(data.results ? data.results : (Array.isArray(data) ? data : []));
     } catch {}
   }, [token]);
 
   const fetchAllUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/admin/users/`, { headers: authHeaders });
+      const url = new URL(`${API}/admin/users/`);
+      url.searchParams.set('page', usersPage);
+      if (searchQuery) url.searchParams.set('search', searchQuery);
+      
+      const res = await fetch(url, { headers: authHeaders });
       const data = await res.json();
-      setAllUsers(Array.isArray(data) ? data : []);
+      
+      if (data.results) {
+        setAllUsers(data.results);
+        setUsersPagination({ count: data.count, next: data.next, previous: data.previous });
+      } else {
+        setAllUsers(Array.isArray(data) ? data : []);
+      }
     } catch {}
     setLoading(false);
-  }, [token]);
+  }, [token, usersPage, searchQuery]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -313,6 +327,21 @@ const SuperAdminDashboard = () => {
         {activeTab === 'users' && (
           <section className="dashboard-section fade-in">
             <h2>RBAC User Management</h2>
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+              <input 
+                type="text" 
+                placeholder="Search users..." 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && setUsersPage(1) && fetchAllUsers()}
+                style={{
+                  flex: 1, background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
+                  padding: '0.55rem 0.85rem', color: '#fff', fontSize: '0.85rem',
+                }}
+              />
+              <button className="btn-primary" onClick={() => { setUsersPage(1); fetchAllUsers(); }}>Search</button>
+            </div>
             {loading ? (
               <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.3)' }}>Loading users…</div>
             ) : (
@@ -357,6 +386,23 @@ const SuperAdminDashboard = () => {
                     ))}
                   </tbody>
                 </table>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', color: 'rgba(255,255,255,0.5)' }}>
+                  <button 
+                    disabled={!usersPagination.previous} 
+                    onClick={() => setUsersPage(p => Math.max(1, p - 1))}
+                    style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', padding: '0.3rem 0.8rem', color: '#fff', borderRadius: 4, cursor: usersPagination.previous ? 'pointer' : 'not-allowed', opacity: usersPagination.previous ? 1 : 0.5 }}
+                  >
+                    Previous
+                  </button>
+                  <span>Page {usersPage} (Total: {usersPagination.count})</span>
+                  <button 
+                    disabled={!usersPagination.next} 
+                    onClick={() => setUsersPage(p => p + 1)}
+                    style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', padding: '0.3rem 0.8rem', color: '#fff', borderRadius: 4, cursor: usersPagination.next ? 'pointer' : 'not-allowed', opacity: usersPagination.next ? 1 : 0.5 }}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </section>

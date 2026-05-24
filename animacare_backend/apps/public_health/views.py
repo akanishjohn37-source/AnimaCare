@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from apps.users.models import Notification
+from apps.public_health.tasks import send_mass_broadcast_task
 from django.conf import settings
 import jwt
 import random
@@ -52,38 +53,12 @@ class BroadcastAlertView(APIView):
         if not polygon or not message:
             return Response({"error": "Polygon coordinates and message are required."}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Determine target users based on group
-        target_users = User.objects.none()
-        
-        # Note: In a production PostGIS setup, we would append a spatial filter here:
-        # e.g., location__within=polygon_obj
-        
-        if target_group == "all_citizens":
-            target_users = User.objects.filter(role='citizen')
-        elif target_group == "pet_owners":
-            target_users = User.objects.filter(role='citizen', pets__isnull=False).distinct()
-        elif target_group == "agricultural":
-            target_users = User.objects.filter(role='agricultural_facility')
-            
-        estimated_reach = target_users.count()
-        
-        # Create actual notifications for targeted users
-        notifications = []
-        for u in target_users:
-            notifications.append(
-                Notification(
-                    recipient=u,
-                    title="CIVIC HEALTH ALERT",
-                    message=message
-                )
-            )
-            
-        if notifications:
-            Notification.objects.bulk_create(notifications)
+        # Offload mass notification creation to background Celery task
+        send_mass_broadcast_task.delay(message, target_group)
         
         return Response({
-            "message": "Broadcast triggered successfully. Alerts sent.", 
-            "estimated_reach": estimated_reach
+            "message": "Broadcast triggered successfully. Alerts are being processed in the background.", 
+            "status": "Processing"
         })
 
 class PublicHealthAnalyticsView(APIView):

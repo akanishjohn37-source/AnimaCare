@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import SOSAlert, Pet
+from .models import SOSAlert, Pet, Livestock
 
 class SOSAlertSerializer(serializers.ModelSerializer):
     reporter_name = serializers.CharField(source='reporter.username', read_only=True)
@@ -12,5 +12,11 @@ class SOSAlertSerializer(serializers.ModelSerializer):
 class PetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pet
+        fields = '__all__'
+        read_only_fields = ('owner',)
+
+class LivestockSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Livestock
         fields = '__all__'
         read_only_fields = ('owner',)

@@ -38,7 +38,8 @@ const AdoptionPortal = () => {
       const res = await authFetch(url);
       if (res.ok) {
         const data = await res.json();
-        setPortalAnimals(data.map(animal => ({
+        const results = data.results ? data.results : (Array.isArray(data) ? data : []);
+        setPortalAnimals(results.map(animal => ({
           ...animal,
           likes: animal.likes || Math.floor(Math.random() * 50) + 10,
           shelterName: animal.shelter_name || 'Verified Shelter'
@@ -58,10 +59,11 @@ const AdoptionPortal = () => {
       authFetch('http://localhost:8000/api/shelter/applications/')
         .then(res => res.json())
         .then(data => {
-           if (Array.isArray(data)) {
-             const activeApps = data.filter(app => app.status !== 'Rejected' && app.status !== 'Cancelled');
+           const results = data.results ? data.results : (Array.isArray(data) ? data : []);
+           if (Array.isArray(results)) {
+             const activeApps = results.filter(app => app.status !== 'Rejected' && app.status !== 'Cancelled');
              setAppliedIds(activeApps.map(app => app.animal_detail?.id || app.animal));
-             setUserApplications(data);
+             setUserApplications(results);
            }
         })
         .catch(err => console.error("Error fetching applications", err));

@@ -104,27 +104,27 @@ function App() {
 
                   {/* ── Citizen routes ─────────────────────────── */}
                   <Route path="/dashboard" element={
-                    <ProtectedRoute roles={['citizen', 'agricultural_facility']}>
+                    <ProtectedRoute roles={['citizen']}>
                       <Dashboard />
                     </ProtectedRoute>
                   } />
                   <Route path="/pet/new" element={
-                    <ProtectedRoute roles={['citizen', 'agricultural_facility']}>
+                    <ProtectedRoute roles={['citizen']}>
                       <PetPassportForm />
                     </ProtectedRoute>
                   } />
                   <Route path="/pet/edit/:id" element={
-                    <ProtectedRoute roles={['citizen', 'agricultural_facility']}>
+                    <ProtectedRoute roles={['citizen']}>
                       <PetPassportForm />
                     </ProtectedRoute>
                   } />
                   <Route path="/medical/:petId" element={
-                    <ProtectedRoute roles={['citizen', 'veterinarian', 'agricultural_facility']}>
+                    <ProtectedRoute roles={['citizen', 'veterinarian']}>
                       <MedicalViewer />
                     </ProtectedRoute>
                   } />
                   <Route path="/medical/all" element={
-                    <ProtectedRoute roles={['citizen', 'veterinarian', 'agricultural_facility']}>
+                    <ProtectedRoute roles={['citizen', 'veterinarian']}>
                       <MedicalViewer />
                     </ProtectedRoute>
                   } />
@@ -134,7 +134,7 @@ function App() {
                     </ProtectedRoute>
                   } />
                   <Route path="/sos" element={
-                    <ProtectedRoute roles={['citizen', 'shelter_admin', 'agricultural_facility']}>
+                    <ProtectedRoute roles={['citizen', 'shelter_admin']}>
                       <SOSMap />
                     </ProtectedRoute>
                   } />

@@ -1,14 +1,18 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
-from .models import SOSAlert, Pet
-from .serializers import SOSAlertSerializer, PetSerializer
+from .models import SOSAlert, Pet, Livestock
+from .serializers import SOSAlertSerializer, PetSerializer, LivestockSerializer
 from apps.shelter.models import Shelter
 
 class SOSAlertViewSet(viewsets.ModelViewSet):
     queryset = SOSAlert.objects.all()
     serializer_class = SOSAlertSerializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['status', 'is_resolved']
+    ordering_fields = ['timestamp']
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def nearby(self, request):
@@ -67,18 +71,38 @@ class SOSAlertViewSet(viewsets.ModelViewSet):
         lat = data.get('lat')
         lng = data.get('lng')
         
+        alert_type = data.get('alert_type', 'rescue')
         if lat and lng:
             location = f"{lat},{lng}"
             sos = SOSAlert.objects.create(
                 reporter_id=data.get('reporter'),
                 animal_description=data.get('animal_description'),
-                location=location
+                location=location,
+                alert_type=alert_type
             )
             # Find shelters nearby (dummy mock for non-GIS local dev)
             nearby_shelters = Shelter.objects.filter(is_verified=True)[:5]
             
             shelters_contacted = [s.id for s in nearby_shelters]
-            # In a real scenario, we send websocket signals to those shelters
+            
+            # Send websocket signal to the shelters group
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                'shelters_group',
+                {
+                    'type': 'sos_alert',
+                    'alert_data': {
+                        'id': sos.id,
+                        'animal_description': sos.animal_description,
+                        'location': sos.location,
+                        'timestamp': str(sos.timestamp),
+                        'status': sos.status,
+                        'alert_type': sos.alert_type
+                    }
+                }
+            )
             
             return Response({'message': 'SOS routed successfully.', 'contacted_shelters': shelters_contacted}, status=status.HTTP_201_CREATED)
         else:
@@ -88,6 +112,9 @@ class PetViewSet(viewsets.ModelViewSet):
     queryset = Pet.objects.all()
     serializer_class = PetSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['species']
+    search_fields = ['name', 'breed']
 
     def get_queryset(self):
         # Only return pets belonging to the logged-in user
@@ -101,7 +128,8 @@ class PetViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def medical_report(self, request, pk=None):
-        pet = self.get_object()
+        from django.shortcuts import get_object_or_404
+        pet = get_object_or_404(Pet, pk=pk)
         user = request.user
         
         # Owners can always see their pets
@@ -128,3 +156,19 @@ class PetViewSet(viewsets.ModelViewSet):
             "self_reports": SelfReportedRecordSerializer(self_reports, many=True).data
         })
 
+class LivestockViewSet(viewsets.ModelViewSet):
+    queryset = Livestock.objects.all()
+    serializer_class = LivestockSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['livestock_type']
+    search_fields = ['name', 'livestock_type']
+
+    def get_queryset(self):
+        # Only return livestocks belonging to the logged-in user
+        if getattr(self, 'swagger_fake_view', False):
+            return self.queryset.none()
+        return self.queryset.filter(owner=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)

@@ -6,6 +6,8 @@ from apps.users.models import User
 from apps.shelter.models import AnimalInventory
 from apps.governance.models import AuditTrail
 from apps.governance.serializers import UserAdminSerializer, AuditTrailSerializer
+import psutil
+import os
 
 class PendingUsersView(APIView):
     def get(self, request):
@@ -61,15 +63,18 @@ class SystemHealthView(APIView):
     def get(self, request):
         if not request.user.is_superuser:
             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+        # Real metrics for dashboard
+        cpu_usage = psutil.cpu_percent(interval=0.1)
+        memory = psutil.virtual_memory()
         
-        # Mock metrics for dashboard
         return Response({
             "metrics": {
                 "active_users": User.objects.filter(is_active=True).count(),
                 "pending_approvals": User.objects.filter(account_status='Pending').count(),
                 "suspended_listings": AnimalInventory.objects.filter(is_suspended=True).count(),
-                "api_latency_ms": 42,
-                "s3_storage_gb": 12.5,
+                "cpu_usage_percent": cpu_usage,
+                "memory_usage_percent": memory.percent,
+                "api_latency_ms": 42, # Mocked latency
                 "db_health": "Optimal"
             }
         })
