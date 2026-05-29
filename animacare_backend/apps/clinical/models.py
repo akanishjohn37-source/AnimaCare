@@ -97,3 +97,47 @@ class SelfReportedRecord(models.Model):
         return f"Self-Report: {self.title} for {self.pet.name}"
 
 
+class VaccinationSchedule(models.Model):
+    TRACK_CHOICES = (
+        ('puppy', 'Puppy Track'),
+        ('kitten', 'Kitten Track'),
+        ('cattle', 'Cattle Track'),
+        ('small_ruminant', 'Small Ruminant Track'),
+        ('poultry', 'Poultry Track'),
+        ('equine', 'Equine Track'),
+        ('custom', 'Custom Track'),
+    )
+    pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name='vaccination_schedules', null=True, blank=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='vaccination_schedules')
+    animal_name = models.CharField(max_length=100)
+    animal_type = models.CharField(max_length=50)
+    gender = models.CharField(max_length=20, blank=True, null=True)
+    date_of_birth = models.DateField()
+    track = models.CharField(max_length=20, choices=TRACK_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Schedule for {self.animal_name} ({self.track})"
+
+
+class VaccinationScheduleItem(models.Model):
+    ITEM_TYPE_CHOICES = (
+        ('vaccine', 'Vaccine'),
+        ('deworming', 'Deworming'),
+        ('annual', 'Annual Booster'),
+        ('seasonal', 'Seasonal Alert'),
+    )
+    schedule = models.ForeignKey(VaccinationSchedule, on_delete=models.CASCADE, related_name='items')
+    item_type = models.CharField(max_length=20, choices=ITEM_TYPE_CHOICES, default='vaccine')
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    scheduled_date = models.DateField()
+    is_completed = models.BooleanField(default=False)
+    notification_sent = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['scheduled_date']
+
+    def __str__(self):
+        return f"{self.title} on {self.scheduled_date}"
+

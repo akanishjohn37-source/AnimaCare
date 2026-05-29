@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ConsultationLog, VaccinationLog, DigitalPrescription, DiagnosticMedia, Appointment, SelfReportedRecord
+from .models import ConsultationLog, VaccinationLog, DigitalPrescription, DiagnosticMedia, Appointment, SelfReportedRecord, VaccinationSchedule, VaccinationScheduleItem
 from apps.citizens.serializers import PetSerializer
 
 class VaccinationLogSerializer(serializers.ModelSerializer):
@@ -45,3 +45,16 @@ class SelfReportedRecordSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class VaccinationScheduleItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VaccinationScheduleItem
+        fields = '__all__'
+
+
+class VaccinationScheduleSerializer(serializers.ModelSerializer):
+    items = VaccinationScheduleItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = VaccinationSchedule
+        fields = '__all__'
+        read_only_fields = ['owner', 'track']

@@ -203,8 +203,11 @@ class ApproveUserView(APIView):
             user.approval_note = note
             user.save()
             return Response({"message": f"User {user.username} suspended."})
+        elif action == 'delete':
+            user.delete()
+            return Response({"message": f"User {user.username} deleted permanently."})
         else:
-            return Response({"error": "Invalid action. Use 'approve', 'reject', or 'suspend'."}, status=400)
+            return Response({"error": "Invalid action. Use 'approve', 'reject', 'suspend', or 'delete'."}, status=400)
 
     def _is_admin(self, request):
         auth_header = request.headers.get('Authorization', '')
@@ -223,7 +226,7 @@ class AllUsersView(generics.ListAPIView):
     serializer_class = UserAdminSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['role', 'account_status']
-    search_fields = ['username', 'email']
+    search_fields = ['username', 'email', 'first_name', 'last_name']
     ordering_fields = ['date_joined']
 
     def get_queryset(self):

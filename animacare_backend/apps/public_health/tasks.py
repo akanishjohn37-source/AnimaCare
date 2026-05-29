@@ -9,12 +9,14 @@ def send_mass_broadcast_task(message, target_group):
     # Determine target users based on group
     target_users = User.objects.none()
     
-    if target_group == "all_citizens":
+    if target_group == "all_users":
+        target_users = User.objects.filter(role__in=['citizen', 'veterinarian', 'shelter_admin'])
+    elif target_group == "citizen":
         target_users = User.objects.filter(role='citizen')
-    elif target_group == "pet_owners":
-        target_users = User.objects.filter(role='citizen', pets__isnull=False).distinct()
-    elif target_group == "agricultural":
-        target_users = User.objects.filter(role='citizen', livestock__isnull=False).distinct()
+    elif target_group == "veterinarian":
+        target_users = User.objects.filter(role='veterinarian')
+    elif target_group == "shelter_admin":
+        target_users = User.objects.filter(role='shelter_admin')
         
     estimated_reach = target_users.count()
     

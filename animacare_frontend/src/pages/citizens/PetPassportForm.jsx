@@ -14,6 +14,7 @@ const PetSchema = Yup.object().shape({
   livestock_type: Yup.string().when('isLivestock', { is: true, then: () => Yup.string().required('Livestock type is required') }),
   herd_size: Yup.number().when('isLivestock', { is: true, then: () => Yup.number().min(1).required('Herd size is required') }),
   gender: Yup.string().required('Gender is required'),
+  health_status: Yup.string().required('Health status is required'),
   dob: Yup.date().max(new Date(), 'Date cannot be in the future').required('Date is required'),
   microchipId: Yup.string().matches(/^[0-9]*$/, 'Must contain only digits').max(15, 'Cannot exceed 15 digits'),
 });
@@ -44,7 +45,7 @@ const PetPassportForm = () => {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [initialData, setInitialData] = useState({ 
     name: '', species: '', breed: '', gender: '', dob: '', microchipId: '',
-    livestock_type: '', herd_size: 1, farm_location: ''
+    livestock_type: '', herd_size: 1, farm_location: '', health_status: 'Healthy'
   });
   const [isFetching, setIsFetching] = useState(false);
   const { id } = useParams();
@@ -74,7 +75,8 @@ const PetPassportForm = () => {
             microchipId: data.rfid_tag || '',
             livestock_type: data.livestock_type || '',
             herd_size: data.herd_size || 1,
-            farm_location: data.farm_location || ''
+            farm_location: data.farm_location || '',
+            health_status: data.health_status || 'Healthy'
           });
           if (data.media_url) setAvatarPreview(data.media_url);
         })
@@ -103,6 +105,7 @@ const PetPassportForm = () => {
               species: values.species,
               gender: values.gender,
               dob: values.dob,
+              health_status: values.health_status,
             };
             if (!isLivestock) {
               data.breed = values.breed;
@@ -232,6 +235,18 @@ const PetPassportForm = () => {
                 <label className="form-label">Date of Birth / Foundation *</label>
                 <Field type="date" name="dob" className="form-control" max={new Date().toISOString().split('T')[0]} />
                 <ErrorMessage name="dob" component="div" className="form-error" />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Health Status *</label>
+                <Field as="select" name="health_status" className="form-control">
+                  <option value="Healthy">Healthy</option>
+                  <option value="Injured">Injured</option>
+                  <option value="Sick">Sick</option>
+                  <option value="Critical">Critical</option>
+                  <option value="Unknown">Unknown</option>
+                </Field>
+                <ErrorMessage name="health_status" component="div" className="form-error" />
               </div>
 
               <div className="form-group">

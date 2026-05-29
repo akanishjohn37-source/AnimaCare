@@ -1,8 +1,9 @@
 from django.urls import path
-from .views import ZoonoticHeatmapView, BroadcastAlertView, PublicHealthAnalyticsView
+from .views import ZoonoticHeatmapView, BroadcastAlertView, PublicHealthAnalyticsView, MLPredictionView
 
 urlpatterns = [
     path('heatmap/', ZoonoticHeatmapView.as_view(), name='zoonotic-heatmap'),
     path('broadcast/', BroadcastAlertView.as_view(), name='civic-broadcast'),
     path('analytics/', PublicHealthAnalyticsView.as_view(), name='health-analytics'),
+    path('ml-predictions/', MLPredictionView.as_view(), name='ml-predictions'),
 ]

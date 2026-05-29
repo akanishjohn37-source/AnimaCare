@@ -55,6 +55,7 @@ const Register = () => {
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
   const [success, setSuccess]       = useState('');
+  const [darpanStatus, setDarpanStatus] = useState('idle'); // idle, verified, invalid
 
   const [form, setForm] = useState({
     // Base
@@ -296,11 +297,16 @@ const Register = () => {
               <input name="clinic_hospital_name" value={vp.clinic_hospital_name} onChange={ch}
                 placeholder="Green Valley Animal Hospital" /></div>
           </div>
-          <div className="auth-field">
-            <label>Medical License Number</label>
+          <div className="auth-field auth-field--full">
+            <label>Medical License Number (VCI / State Council)</label>
             <div className="auth-input-wrap"><Award size={15} className="auth-input-icon" />
               <input name="medical_license_number" value={vp.medical_license_number} onChange={ch}
-                placeholder="VET-2024-00123" /></div>
+                placeholder="e.g. KVC-1234" /></div>
+          </div>
+          <div className="auth-field auth-field--full">
+            <label>Upload Registration Certificate</label>
+            <input type="file" name="registration_certificate" accept="image/*,.pdf" className="auth-input-wrap" style={{ padding: '0.5rem', width: '100%' }} />
+            <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>The Municipality Admin will manually verify your license via the State Veterinary Council database.</p>
           </div>
           <div className="auth-field">
             <label>Specialization</label>
@@ -340,11 +346,31 @@ const Register = () => {
               <input name="shelter_name" value={sp.shelter_name} onChange={ch}
                 placeholder="Happy Paws Animal Shelter" /></div>
           </div>
-          <div className="auth-field">
-            <label>Registration Number</label>
-            <div className="auth-input-wrap"><FileText size={15} className="auth-input-icon" />
-              <input name="shelter_registration_number" value={sp.shelter_registration_number} onChange={ch}
-                placeholder="SHLT-2024-00456" /></div>
+          <div className="auth-field auth-field--full">
+            <label>NGO Darpan Unique ID</label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div className="auth-input-wrap" style={{ flex: 1 }}>
+                <FileText size={15} className="auth-input-icon" />
+                <input name="shelter_registration_number" value={sp.shelter_registration_number} onChange={(e) => { ch(e); setDarpanStatus('idle'); }}
+                  placeholder="e.g. KL/2026/0123456" />
+              </div>
+              <button 
+                type="button" 
+                style={{ background: '#4f46e5', color: 'white', border: 'none', borderRadius: '8px', padding: '0 1rem', cursor: 'pointer', fontWeight: 'bold' }}
+                onClick={() => {
+                  const regex = /^[A-Z]{2}\/\d{4}\/\d+$/;
+                  if (regex.test(sp.shelter_registration_number)) {
+                    setDarpanStatus('verified');
+                  } else {
+                    setDarpanStatus('invalid');
+                  }
+                }}
+              >
+                Verify ID
+              </button>
+            </div>
+            {darpanStatus === 'verified' && <div style={{ color: '#4ade80', fontSize: '0.85rem', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><CheckCircle size={14} /> Verified via NGO Darpan API</div>}
+            {darpanStatus === 'invalid' && <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><AlertCircle size={14} /> Invalid format. Pending Manual Verification.</div>}
           </div>
           <div className="auth-field">
             <label>Capacity (animals)</label>

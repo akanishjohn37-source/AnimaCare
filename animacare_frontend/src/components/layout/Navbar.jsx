@@ -5,7 +5,7 @@ import {
   Activity, User, AlertCircle, Heart, FileText,
   Map, Shield, Stethoscope, Building2, LogOut,
   ChevronDown, LayoutDashboard, BookOpen, ClipboardList,
-  BarChart2, PlusCircle, Bell
+  BarChart2, PlusCircle, Bell, Calendar
 } from 'lucide-react';
 import './Navbar.css';
 
@@ -21,6 +21,7 @@ const NAV_MAP = {
 
   veterinarian: [
     { to: '/vet-dashboard',     icon: LayoutDashboard, label: 'Clinical Portal' },
+    { to: '/vaccination-scheduler', icon: Calendar, label: 'Vaccines' },
     { to: '/predictive-health', icon: BarChart2,        label: 'Analytics'    },
   ],
   shelter_admin: [
@@ -29,7 +30,7 @@ const NAV_MAP = {
   ],
   civic_authority: [
     { to: '/civic-dashboard',   icon: Map,             label: 'Civic Portal' },
-    { to: '/predictive-health', icon: BarChart2,        label: 'Analytics'   },
+    { to: '/civic-analytics',   icon: BarChart2,        label: 'Analytics'   },
   ],
   admin: [
     { to: '/superadmin',        icon: Shield,          label: 'Admin Panel'  },
@@ -144,6 +145,7 @@ const Navbar = () => {
             <NavLink
               key={to}
               to={to}
+              end={to === '/superadmin'}
               className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
             >
               <Icon size={18} />

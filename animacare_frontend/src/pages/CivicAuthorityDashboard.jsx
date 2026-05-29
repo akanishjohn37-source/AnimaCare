@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
-import { Activity, ShieldAlert, Users, TrendingUp, Download, Radio, Map as MapIcon, Database } from 'lucide-react';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+
+const ChangeView = ({ center, zoom }) => {
+  const map = useMap();
+  map.setView(center, zoom);
+  return null;
+}
+
+import { Activity, ShieldAlert, Users, TrendingUp, Download, Radio, Map as MapIcon, Database, MapPin, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 import 'leaflet/dist/leaflet.css';
@@ -19,26 +26,75 @@ const CivicAuthorityDashboard = () => {
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [diseaseFilter, setDiseaseFilter] = useState('Rabies');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
-  const [targetGroup, setTargetGroup] = useState('all_citizens');
+  const [targetGroup, setTargetGroup] = useState('all_users');
+  const [liveReports, setLiveReports] = useState([]);
+  const [mapCenter, setMapCenter] = useState([10.8505, 76.2711]);
+  const [mapZoom, setMapZoom] = useState(8);
+  const [selectedReport, setSelectedReport] = useState(null);
+  
+  // Deletion Modal State
+  const [deletingReportId, setDeletingReportId] = useState(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteDetails, setDeleteDetails] = useState('');
   
   const { authFetch } = useAuth();
   
   // Livestock Data
-  const [rowData] = useState([
-    { id: 'LIV-8821', species: 'Bovine', location: 'Palakkad District', status: 'Healthy', tags: '12', lastChecked: '2026-04-01' },
-    { id: 'LIV-8822', species: 'Avian', location: 'Kozhikode North', status: 'Quarantine', tags: '450', lastChecked: '2026-04-03' },
-    { id: 'WLD-0091', species: 'Canine (Wild)', location: 'Wayanad Forest', status: 'Monitored', tags: '1', lastChecked: '2026-04-05' },
-    { id: 'LIV-8823', species: 'Porcine', location: 'Idukki Range', status: 'Healthy', tags: '80', lastChecked: '2026-04-02' },
-    { id: 'WLD-0092', species: 'Feline (Feral)', location: 'Kochi Urban', status: 'At Risk', tags: '5', lastChecked: '2026-04-06' },
-    { id: 'LIV-8824', species: 'Equine', location: 'Thiruvananthapuram', status: 'Healthy', tags: '8', lastChecked: '2026-03-29' },
-  ]);
+  const [rowData, setRowData] = useState([]);
 
   useEffect(() => {
+    // Fetch live reports from SOS endpoint
+    authFetch('http://127.0.0.1:8000/api/citizens/sos/')
+      .then(res => res.json())
+      .then(data => {
+        // Handle pagination response or array response
+        const reportsData = Array.isArray(data) ? data : data.results || [];
+        // Map backend SOS alerts to report format
+        const formattedReports = reportsData.map(alert => {
+          let typeLabel = 'Rescue Needed';
+          if (alert.alert_type === 'disease_report') typeLabel = 'Disease Sighted';
+          if (alert.alert_type === 'disaster') typeLabel = 'Disaster';
+          
+          let lat = 'Unknown', lng = 'Unknown';
+          if (alert.location && alert.location.includes(',')) {
+            const parts = alert.location.split(',');
+            lat = parseFloat(parts[0]).toFixed(3);
+            lng = parseFloat(parts[1]).toFixed(3);
+          }
+
+          // Calculate time ago
+          const timeDiff = new Date() - new Date(alert.timestamp);
+          const minutesAgo = Math.floor(timeDiff / 60000);
+          const hoursAgo = Math.floor(minutesAgo / 60);
+          const daysAgo = Math.floor(hoursAgo / 24);
+          
+          let timeStr;
+          if (minutesAgo < 60) timeStr = `${minutesAgo} mins ago`;
+          else if (hoursAgo < 24) timeStr = `${hoursAgo} hrs ago`;
+          else timeStr = `${daysAgo} days ago`;
+
+          return {
+            id: alert.id,
+            type: typeLabel,
+            desc: alert.animal_description || 'No description provided.',
+            time: timeStr,
+            lat,
+            lng,
+            reporterName: alert.reporter_name || 'Anonymous Citizen'
+          };
+        });
+        
+        // Sort by newest first
+        setLiveReports(formattedReports);
+      })
+      .catch(err => console.error("Error fetching live reports:", err));
+
     // Fetch analytics metrics
     authFetch('http://127.0.0.1:8000/api/public-health/analytics/')
     .then(res => res.json())
     .then(data => {
       if (data.metrics) setMetrics(data.metrics);
+      if (data.livestock_registry) setRowData(data.livestock_registry);
     }).catch(err => {
       console.error(err);
       // Fallback
@@ -51,7 +107,7 @@ const CivicAuthorityDashboard = () => {
     });
 
     fetchHeatmap(diseaseFilter);
-  }, [diseaseFilter]);
+  }, [diseaseFilter, authFetch]);
 
   const fetchHeatmap = (disease) => {
     authFetch(`http://127.0.0.1:8000/api/public-health/heatmap/?disease=${disease}`)
@@ -60,15 +116,7 @@ const CivicAuthorityDashboard = () => {
       if (data.heatmap_data) setHeatmapData(data.heatmap_data);
     }).catch(err => {
       console.error(err);
-      // Mock Data if API fails
-      const mockPoints = Array.from({length: 15}).map((_, i) => ({
-        latitude: 10.8505 + (Math.random() - 0.5) * 0.8,
-        longitude: 76.2711 + (Math.random() - 0.5) * 0.8,
-        intensity: Math.floor(Math.random() * 8) + 2,
-        disease: disease,
-        anonymized_region: `Zone-${Math.floor(Math.random() * 5) + 1}`
-      }));
-      setHeatmapData(mockPoints);
+      setHeatmapData([]); // Real data only
     });
   };
 
@@ -86,11 +134,11 @@ const CivicAuthorityDashboard = () => {
     }).then(res => res.json())
     .then(data => {
       if (data.message) {
-        alert(`Success: ${data.message}\nEstimated Reach: ${data.estimated_reach} citizens`);
+        alert(`Success: ${data.message}\n${data.details || ''}`);
       }
       setBroadcastMessage('');
     }).catch(err => {
-      alert("Broadcast initiated via fallbacks. Asynchronous queues processing...");
+      alert("Failed to execute broadcast. Ensure backend is running.");
       setBroadcastMessage('');
     }).finally(() => {
       setIsBroadcasting(false);
@@ -101,12 +149,37 @@ const CivicAuthorityDashboard = () => {
     alert("Compiling strictly anonymized JSON/CSV exports for Municipal health reporting...");
   };
 
+  const confirmDelete = async (id) => {
+    try {
+      const res = await authFetch(`http://127.0.0.1:8000/api/citizens/sos/${id}/`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: deleteReason, details: deleteDetails })
+      });
+      if (res.ok) {
+        setLiveReports(prev => prev.filter(r => r.id !== id));
+        if (selectedReport && selectedReport.id === id) {
+          setSelectedReport(null);
+        }
+        setDeletingReportId(null);
+        setDeleteReason('');
+        setDeleteDetails('');
+        alert("Alert removed and the reporter has been notified.");
+      } else {
+        alert("Failed to remove alert.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error processing removal.");
+    }
+  };
+
   return (
     <div className="civic-dashboard">
       <div className="civic-header">
         <div className="civic-title">
-          <h1>Civic Authority & Public Health</h1>
-          <p>Enterprise GIS Aggregation & Analytics Portal</p>
+          <h1>Disease and Disaster Alert Feature</h1>
+          <p>Real-Time Alerts and Emergency Broadcast for Citizens & NGOs</p>
         </div>
         <button className="export-btn" onClick={handleExport}>
           <Download size={18} />
@@ -115,38 +188,62 @@ const CivicAuthorityDashboard = () => {
       </div>
 
       <motion.div 
-        className="metrics-grid"
+        className="reports-feed"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
+        style={{ marginBottom: '2rem', padding: '1.5rem', background: '#1e1e2d', borderRadius: '12px' }}
       >
-        <div className="metric-card">
-          <div className="metric-icon"><TrendingUp size={24} /></div>
-          <div className="metric-content">
-            <h3>Registered Adoptions</h3>
-            <p className="value">{metrics.total_adoptions}</p>
-          </div>
-        </div>
-        <div className="metric-card warning">
-          <div className="metric-icon"><Users size={24} /></div>
-          <div className="metric-content">
-            <h3>Intakes (Quarterly)</h3>
-            <p className="value">{metrics.intakes_this_quarter}</p>
-          </div>
-        </div>
-        <div className="metric-card success">
-          <div className="metric-icon"><Activity size={24} /></div>
-          <div className="metric-content">
-            <h3>Vaccination Compliance</h3>
-            <p className="value">{metrics.vaccination_compliance}</p>
-          </div>
-        </div>
-        <div className="metric-card danger">
-          <div className="metric-icon"><ShieldAlert size={24} /></div>
-          <div className="metric-content">
-            <h3>Active Zoonotic Clusters</h3>
-            <p className="value">{metrics.active_zoonotic_reports}</p>
-          </div>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: '#f87171' }}>
+          <ShieldAlert size={24} /> Live Incoming Reports
+        </h2>
+        <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem' }}>
+          {liveReports.length > 0 ? liveReports.map(report => (
+            <div 
+              key={report.id} 
+              onClick={() => {
+                if (report.lat !== 'Unknown') {
+                  setMapCenter([parseFloat(report.lat), parseFloat(report.lng)]);
+                  setMapZoom(14);
+                  setSelectedReport(report);
+                }
+              }}
+              style={{
+                minWidth: '300px', maxWidth: '350px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '1rem',
+                borderLeft: `4px solid ${report.type === 'Disaster' ? '#3b82f6' : report.type === 'Disease Sighted' ? '#ef4444' : '#f59e0b'}`,
+                cursor: 'pointer', transition: 'background 0.2s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', alignItems: 'center' }}>
+                <span style={{ fontWeight: 'bold', color: report.type === 'Disaster' ? '#60a5fa' : report.type === 'Disease Sighted' ? '#f87171' : '#fbbf24' }}>{report.type}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>{report.time}</span>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingReportId(report.id);
+                    }}
+                    style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center', borderRadius: '4px' }}
+                    title="Remove Alert"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+              <p style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: '#e2e8f0', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {report.desc}
+              </p>
+              <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <MapPin size={12} /> {report.lat}, {report.lng}
+              </div>
+            </div>
+          )) : (
+            <div style={{ padding: '2rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center', width: '100%' }}>
+              No incoming reports at the moment.
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -171,12 +268,34 @@ const CivicAuthorityDashboard = () => {
               <option value="Feline Leukemia">Feline Leukemia</option>
             </select>
           </div>
-          <div className="map-container-wrapper" style={{ height: '400px', backgroundColor: '#1e1e2d', borderRadius: '8px', overflow: 'hidden' }}>
-            <MapContainer center={[10.8505, 76.2711]} zoom={8} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+            <div className="map-container-wrapper" style={{ height: '400px', backgroundColor: '#1e1e2d', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {selectedReport && (
+              <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                <span style={{ fontWeight: 'bold', color: '#f87171' }}>Selected Alert: </span>
+                <span style={{ color: '#e2e8f0' }}>{selectedReport.type} reported by {selectedReport.reporterName} ({selectedReport.time})</span>
+              </div>
+            )}
+            <MapContainer center={mapCenter} zoom={mapZoom} style={{ flex: 1, width: '100%' }} zoomControl={false}>
+              <ChangeView center={mapCenter} zoom={mapZoom} />
               <TileLayer
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 attribution='&copy; <a href="https://carto.com/">CartoDB</a>'
               />
+              {selectedReport && (
+                <CircleMarker
+                  center={[selectedReport.lat, selectedReport.lng]}
+                  radius={8}
+                  pathOptions={{ color: '#ffffff', fillColor: '#ef4444', fillOpacity: 1, weight: 3 }}
+                >
+                  <Popup>
+                    <div style={{color: '#000'}}>
+                      <strong>{selectedReport.type}</strong><br/>
+                      By: {selectedReport.reporterName}<br/>
+                      {selectedReport.desc}
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              )}
               {heatmapData.map((pt, i) => (
                 <CircleMarker 
                   key={i} 
@@ -190,9 +309,10 @@ const CivicAuthorityDashboard = () => {
                 >
                   <Popup>
                     <div style={{color: '#000'}}>
-                      <strong>Anonymized Cluster</strong><br/>
-                      Disease: {pt.disease}<br/>
-                      Region: {pt.anonymized_region}<br/>
+                      <strong>Live Disease Alert</strong><br/>
+                      Reporter: {pt.reporter}<br/>
+                      Condition: {pt.disease}<br/>
+                      Time: {pt.time_ago} ({pt.status})<br/>
                       Severity Index: {pt.intensity}/10
                     </div>
                   </Popup>
@@ -219,9 +339,10 @@ const CivicAuthorityDashboard = () => {
             <div className="form-group">
               <label>Priority Target Group</label>
               <select className="civic-input" value={targetGroup} onChange={(e) => setTargetGroup(e.target.value)}>
-                <option value="all_citizens">All Citizens in Radius</option>
-                <option value="pet_owners">Pet Owners Only</option>
-                <option value="agricultural">Registered Agricultural Facilities</option>
+                <option value="all_users">All Users in Area (Citizens, Vets, Shelters)</option>
+                <option value="citizen">Citizens & Pet Owners Only</option>
+                <option value="veterinarian">Veterinarians Only</option>
+                <option value="shelter_admin">Shelters Only</option>
               </select>
             </div>
             <div className="form-group">
@@ -239,7 +360,7 @@ const CivicAuthorityDashboard = () => {
               className="broadcast-btn"
               disabled={isBroadcasting || !broadcastMessage}
             >
-              {isBroadcasting ? 'Processing Asynchronous Queues...' : 'EXECUTE GEO-BROADCAST'}
+              {isBroadcasting ? 'Broadcasting...' : 'EXECUTE GEO-BROADCAST'}
             </button>
           </form>
         </motion.div>
@@ -267,7 +388,7 @@ const CivicAuthorityDashboard = () => {
               </tr>
             </thead>
             <tbody>
-              {rowData.map(row => (
+              {rowData.length > 0 ? rowData.map(row => (
                 <tr key={row.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                   <td style={{ padding: '0.75rem' }}>{row.id}</td>
                   <td style={{ padding: '0.75rem' }}>{row.species}</td>
@@ -275,18 +396,57 @@ const CivicAuthorityDashboard = () => {
                   <td style={{ 
                     padding: '0.75rem', 
                     fontWeight: 'bold',
-                    color: row.status === 'Healthy' ? '#10b981' : row.status === 'Quarantine' ? '#ef4444' : '#f59e0b'
+                    color: row.status === 'Healthy' ? '#10b981' : row.status === 'Critical' ? '#ef4444' : '#f59e0b'
                   }}>
                     {row.status}
                   </td>
                   <td style={{ padding: '0.75rem' }}>{row.tags}</td>
                   <td style={{ padding: '0.75rem' }}>{row.lastChecked}</td>
                 </tr>
-              ))}
+              )) : (
+                <tr>
+                  <td colSpan="6" style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>No livestock records found.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </motion.div>
+
+      {/* Deletion Modal Overlay */}
+      {deletingReportId && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#1e1e2d', padding: '2rem', borderRadius: '12px', width: '450px', maxWidth: '90%', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              <Trash2 color="#ef4444" size={24} />
+              <h3 style={{ margin: 0, color: '#f87171' }}>Remove Alert</h3>
+            </div>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+              Before removing this alert from the civic database, please provide a classification reason for auditing purposes.
+            </p>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e2e8f0', fontSize: '0.9rem' }}>Reason for Removal *</label>
+              <select className="civic-input" style={{ width: '100%' }} value={deleteReason} onChange={e => setDeleteReason(e.target.value)}>
+                <option value="">-- Select Reason --</option>
+                <option value="false_news">False News / Hoax</option>
+                <option value="wrong_location">Wrong Location/No Location</option>
+                <option value="no_evidence">No Evidence Found</option>
+                <option value="resolved">Already Resolved / Handled</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e2e8f0', fontSize: '0.9rem' }}>Additional Details</label>
+              <textarea className="civic-textarea" style={{ width: '100%', minHeight: '80px' }} value={deleteDetails} onChange={e => setDeleteDetails(e.target.value)} placeholder="Provide contextual notes regarding this removal..." />
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button className="export-btn" style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)' }} onClick={() => { setDeletingReportId(null); setDeleteReason(''); setDeleteDetails(''); }}>Cancel</button>
+              <button className="broadcast-btn" style={{ width: 'auto', background: deleteReason ? '#ef4444' : 'rgba(239,68,68,0.5)', cursor: deleteReason ? 'pointer' : 'not-allowed' }} disabled={!deleteReason} onClick={() => confirmDelete(deletingReportId)}>Confirm Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

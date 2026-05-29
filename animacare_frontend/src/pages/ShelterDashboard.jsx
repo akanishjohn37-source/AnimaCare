@@ -722,14 +722,7 @@ export default function ShelterDashboard() {
                            </div>
                            <div>
                               <label className="text-[10px] text-neutral-500 uppercase font-black ml-1">Breed</label>
-                              <div className="flex gap-2">
-                                <input type="text" value={intakeForm.breed} onChange={e => setIntakeForm({...intakeForm, breed: e.target.value})} className="w-1/2 bg-neutral-800 border border-neutral-700 rounded-xl p-3 text-white outline-none focus:border-emerald-500" placeholder="Breed" />
-                                <div className="w-1/2 flex gap-1">
-                                  <input type="number" min="0" placeholder="Y" value={intakeForm.age_y} onChange={e => setIntakeForm({...intakeForm, age_y: Math.max(0, e.target.value)})} className="w-1/3 bg-neutral-800 border border-neutral-700 rounded-xl p-3 text-white outline-none text-center" />
-                                  <input type="number" min="0" placeholder="M" value={intakeForm.age_m} onChange={e => setIntakeForm({...intakeForm, age_m: Math.max(0, e.target.value)})} className="w-1/3 bg-neutral-800 border border-neutral-700 rounded-xl p-3 text-white outline-none text-center" />
-                                  <input type="number" min="0" placeholder="D" value={intakeForm.age_d} onChange={e => setIntakeForm({...intakeForm, age_d: Math.max(0, e.target.value)})} className="w-1/3 bg-neutral-800 border border-neutral-700 rounded-xl p-3 text-white outline-none text-center" />
-                                </div>
-                              </div>
+                              <input type="text" value={intakeForm.breed} onChange={e => setIntakeForm({...intakeForm, breed: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl p-3 text-white outline-none focus:border-emerald-500" placeholder="e.g. Mixed or Unknown" />
                            </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">

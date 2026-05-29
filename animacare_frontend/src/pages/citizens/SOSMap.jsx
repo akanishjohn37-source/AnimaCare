@@ -49,7 +49,7 @@ const SOSMap = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reporter: user.id,
-          animal_description: `${animalType}: ${description}`,
+          animal_description: alertType === 'rescue' ? `${animalType}: ${description}` : description,
           lat: location.lat,
           lng: location.lng,
           alert_type: alertType
@@ -133,15 +133,18 @@ const SOSMap = () => {
                 <label className="form-label">Alert Type</label>
                 <select className="form-control" value={alertType} onChange={e => setAlertType(e.target.value)}>
                   <option value="rescue">Rescue Needed</option>
-                  <option value="disease_report">Disease Sighted</option>
+                  <option value="disease_report">Disease Sighted (e.g. Rabies)</option>
+                  <option value="disaster">Disaster (Flooding, Earthquake)</option>
                 </select>
               </div>
-              <div className="form-group">
-                <label className="form-label">Animal Type</label>
-                <select className="form-control" value={animalType} onChange={e => setAnimalType(e.target.value)}>
-                  <option>Dog</option><option>Cat</option><option>Bovine</option><option>Wildlife / Other</option>
-                </select>
-              </div>
+              {alertType === 'rescue' && (
+                <div className="form-group">
+                  <label className="form-label">Animal Type</label>
+                  <select className="form-control" value={animalType} onChange={e => setAnimalType(e.target.value)}>
+                    <option>Dog</option><option>Cat</option><option>Bovine</option><option>Wildlife / Other</option>
+                  </select>
+                </div>
+              )}
               <div className="form-group">
                 <label className="form-label">Condition Description</label>
                 <textarea required className="form-control" rows={4} placeholder="E.g. Injured leg, unable to walk, bleeding..." value={description} onChange={e => setDescription(e.target.value)}></textarea>
@@ -162,7 +165,11 @@ const SOSMap = () => {
             <div className="success-state">
               <div className="success-icon"><Send size={48} /></div>
               <h2>Alert Dispatched!</h2>
-              <p>The nearest shelter has received your alert. They may contact you via phone for additional details.</p>
+              <p>
+                {alertType === 'rescue' 
+                  ? 'The nearest shelter has received your alert. They may contact you via phone for additional details.' 
+                  : 'Your alert has been sent directly to the Civic Authority / Municipality. They will review the report and coordinate an emergency response if necessary.'}
+              </p>
               <button onClick={() => { setReportState('idle'); setDescription(''); }} className="btn btn-primary" style={{marginTop: '2rem'}}>Return to map</button>
             </div>
           )}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './SuperAdminDashboard.css';
 
@@ -24,11 +25,11 @@ const MOCK_SYSTEM_METRICS = {
   celeryTasks: '14 Active / 0 Failed', cpuUsage: '34%', memoryUsage: '65%',
 };
 
-const MOCK_AUDIT_LOGS = [
-  { id: 5001, admin: 'superadmin', action: 'USER_APPROVAL',    target: 'Dr. Priya Sharma', timestamp: '2026-04-07 09:12:00', ip: '192.168.1.100' },
-  { id: 5002, admin: 'superadmin', action: 'LISTING_SUSPENSION', target: 'Animal ID #8841', timestamp: '2026-04-07 10:45:11', ip: '10.0.0.21' },
-  { id: 5003, admin: 'superadmin', action: 'AI_WEIGHT_ADJUST', target: 'System Algorithm', timestamp: '2026-04-07 11:30:45', ip: '192.168.1.100' },
-];
+const getInitialAuditLogs = () => {
+  const saved = localStorage.getItem('auditLogs');
+  if (saved) return JSON.parse(saved);
+  return [];
+};
 
 /* ── Stat card ── */
 const StatCard = ({ label, value, color }) => (
@@ -72,7 +73,9 @@ const RoleBadge = ({ role }) => (
 ───────────────────────────────────────────────────────── */
 const SuperAdminDashboard = () => {
   const { token } = useAuth();
-  const [activeTab, setActiveTab] = useState('health');
+  const location = useLocation();
+  const isUsersSection = location.pathname.includes('/superadmin/users');
+  const [activeTab, setActiveTab] = useState(isUsersSection ? 'users' : 'health');
   const [pendingUsers, setPendingUsers] = useState([]);
   const [allUsers, setAllUsers]         = useState([]);
   const [usersPagination, setUsersPagination] = useState({ count: 0, next: null, previous: null });
@@ -82,6 +85,8 @@ const SuperAdminDashboard = () => {
   const [loading, setLoading]           = useState(false);
   const [actionNote, setActionNote]     = useState({});
   const [toast, setToast]               = useState('');
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, userId: null, action: null, reason: '' });
+  const [auditLogs, setAuditLogs]       = useState(getInitialAuditLogs());
 
   const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
@@ -133,8 +138,16 @@ const SuperAdminDashboard = () => {
     if (activeTab === 'users') fetchAllUsers();
   }, [activeTab, fetchAllUsers]);
 
-  const doUserAction = async (userId, action) => {
-    const note = actionNote[userId] || '';
+  useEffect(() => {
+    if (isUsersSection && activeTab !== 'users' && activeTab !== 'audit') {
+      setActiveTab('users');
+    } else if (!isUsersSection && activeTab !== 'health' && activeTab !== 'verification') {
+      setActiveTab('health');
+    }
+  }, [isUsersSection]);
+
+  const doUserAction = async (userId, action, reasonText = '') => {
+    const note = reasonText || actionNote[userId] || '';
     try {
       const res = await fetch(`${API}/admin/users/${userId}/action/`, {
         method: 'POST',
@@ -143,17 +156,33 @@ const SuperAdminDashboard = () => {
       });
       const data = await res.json();
       showToast(data.message || `User ${action}d.`);
+      
+      const targetUser = allUsers.find(u => u.id === userId) || pendingUsers.find(u => u.id === userId);
+      const targetName = targetUser ? `@${targetUser.username}` : `User ID #${userId}`;
+      const newLog = {
+        id: Date.now(),
+        admin: 'superadmin',
+        action: action.toUpperCase(),
+        target: targetName,
+        timestamp: new Date().toLocaleString('sv-SE').replace('T', ' '),
+        ip: '127.0.0.1'
+      };
+      const updatedLogs = [newLog, ...auditLogs];
+      setAuditLogs(updatedLogs);
+      localStorage.setItem('auditLogs', JSON.stringify(updatedLogs));
+
       fetchPending();
       fetchStats();
       if (activeTab === 'users') fetchAllUsers();
     } catch { showToast('Error performing action.'); }
   };
 
-  const tabs = [
-    { key: 'health',       label: 'System Health'     },
-    { key: 'verification', label: `Pending Approval (${pendingUsers.length})` },
+  const tabs = isUsersSection ? [
     { key: 'users',        label: 'All Users'          },
     { key: 'audit',        label: 'Audit Trail'        },
+  ] : [
+    { key: 'health',       label: 'System Health'     },
+    { key: 'verification', label: `Pending Approval (${pendingUsers.length})` },
   ];
 
   return (
@@ -304,14 +333,14 @@ const SuperAdminDashboard = () => {
                       <button
                         id={`reject-user-${u.id}`}
                         className="btn-reject"
-                        onClick={() => doUserAction(u.id, 'reject')}
+                        onClick={() => setConfirmModal({ isOpen: true, userId: u.id, action: 'reject', reason: '' })}
                       >
                         ✗ Reject
                       </button>
                       <button
                         id={`suspend-user-${u.id}`}
                         className="btn-suspend"
-                        onClick={() => doUserAction(u.id, 'suspend')}
+                        onClick={() => setConfirmModal({ isOpen: true, userId: u.id, action: 'suspend', reason: '' })}
                       >
                         ⏸ Suspend
                       </button>
@@ -330,17 +359,22 @@ const SuperAdminDashboard = () => {
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
               <input 
                 type="text" 
-                placeholder="Search users..." 
+                placeholder="Search by name, username, or email..." 
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && setUsersPage(1) && fetchAllUsers()}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  setUsersPage(1);
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') setUsersPage(1);
+                }}
                 style={{
                   flex: 1, background: 'rgba(255,255,255,0.05)',
                   border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
                   padding: '0.55rem 0.85rem', color: '#fff', fontSize: '0.85rem',
                 }}
               />
-              <button className="btn-primary" onClick={() => { setUsersPage(1); fetchAllUsers(); }}>Search</button>
+              <button className="btn-primary" onClick={() => setUsersPage(1)}>Search</button>
             </div>
             {loading ? (
               <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.3)' }}>Loading users…</div>
@@ -371,14 +405,17 @@ const SuperAdminDashboard = () => {
                         </td>
                         <td>
                           <div className="action-buttons">
-                            {u.account_status !== 'active' && (
+                            {u.account_status !== 'active' && u.account_status !== 'rejected' && (
                               <button className="btn-approve" onClick={() => doUserAction(u.id, 'approve')}>Approve</button>
                             )}
                             {u.account_status === 'active' && u.role !== 'admin' && (
-                              <button className="btn-suspend" onClick={() => doUserAction(u.id, 'suspend')}>Suspend</button>
+                              <button className="btn-suspend" onClick={() => setConfirmModal({ isOpen: true, userId: u.id, action: 'suspend', reason: '' })}>Suspend</button>
                             )}
                             {u.account_status !== 'rejected' && u.role !== 'admin' && (
-                              <button className="btn-reject"  onClick={() => doUserAction(u.id, 'reject')}>Reject</button>
+                              <button className="btn-reject"  onClick={() => setConfirmModal({ isOpen: true, userId: u.id, action: 'reject', reason: '' })}>Reject</button>
+                            )}
+                            {u.account_status === 'rejected' && (
+                              <button className="btn-reject" style={{ background: '#ef4444', color: '#fff', border: 'none' }} onClick={() => { if(window.confirm('Are you sure you want to permanently delete this user?')) doUserAction(u.id, 'delete'); }}>Delete</button>
                             )}
                           </div>
                         </td>
@@ -413,22 +450,66 @@ const SuperAdminDashboard = () => {
           <section className="dashboard-section fade-in">
             <h2>Immutable Audit Trail Viewer</h2>
             <div className="audit-log-container glass-dark">
-              {MOCK_AUDIT_LOGS.map(log => (
-                <div className="audit-entry" key={log.id}>
-                  <div className="audit-time">{log.timestamp}</div>
-                  <div className="audit-details">
-                    <strong>{log.admin}</strong> executed{' '}
-                    <span className="action-tag">{log.action}</span>{' '}
-                    on <em>{log.target}</em>.
-                    <span className="ip-address">IP: {log.ip}</span>
-                  </div>
+              {auditLogs.length === 0 ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>
+                  No recent audit logs found. Perform actions on users to populate this trail.
                 </div>
-              ))}
+              ) : (
+                auditLogs.map(log => (
+                  <div className="audit-entry" key={log.id}>
+                    <div className="audit-time">{log.timestamp}</div>
+                    <div className="audit-details">
+                      <strong>{log.admin}</strong> executed{' '}
+                      <span className="action-tag">{log.action}</span>{' '}
+                      on <em>{log.target}</em>.
+                      <span className="ip-address">IP: {log.ip}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </section>
         )}
 
       </main>
+
+      {/* Confirmation Modal */}
+      {confirmModal.isOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div className="glass-panel" style={{ padding: '2rem', width: '100%', maxWidth: '400px' }}>
+            <h2 style={{ color: '#fff', marginTop: 0, textTransform: 'capitalize' }}>Confirm {confirmModal.action}</h2>
+            <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: '1rem' }}>
+              Please provide a reason for this action (e.g., False info about SOS alert, fake account, improper activities, etc.)
+            </p>
+            <textarea
+              rows="4"
+              value={confirmModal.reason}
+              onChange={e => setConfirmModal({ ...confirmModal, reason: e.target.value })}
+              placeholder="Enter reason here..."
+              style={{
+                width: '100%', padding: '0.75rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)', color: '#fff', marginBottom: '1.5rem', resize: 'none'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmModal({ isOpen: false, userId: null, action: null, reason: '' })}
+                style={{ padding: '0.75rem 1.5rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}
+              >Cancel</button>
+              <button
+                onClick={() => {
+                  doUserAction(confirmModal.userId, confirmModal.action, confirmModal.reason);
+                  setConfirmModal({ isOpen: false, userId: null, action: null, reason: '' });
+                }}
+                style={{ padding: '0.75rem 1.5rem', borderRadius: 8, background: confirmModal.action === 'reject' ? '#ef4444' : '#f59e0b', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+              >Confirm {confirmModal.action}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`@keyframes dropIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }`}</style>
     </div>

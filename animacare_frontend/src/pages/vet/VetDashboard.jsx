@@ -6,6 +6,307 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+const API_SCHEDULES = 'http://127.0.0.1:8000/api/clinical/vaccination-schedules';
+
+/* ── Inline Vaccine Checklist Sub-Component ─────────── */
+const VaccineChecklistInline = ({ options, petId, petDetail, age, authFetch }) => {
+  const [checked, setChecked] = React.useState([]);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [existingSchedules, setExistingSchedules] = React.useState([]);
+  const [loadingExisting, setLoadingExisting] = React.useState(true);
+  const [justGenerated, setJustGenerated] = React.useState(null);
+
+  // Fetch existing vaccination schedules for this pet from DB
+  React.useEffect(() => {
+    if (!petId) return;
+    const fetchExisting = async () => {
+      setLoadingExisting(true);
+      try {
+        const res = await authFetch(`http://127.0.0.1:8000/api/citizens/pets/${petId}/medical_report/`);
+        if (res.ok) {
+          const data = await res.json();
+          setExistingSchedules(data.vaccination_schedules || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch existing schedules:', err);
+      }
+      setLoadingExisting(false);
+    };
+    fetchExisting();
+  }, [petId, authFetch]);
+
+  const toggle = (key) => {
+    setChecked(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  };
+
+  const handleSave = async () => {
+    if (checked.length === 0) return;
+    setSubmitting(true);
+    try {
+      const res = await authFetch(`${API_SCHEDULES}/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pet_id: petId,
+          animal_type: (petDetail.species || '').toLowerCase(),
+          animal_name: petDetail.name,
+          date_of_birth: petDetail.dob,
+          gender: (petDetail.gender || '').toLowerCase(),
+          vaccines_given: checked,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setJustGenerated(data);
+        setExistingSchedules(prev => [data, ...prev]);
+        setChecked([]);
+      } else {
+        alert(data.error || 'Failed to generate schedule.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error saving vaccination data.');
+    }
+    setSubmitting(false);
+  };
+
+  const handleMarkItemComplete = async (scheduleId, itemId) => {
+    try {
+      const res = await authFetch(`${API_SCHEDULES}/${scheduleId}/mark-item/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: itemId }),
+      });
+      if (res.ok) {
+        setExistingSchedules(prev =>
+          prev.map(s => s.id === scheduleId ? {
+            ...s,
+            items: s.items.map(i => i.id === itemId ? { ...i, is_completed: true } : i)
+          } : s)
+        );
+      }
+    } catch (err) { console.error(err); }
+  };
+
+  const handleDeleteSchedule = async (scheduleId) => {
+    if (!window.confirm('Are you sure you want to delete this vaccination schedule? This action cannot be undone.')) return;
+    try {
+      const res = await authFetch(`${API_SCHEDULES}/${scheduleId}/`, { method: 'DELETE' });
+      if (res.ok || res.status === 204) {
+        setExistingSchedules(prev => prev.filter(s => s.id !== scheduleId));
+      } else {
+        alert('Failed to delete schedule.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error deleting schedule.');
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const TRACK_LABELS = {
+    puppy: 'Puppy', kitten: 'Kitten', cattle: 'Cattle',
+    small_ruminant: 'Ruminant', poultry: 'Poultry', equine: 'Equine', custom: 'Custom',
+  };
+
+  return (
+    <div>
+      {/* ── Existing Schedules from DB ── */}
+      {!loadingExisting && existingSchedules.length > 0 && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '0.6rem' }}>
+            📋 Existing Vaccination Records
+          </p>
+          {existingSchedules.map(schedule => {
+            const items = schedule.items || [];
+            const vaccineItems = items.filter(i => i.item_type !== 'deworming');
+            const completed = vaccineItems.filter(i => i.is_completed).length;
+            const total = vaccineItems.length;
+            const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            return (
+              <div key={schedule.id} style={{
+                background: 'rgba(129,140,248,0.05)', border: '1px solid rgba(129,140,248,0.15)',
+                borderRadius: 12, padding: '1rem', marginBottom: '0.75rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontWeight: 700, color: '#818cf8', fontSize: '0.9rem' }}>
+                      💉 {schedule.animal_name}
+                    </span>
+                    <span style={{
+                      fontSize: '0.6rem', fontWeight: 700, padding: '0.08rem 0.4rem', borderRadius: 12,
+                      background: 'rgba(129,140,248,0.12)', color: '#a78bfa', border: '1px solid rgba(129,140,248,0.25)',
+                      textTransform: 'uppercase',
+                    }}>
+                      {TRACK_LABELS[schedule.track] || schedule.track}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>
+                      {completed}/{total} done ({pct}%)
+                    </span>
+                    <button
+                      onClick={() => handleDeleteSchedule(schedule.id)}
+                      title="Delete this vaccination schedule"
+                      style={{
+                        padding: '0.2rem 0.4rem', borderRadius: 5, border: '1px solid rgba(239,68,68,0.3)',
+                        background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: '0.65rem',
+                        fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                      }}
+                    >🗑 Delete</button>
+                  </div>
+                </div>
+                {/* Progress bar */}
+                <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 6, height: 6, marginBottom: '0.6rem', overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${pct}%`, height: '100%', borderRadius: 6,
+                    background: pct === 100 ? '#4ade80' : 'linear-gradient(90deg, #818cf8, #6366f1)',
+                    transition: 'width 0.5s ease'
+                  }} />
+                </div>
+                {/* Items list */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxHeight: 220, overflowY: 'auto' }}>
+                  {items
+                    .sort((a, b) => new Date(a.scheduled_date) - new Date(b.scheduled_date))
+                    .map(item => {
+                      const isUpcoming = new Date(item.scheduled_date) >= new Date(new Date().toISOString().split('T')[0]);
+                      return (
+                        <div key={item.id} style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.35rem 0.5rem', borderRadius: 6,
+                          background: item.is_completed ? 'rgba(74,222,128,0.04)' : 'rgba(255,255,255,0.02)',
+                          fontSize: '0.78rem',
+                        }}>
+                          <span style={{
+                            display: 'inline-flex', padding: '0.06rem 0.35rem', borderRadius: 4,
+                            fontSize: '0.55rem', fontWeight: 800, textTransform: 'uppercase',
+                            background: item.item_type === 'deworming' ? 'rgba(251,191,36,0.15)' : item.item_type === 'annual' ? 'rgba(129,140,248,0.15)' : item.item_type === 'seasonal' ? 'rgba(34,211,238,0.15)' : 'rgba(74,222,128,0.15)',
+                            color: item.item_type === 'deworming' ? '#fbbf24' : item.item_type === 'annual' ? '#818cf8' : item.item_type === 'seasonal' ? '#22d3ee' : '#4ade80',
+                          }}>
+                            {item.item_type === 'deworming' ? '🪱' : item.item_type === 'vaccine' ? '💉' : item.item_type === 'annual' ? '🔄' : '📅'}
+                          </span>
+                          <span style={{
+                            flex: 1, fontWeight: 600,
+                            color: item.is_completed ? 'rgba(255,255,255,0.3)' : '#fff',
+                            textDecoration: item.is_completed ? 'line-through' : 'none',
+                          }}>
+                            {item.title}
+                          </span>
+                          <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.68rem', whiteSpace: 'nowrap' }}>
+                            {formatDate(item.scheduled_date)}
+                          </span>
+                          {(() => {
+                            const schedDate = new Date(item.scheduled_date + 'T00:00:00');
+                            const now = new Date();
+                            const todayStr = now.toISOString().split('T')[0];
+                            const monthReached = (now.getFullYear() > schedDate.getFullYear()) ||
+                              (now.getFullYear() === schedDate.getFullYear() && now.getMonth() >= schedDate.getMonth());
+                            const isPast = item.scheduled_date < todayStr;
+                            const daysUntil = Math.ceil((schedDate - now) / (1000*60*60*24));
+
+                            if (item.is_completed) {
+                              return (
+                                <button
+                                  onClick={() => handleMarkItemComplete(schedule.id, item.id)}
+                                  title="Click to undo"
+                                  style={{
+                                    padding: '0.15rem 0.4rem', borderRadius: 5, fontSize: '0.62rem',
+                                    border: '1px solid rgba(74,222,128,0.4)', background: 'rgba(74,222,128,0.15)',
+                                    color: '#4ade80', fontWeight: 700, cursor: 'pointer',
+                                  }}
+                                >✓ Done</button>
+                              );
+                            } else if (monthReached) {
+                              return (
+                                <button
+                                  onClick={() => handleMarkItemComplete(schedule.id, item.id)}
+                                  style={{
+                                    padding: '0.15rem 0.4rem', borderRadius: 5, fontSize: '0.62rem',
+                                    border: '1px solid rgba(74,222,128,0.3)', background: 'rgba(74,222,128,0.08)',
+                                    color: '#4ade80', fontWeight: 700, cursor: 'pointer',
+                                  }}
+                                >Done</button>
+                              );
+                            } else if (isPast) {
+                              return <span style={{ color: '#ef4444', fontSize: '0.62rem', fontWeight: 700, background: 'rgba(239,68,68,0.1)', padding: '0.1rem 0.3rem', borderRadius: 4 }}>Missed</span>;
+                            } else {
+                              return <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.58rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                <span>🔒</span>
+                                <span>{daysUntil}d</span>
+                              </span>;
+                            }
+                          })()}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── New Vaccine Confirmation ── */}
+      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
+        💉 Administer New Vaccines Today
+      </p>
+      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem', marginBottom: '0.6rem' }}>
+        Check which vaccines were given during this visit to generate future reminders:
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.85rem' }}>
+        {options.map(v => (
+          <label key={v.key} style={{
+            display: 'flex', alignItems: 'center', gap: '0.75rem',
+            padding: '0.6rem 0.85rem', borderRadius: 8, cursor: 'pointer',
+            background: checked.includes(v.key) ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.02)',
+            border: `1px solid ${checked.includes(v.key) ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.06)'}`,
+            transition: 'all 0.2s',
+          }}>
+            <input
+              type="checkbox"
+              checked={checked.includes(v.key)}
+              onChange={() => toggle(v.key)}
+              style={{ width: 15, height: 15, accentColor: '#4ade80' }}
+            />
+            <span style={{ fontWeight: 600, color: checked.includes(v.key) ? '#4ade80' : 'rgba(255,255,255,0.8)', fontSize: '0.82rem' }}>
+              {v.label}
+            </span>
+          </label>
+        ))}
+      </div>
+      <button
+        disabled={checked.length === 0 || submitting}
+        onClick={handleSave}
+        style={{
+          padding: '0.6rem 1.25rem', borderRadius: 10, border: 'none',
+          background: checked.length > 0 ? 'linear-gradient(135deg, #818cf8, #6366f1)' : 'rgba(255,255,255,0.08)',
+          color: '#fff', fontWeight: 700, fontSize: '0.85rem', cursor: checked.length > 0 ? 'pointer' : 'not-allowed',
+          opacity: checked.length > 0 ? 1 : 0.5, transition: 'all 0.2s',
+        }}
+      >
+        {submitting ? '⏳ Generating...' : '💉 Save & Generate Future Timeline'}
+      </button>
+
+      {/* Show just-generated timeline */}
+      {justGenerated && (
+        <div style={{ marginTop: '1rem', background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: 12, padding: '1rem' }}>
+          <p style={{ color: '#4ade80', fontWeight: 700, fontSize: '0.85rem', margin: '0 0 0.25rem 0' }}>
+            ✅ New timeline generated with {(justGenerated.items || []).filter(i => i.item_type !== 'deworming').length} vaccine reminders!
+          </p>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', margin: 0 }}>
+            📱 Owner has been notified. Deworming reminders set 4 days before each vaccine.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const VetDashboard = () => {
   const { user, authFetch } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
@@ -24,6 +325,9 @@ const VetDashboard = () => {
   const [selectedFileName, setSelectedFileName] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [selectedConsultation, setSelectedConsultation] = useState(null);
+  
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadDate, setDownloadDate] = useState('');
 
 
   useEffect(() => {
@@ -64,15 +368,21 @@ const VetDashboard = () => {
   }, [selectedPatient, authFetch]);
 
   const handleCompleteAppointment = async (id) => {
+    if (!window.confirm("Are you sure the details are correct? Click OK to complete the visit, or Cancel to edit details.")) return;
+    
     try {
       const res = await authFetch(`http://localhost:8000/api/clinical/appointments/${id}/complete/`, {
         method: 'POST'
       });
       if (res.ok) {
         setAppointments(appointments.map(a => a.id === id ? { ...a, status: 'Completed' } : a));
+        setSelectedPatient(null);
+      } else {
+        alert("Failed to mark visit as complete.");
       }
     } catch (err) {
       console.error(err);
+      alert("An error occurred while marking the visit as complete.");
     }
   };
 
@@ -174,7 +484,13 @@ const VetDashboard = () => {
             </div>
 
             <div className="glass-panel" style={{ padding: '1.5rem' }}>
-              <h3 style={{ color: '#fff', marginBottom: '1.5rem' }}>⚡ Recent Completed</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ color: '#fff', margin: 0 }}>⚡ Recent Completed</h3>
+                <button 
+                  onClick={() => setShowDownloadModal(true)}
+                  style={{ padding: '0.4rem 0.8rem', borderRadius: 8, background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.3)', color: '#22d3ee', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                >Download Reports</button>
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {appointments.filter(a => a.status === 'Completed').slice(0, 5).map(appt => (
                   <div key={appt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flex: 1 }}>
@@ -420,8 +736,125 @@ const VetDashboard = () => {
                ) : null}
             </div>
           </div>
+
+          {/* ── Vaccination Schedule Section ────────────────────── */}
+          {selectedPatient.pet_detail && (() => {
+            const species = (selectedPatient.pet_detail.species || '').toLowerCase();
+            const dob = selectedPatient.pet_detail.dob;
+            const gender = (selectedPatient.pet_detail.gender || '').toLowerCase();
+            const petName = selectedPatient.pet_detail.name || 'Animal';
+
+            // Age calculation
+            const getAge = () => {
+              if (!dob) return { weeks: 0, months: 0, label: 'Unknown' };
+              const diffMs = new Date() - new Date(dob);
+              const totalDays = Math.floor(diffMs / (1000*60*60*24));
+              const weeks = Math.floor(totalDays / 7);
+              const months = Math.floor(totalDays / 30.44);
+              const years = Math.floor(totalDays / 365.25);
+              let label;
+              if (years >= 1) label = `${years}y ${months % 12}m`;
+              else if (months >= 1) label = `${months}m ${weeks % 4}w`;
+              else label = `${weeks}w (${totalDays}d)`;
+              return { weeks, months, totalDays, label };
+            };
+            const age = getAge();
+
+            // Vaccine options per species
+            const VACCINES = {
+              dog: [
+                { key: 'dhppil_1', label: 'DHPPiL Dose 1 (6 Weeks)', min: 5 },
+                { key: '7in1', label: '7-in-1 Combo Vaccine (10 Weeks)', min: 9 },
+                { key: 'rabies_final', label: 'Final Booster + Anti-Rabies (14 Weeks)', min: 13 },
+                { key: 'annual_rabies', label: 'Annual Anti-Rabies Booster', min: 52 },
+              ],
+              cat: [
+                { key: 'fvrcp_1', label: 'FVRCP Dose 1 (6 Weeks)', min: 5 },
+                { key: 'fvrcp_2', label: 'FVRCP Dose 2 (10 Weeks)', min: 9 },
+                { key: 'fvrcp_3_rabies', label: 'FVRCP Dose 3 + Anti-Rabies (14 Weeks)', min: 13 },
+                { key: 'annual_fvrcp', label: 'Annual FVRCP & Anti-Rabies', min: 52 },
+              ],
+              cow: [
+                { key: 'fmd', label: 'Foot & Mouth Disease (FMD)' },
+                { key: 'hs_bq', label: 'HS & Black Quarter' },
+                { key: 'brucellosis', label: 'Brucellosis (Female 4-8 months)', genderRestrict: 'female' },
+              ],
+              bovine: [
+                { key: 'fmd', label: 'Foot & Mouth Disease (FMD)' },
+                { key: 'hs_bq', label: 'HS & Black Quarter' },
+                { key: 'brucellosis', label: 'Brucellosis (Female 4-8 months)', genderRestrict: 'female' },
+              ],
+              sheep: [
+                { key: 'ppr', label: 'PPR Vaccine' },
+                { key: 'enterotoxaemia', label: 'Enterotoxaemia Vaccine' },
+              ],
+              goat: [
+                { key: 'ppr', label: 'PPR Vaccine' },
+                { key: 'enterotoxaemia', label: 'Enterotoxaemia Vaccine' },
+              ],
+              chicken: [
+                { key: 'newcastle', label: 'Ranikhet / Newcastle Disease (Day 5)' },
+                { key: 'gumboro', label: 'Gumboro Disease (Day 14)' },
+              ],
+              duck: [
+                { key: 'newcastle', label: 'Ranikhet / Newcastle Disease' },
+                { key: 'gumboro', label: 'Gumboro Disease' },
+              ],
+              horse: [
+                { key: 'equine_flu', label: 'Annual Equine Influenza' },
+              ],
+            };
+
+            const options = (VACCINES[species] || []).filter(v => {
+              if (v.min && age.weeks < v.min) return false;
+              if (v.genderRestrict && v.genderRestrict !== gender) return false;
+              if (v.genderRestrict === 'female' && (species === 'cow' || species === 'bovine') && (age.months < 4 || age.months > 8)) return false;
+              return true;
+            });
+
+            return (
+              <div style={{ marginTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '2rem' }}>
+                <h3 style={{ color: '#818cf8', fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  💉 Vaccination Schedule
+                </h3>
+
+                {/* Age + Gender vitals */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                  <div style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)', borderRadius: 10, padding: '0.85rem' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Calculated Age</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#4ade80', marginTop: '0.2rem' }}>{age.label}</div>
+                  </div>
+                  <div style={{ background: 'rgba(129,140,248,0.06)', border: '1px solid rgba(129,140,248,0.15)', borderRadius: 10, padding: '0.85rem' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Gender</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#818cf8', marginTop: '0.2rem' }}>{selectedPatient.pet_detail.gender || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.15)', borderRadius: 10, padding: '0.85rem' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Visit Date</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#22d3ee', marginTop: '0.2rem' }}>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                  </div>
+                </div>
+
+                {/* Vaccine checkboxes */}
+                {options.length === 0 ? (
+                  <div style={{ padding: '1.25rem', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12, textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem' }}>
+                    ⚠️ No standard vaccine blueprint found for <strong>{selectedPatient.pet_detail.species}</strong> at this age. Please consult local veterinary guidelines.
+                  </div>
+                ) : (
+                  <VaccineChecklistInline
+                    options={options}
+                    petId={selectedPatient.pet}
+                    petDetail={selectedPatient.pet_detail}
+                    age={age}
+                    authFetch={authFetch}
+                  />
+                )}
+              </div>
+            );
+          })()}
+
         </div>
       )}
+
 
       {/* Consultation Details Modal */}
       {selectedConsultation && (
@@ -478,6 +911,69 @@ const VetDashboard = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {showDownloadModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="glass-panel" style={{ padding: '2rem', width: '100%', maxWidth: '500px' }}>
+             <h2 style={{ color: '#fff', marginTop: 0 }}>Download Completed Visits</h2>
+             <div style={{ marginBottom: '1.5rem' }}>
+               <label style={{ color: 'rgba(255,255,255,0.7)', display: 'block', marginBottom: '0.5rem' }}>Select Date</label>
+               <input 
+                 type="date" 
+                 value={downloadDate} 
+                 onChange={(e) => setDownloadDate(e.target.value)}
+                 style={{ width: '100%', padding: '0.75rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', colorScheme: 'dark' }}
+               />
+             </div>
+             
+             {downloadDate && (
+               <div style={{ marginBottom: '1.5rem', maxHeight: '200px', overflowY: 'auto' }}>
+                 <h4 style={{ color: '#22d3ee', margin: '0 0 1rem 0' }}>Visits on {downloadDate}:</h4>
+                 {appointments.filter(a => a.status === 'Completed' && new Date(a.date).toISOString().split('T')[0] === downloadDate).length > 0 ? (
+                   appointments.filter(a => a.status === 'Completed' && new Date(a.date).toISOString().split('T')[0] === downloadDate).map(appt => (
+                     <div key={appt.id} style={{ background: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: 8, marginBottom: '0.5rem' }}>
+                       <div style={{ color: '#fff', fontWeight: 600 }}>{appt.pet_detail?.name} {appt.pet_detail?.species ? `(${appt.pet_detail.species})` : ''}</div>
+                       <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', marginTop: '0.25rem' }}>Owner: {appt.owner_name} | Time: {new Date(appt.date).toLocaleTimeString()}</div>
+                     </div>
+                   ))
+                 ) : (
+                   <p style={{ color: 'rgba(255,255,255,0.4)' }}>No completed visits found for this date.</p>
+                 )}
+               </div>
+             )}
+
+             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button 
+                  onClick={() => {
+                    setShowDownloadModal(false);
+                    setDownloadDate('');
+                  }}
+                  style={{ padding: '0.75rem 1.5rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}
+                >Cancel</button>
+                <button 
+                  onClick={() => {
+                    const filtered = appointments.filter(a => a.status === 'Completed' && new Date(a.date).toISOString().split('T')[0] === downloadDate);
+                    if (filtered.length === 0) return;
+                    const text = filtered.map(a => `Date: ${new Date(a.date).toLocaleString()}\nPet: ${a.pet_detail?.name} (${a.pet_detail?.species || 'N/A'})\nOwner: ${a.owner_name}\n`).join('\n---\n\n');
+                    const blob = new Blob([text], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Completed_Visits_${downloadDate}.txt`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    setShowDownloadModal(false);
+                    setDownloadDate('');
+                  }}
+                  disabled={!downloadDate || appointments.filter(a => a.status === 'Completed' && new Date(a.date).toISOString().split('T')[0] === downloadDate).length === 0}
+                  style={{ padding: '0.75rem 1.5rem', borderRadius: 8, background: '#22d3ee', color: '#000', fontWeight: 700, border: 'none', cursor: 'pointer', opacity: (!downloadDate || appointments.filter(a => a.status === 'Completed' && new Date(a.date).toISOString().split('T')[0] === downloadDate).length === 0) ? 0.5 : 1 }}
+                >Download</button>
+             </div>
           </div>
         </div>
       )}
