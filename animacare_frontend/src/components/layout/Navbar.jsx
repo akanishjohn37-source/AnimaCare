@@ -69,10 +69,9 @@ const Navbar = () => {
         authFetch('http://localhost:8000/api/auth/notifications/')
           .then(res => res.json())
           .then(data => {
-            if (Array.isArray(data)) {
-              setNotifications(data);
-              setUnreadCount(data.filter(n => !n.is_read).length);
-            }
+            const notifs = Array.isArray(data) ? data : (data.results || []);
+            setNotifications(notifs);
+            setUnreadCount(notifs.filter(n => !n.is_read).length);
           })
           .catch(err => console.error("Notif error", err));
       };
