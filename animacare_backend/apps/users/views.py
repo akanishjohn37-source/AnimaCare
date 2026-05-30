@@ -350,3 +350,186 @@ class NotificationViewSet(viewsets.ModelViewSet):
         notification.is_read = True
         notification.save()
         return Response({'status': 'marked as read'})
+
+
+# ── Verification Engine API Views ─────────────────────────────────────────────
+
+import re
+import hashlib
+from .verification_registry import (
+    verify_vet_license,
+    verify_ngo_darpan,
+    verify_municipal_registration,
+    verify_owner_pet_binding,
+)
+
+
+class VerifyVetLicenseView(APIView):
+    """
+    Verification Engine 1: Veterinarian License Verification.
+    
+    Accepts a license number string, validates its format against
+    state veterinary council patterns, and queries the Professional
+    Registry lookup index.
+    
+    Returns AUTHENTICATED (200) or CREDENTIAL_INVALID (400).
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        license_number = request.data.get('license_number', '').strip()
+
+        if not license_number:
+            return Response(
+                {"error": "KSVC_REGISTRATION_INVALID", "message": "License number is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Format validation: KSVC.Reg.[3-5 Digits]
+        pattern = r'^KSVC\.REG\.\d{3,5}$'
+        if not re.match(pattern, license_number.upper()):
+            return Response(
+                {"error": "KSVC_REGISTRATION_INVALID", "message": "Invalid license format. Expected pattern: KSVC.Reg.XXXX (e.g., KSVC.Reg.1234)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        is_valid, details = verify_vet_license(license_number)
+
+        if is_valid:
+            return Response(details, status=status.HTTP_200_OK)
+        else:
+            return Response(details, status=status.HTTP_400_BAD_REQUEST)
+
+
+class VerifyNGODarpanView(APIView):
+    """
+    Verification Engine 2: Shelter NGO Darpan ID Verification.
+    
+    Validates the corporate registration identifier against the
+    NGO Darpan regulatory registry. Checks both presence and
+    active compliance standing.
+    
+    Returns VERIFIED (200) or ORGANIZATION_NOT_FOUND/NON_COMPLIANT (400).
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        darpan_id = request.data.get('darpan_id', '').strip()
+
+        if not darpan_id:
+            return Response(
+                {"error": "ORGANIZATION_NOT_FOUND", "message": "NGO Darpan ID is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Format validation: KL/YYYY/XXXXXXX
+        pattern = r'^KL\/\d{4}\/\d{7}$'
+        if not re.match(pattern, darpan_id.upper()):
+            return Response(
+                {"error": "ORGANIZATION_NOT_FOUND", "message": "Invalid Darpan ID format. Expected: KL/YYYY/NNNNNNN (e.g., KL/2026/0123456)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        is_valid, details = verify_ngo_darpan(darpan_id)
+
+        if is_valid:
+            return Response(details, status=status.HTTP_200_OK)
+        else:
+            return Response(details, status=status.HTTP_400_BAD_REQUEST)
+
+
+class VerifyMunicipalRegistrationView(APIView):
+    """
+    Verification Engine 3: Municipality Registration Verification.
+    
+    Confirms that an animal has been officially registered with
+    the local municipal corporation. Checks token format, prefix
+    for municipality identification, and current validity status.
+    
+    Returns VERIFIED (200) or REGISTRY_NOT_FOUND/LAPSED (400).
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        municipal_id = request.data.get('municipal_id', '').strip()
+
+        if not municipal_id:
+            return Response(
+                {"error": "REGISTRY_NOT_FOUND", "message": "Municipal registration ID is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Format validation: MUNICIPALITY-CORP|MUNI|GP-YYYY-NNN
+        pattern = r'^[A-Z]+-(CORP|MUNI|GP)-\d{4}-\d+$'
+        if not re.match(pattern, municipal_id.upper()):
+            return Response(
+                {"error": "REGISTRY_NOT_FOUND", "message": "Invalid LSGD municipal ID format. Expected: XXX-CORP-YYYY-NNN (e.g., COCHIN-CORP-2026-04192)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        is_valid, details = verify_municipal_registration(municipal_id)
+
+        if is_valid:
+            return Response(details, status=status.HTTP_200_OK)
+        else:
+            return Response(details, status=status.HTTP_400_BAD_REQUEST)
+
+
+class VerifyOwnerPetBindingView(APIView):
+    """
+    Verification Engine 4: Owner-Pet Binding Verification.
+    
+    The most intricate verification pipeline — cross-validates
+    4 distinct credential vectors to prove legal ownership:
+    
+    Vector 1: Municipal License ID String
+    Vector 2: Owner's Government ID (SHA-256 hashed on server)
+    Vector 3: Animal's Microchip Serial ID
+    Vector 4: Vaccination Batch Serial String
+    
+    Sequential validation: any single vector failure halts the entire chain.
+    
+    Returns BINDING_VERIFIED (200) or specific mismatch error (400).
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        municipal_id = request.data.get('municipal_id', '').strip()
+        owner_gov_id = request.data.get('owner_gov_id', '').strip()
+        microchip_id = request.data.get('microchip_id', '').strip()
+        vaccination_batch = request.data.get('vaccination_batch', '').strip()
+
+        # Validate all 4 vectors are present
+        missing = []
+        if not municipal_id:
+            missing.append('Municipal License ID')
+        if not owner_gov_id:
+            missing.append('Owner Government ID')
+        if not microchip_id:
+            missing.append('Microchip Serial ID')
+        if not vaccination_batch:
+            missing.append('Vaccination Batch ID')
+
+        if missing:
+            return Response(
+                {
+                    "error": "INCOMPLETE_VECTORS",
+                    "message": f"Missing verification vectors: {', '.join(missing)}",
+                    "missing_fields": missing,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Regex sanitization: remove whitespace, hyphens from gov ID, force uppercase
+        owner_gov_id_clean = re.sub(r'[\s-]', '', owner_gov_id).upper()
+        microchip_id_clean = re.sub(r'[\s-]', '', microchip_id)
+        vaccination_batch_clean = re.sub(r'\s', '', vaccination_batch).upper()
+
+        is_valid, details = verify_owner_pet_binding(
+            municipal_id, owner_gov_id_clean, microchip_id_clean, vaccination_batch_clean
+        )
+
+        if is_valid:
+            return Response(details, status=status.HTTP_200_OK)
+        else:
+            return Response(details, status=status.HTTP_400_BAD_REQUEST)

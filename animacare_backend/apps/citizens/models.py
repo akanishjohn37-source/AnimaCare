@@ -12,6 +12,16 @@ class Pet(models.Model):
     rfid_tag = models.CharField(max_length=100, unique=True, blank=True, null=True)
     media_url = models.TextField(blank=True, null=True) # Allows Base64 string fallback
     
+    # Municipal Registration Verification (Engine 3)
+    municipal_license_id = models.CharField(max_length=100, blank=True, null=True)
+    issuing_zone = models.CharField(max_length=200, blank=True, null=True)
+    is_municipally_verified = models.BooleanField(default=False)
+    municipal_verified_at = models.DateTimeField(blank=True, null=True)
+    
+    # Owner-Pet Binding Verification (Engine 4)
+    ownership_verified = models.BooleanField(default=False)
+    ownership_verified_at = models.DateTimeField(blank=True, null=True)
+    
     def __str__(self):
         return f"{self.name} ({self.species})"
 

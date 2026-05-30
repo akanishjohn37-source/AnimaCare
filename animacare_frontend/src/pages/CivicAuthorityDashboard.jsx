@@ -8,7 +8,7 @@ const ChangeView = ({ center, zoom }) => {
   return null;
 }
 
-import { Activity, ShieldAlert, Users, TrendingUp, Download, Radio, Map as MapIcon, Database, MapPin, Trash2 } from 'lucide-react';
+import { Activity, ShieldAlert, Users, TrendingUp, Download, Radio, Map as MapIcon, Database, MapPin, Trash2, Building2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 import 'leaflet/dist/leaflet.css';
@@ -41,6 +41,38 @@ const CivicAuthorityDashboard = () => {
   
   // Livestock Data
   const [rowData, setRowData] = useState([]);
+
+  // LSGD Verification State
+  const [municipalId, setMunicipalId] = useState('');
+  const [issuingZone, setIssuingZone] = useState('');
+  const [municipalStatus, setMunicipalStatus] = useState('idle'); // idle, verifying, verified, invalid
+  const [municipalDetails, setMunicipalDetails] = useState(null);
+
+  const verifyMunicipalRegistration = async (e) => {
+    if (e) e.preventDefault();
+    if (!municipalId.trim()) return;
+    setMunicipalStatus('verifying');
+    setMunicipalDetails(null);
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/auth/verify-municipal/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ municipal_id: municipalId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'VERIFIED') {
+        setMunicipalStatus('verified');
+        setMunicipalDetails(data);
+        setIssuingZone(data.zone || '');
+      } else {
+        setMunicipalStatus('invalid');
+        setMunicipalDetails(data);
+      }
+    } catch (err) {
+      setMunicipalStatus('invalid');
+      setMunicipalDetails({ message: 'Network error. Verification service unavailable.' });
+    }
+  };
 
   useEffect(() => {
     // Fetch live reports from SOS endpoint
@@ -80,7 +112,8 @@ const CivicAuthorityDashboard = () => {
             time: timeStr,
             lat,
             lng,
-            reporterName: alert.reporter_name || 'Anonymous Citizen'
+            reporterName: alert.reporter_name || 'Anonymous Citizen',
+            status: alert.status
           };
         });
         
@@ -373,43 +406,131 @@ const CivicAuthorityDashboard = () => {
         transition={{ duration: 0.5, delay: 0.4 }}
       >
         <div className="panel-header">
-          <h2><Database size={20} /> Livestock & Wildlife Registry Panel</h2>
+          <h2><Database size={20} /> SOS Alert Operations Log</h2>
         </div>
         <div className="grid-panel" style={{ overflowX: 'auto', backgroundColor: '#1e1e2d', borderRadius: '8px', padding: '1rem' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: '#fff' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
-                <th style={{ padding: '0.75rem' }}>Registry ID</th>
-                <th style={{ padding: '0.75rem' }}>Species</th>
-                <th style={{ padding: '0.75rem' }}>Area/Zone</th>
-                <th style={{ padding: '0.75rem' }}>Health Status</th>
-                <th style={{ padding: '0.75rem' }}>Individuals/Tags</th>
-                <th style={{ padding: '0.75rem' }}>Last Inspected</th>
+                <th style={{ padding: '0.75rem' }}>Alert ID</th>
+                <th style={{ padding: '0.75rem' }}>Type</th>
+                <th style={{ padding: '0.75rem' }}>Reporter</th>
+                <th style={{ padding: '0.75rem' }}>Description</th>
+                <th style={{ padding: '0.75rem' }}>Status</th>
+                <th style={{ padding: '0.75rem' }}>Time</th>
               </tr>
             </thead>
             <tbody>
-              {rowData.length > 0 ? rowData.map(row => (
-                <tr key={row.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <td style={{ padding: '0.75rem' }}>{row.id}</td>
-                  <td style={{ padding: '0.75rem' }}>{row.species}</td>
-                  <td style={{ padding: '0.75rem' }}>{row.location}</td>
+              {liveReports.length > 0 ? liveReports.map(report => (
+                <tr key={report.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <td style={{ padding: '0.75rem' }}>{report.id}</td>
+                  <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{report.type}</td>
+                  <td style={{ padding: '0.75rem' }}>{report.reporterName}</td>
+                  <td style={{ padding: '0.75rem' }}>{report.desc}</td>
                   <td style={{ 
                     padding: '0.75rem', 
                     fontWeight: 'bold',
-                    color: row.status === 'Healthy' ? '#10b981' : row.status === 'Critical' ? '#ef4444' : '#f59e0b'
+                    color: report.status === 'Resolved' ? '#10b981' : report.status === 'Accepted' ? '#f59e0b' : '#ef4444'
                   }}>
-                    {row.status}
+                    {report.status}
                   </td>
-                  <td style={{ padding: '0.75rem' }}>{row.tags}</td>
-                  <td style={{ padding: '0.75rem' }}>{row.lastChecked}</td>
+                  <td style={{ padding: '0.75rem' }}>{report.time}</td>
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan="6" style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>No livestock records found.</td>
+                  <td colSpan="6" style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>No alerts found in the region.</td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+      </motion.div>
+
+      <motion.div 
+        className="panel"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.5 }}
+        style={{ marginTop: '2rem' }}
+      >
+        <div className="panel-header">
+          <h2><Building2 size={20} /> LSGD Kerala (Sanchaya/Sevana) License Verification Portal</h2>
+        </div>
+        <div style={{ padding: '1rem', background: '#1e1e2d', borderRadius: '8px' }}>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+            Verify animal municipal licenses registered under the Local Self Government Department (LSGD) of Kerala.
+          </p>
+          <form onSubmit={verifyMunicipalRegistration} style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
+            <div className="form-group" style={{ flex: '1 1 300px', margin: 0 }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e2e8f0', fontSize: '0.9rem' }}>LSGD License Code</label>
+              <input
+                type="text"
+                className="civic-input"
+                style={{ width: '100%' }}
+                placeholder="e.g. COCHIN-CORP-2026-04192"
+                value={municipalId}
+                onChange={(e) => { setMunicipalId(e.target.value); setMunicipalStatus('idle'); setMunicipalDetails(null); }}
+              />
+            </div>
+            <div className="form-group" style={{ flex: '1 1 200px', margin: 0 }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e2e8f0', fontSize: '0.9rem' }}>Local Body Jurisdiction</label>
+              <select
+                className="civic-input"
+                style={{ width: '100%' }}
+                value={issuingZone}
+                onChange={(e) => setIssuingZone(e.target.value)}
+                disabled={municipalStatus === 'verified'}
+              >
+                <option value="">Select Local Body...</option>
+                <option value="Thiruvananthapuram Corporation">Thiruvananthapuram Corporation</option>
+                <option value="Kochi Municipal Corporation">Kochi Municipal Corporation</option>
+                <option value="Kozhikode Corporation">Kozhikode Corporation</option>
+                <option value="Kollam Corporation">Kollam Corporation</option>
+                <option value="Thrissur Corporation">Thrissur Corporation</option>
+                <option value="Kannur Corporation">Kannur Corporation</option>
+                <option value="Other Grama Panchayat">Other Grama Panchayat</option>
+              </select>
+            </div>
+            <button 
+              type="submit" 
+              className="broadcast-btn" 
+              style={{ 
+                width: 'auto', 
+                height: '42px', 
+                padding: '0 1.5rem', 
+                background: municipalStatus === 'verified' ? '#10b981' : municipalStatus === 'invalid' ? '#ef4444' : '#7c3aed',
+                cursor: municipalStatus === 'verifying' ? 'wait' : 'pointer'
+              }}
+              disabled={municipalStatus === 'verifying' || !municipalId.trim()}
+            >
+              {municipalStatus === 'verifying' ? 'Verifying...' : 'VERIFY LICENSE'}
+            </button>
+          </form>
+
+          {municipalStatus === 'verified' && municipalDetails && (
+            <div style={{ marginTop: '1.5rem', padding: '1rem', borderRadius: '8px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#10b981', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                <CheckCircle size={18} />
+                <span>LSGD KERALA REGISTRY: VERIFIED COMPLIANT</span>
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.88rem' }}>
+                <strong>Jurisdiction Body:</strong> {municipalDetails.zone} <br />
+                <strong>Validity Period:</strong> {municipalDetails.registered_date} to {municipalDetails.expiry_date}
+              </div>
+            </div>
+          )}
+
+          {municipalStatus === 'invalid' && municipalDetails && (
+            <div style={{ marginTop: '1.5rem', padding: '1rem', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                <AlertCircle size={18} />
+                <span>LSGD KERALA REGISTRY: COMPLIANCE MISMATCH</span>
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.88rem' }}>
+                <strong>Status Error:</strong> {municipalDetails.message || 'The registration code could not be verified by Kerala local self-government compliance rules.'}
+              </div>
+            </div>
+          )}
         </div>
       </motion.div>
 

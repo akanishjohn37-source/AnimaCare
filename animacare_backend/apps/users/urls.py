@@ -3,7 +3,9 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     RegisterView, LoginView, LogoutView, MeView, ChangePasswordDirectView,
     PendingUsersView, ApproveUserView, AllUsersView, UserStatsView, VetsView, NotificationViewSet,
-    TokenRefreshView
+    TokenRefreshView,
+    VerifyVetLicenseView, VerifyNGODarpanView, VerifyMunicipalRegistrationView,
+    VerifyOwnerPetBindingView,
 )
 
 router = DefaultRouter()
@@ -25,4 +27,10 @@ urlpatterns = [
     path('admin/users/<int:user_id>/action/', ApproveUserView.as_view(), name='admin-user-action'),
     path('admin/stats/', UserStatsView.as_view(), name='admin-user-stats'),
     path('vets/', VetsView.as_view(), name='vets-list'),
+
+    # Verification engine endpoints
+    path('verify-vet-license/', VerifyVetLicenseView.as_view(), name='verify-vet-license'),
+    path('verify-darpan/', VerifyNGODarpanView.as_view(), name='verify-darpan'),
+    path('verify-municipal/', VerifyMunicipalRegistrationView.as_view(), name='verify-municipal'),
+    path('verify-ownership/', VerifyOwnerPetBindingView.as_view(), name='verify-ownership'),
 ]

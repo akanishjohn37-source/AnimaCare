@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   Activity, User, Mail, Lock, Eye, EyeOff, Phone, MapPin,
   Stethoscope, Building2, Map, Shield, AlertCircle, CheckCircle,
-  ArrowRight, ChevronDown, FileText, Award, Hash
+  ArrowRight, ChevronDown, FileText, Award, Hash, Loader2, ShieldCheck, ShieldX
 } from 'lucide-react';
 import './Auth.css';
 
@@ -55,7 +55,94 @@ const Register = () => {
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
   const [success, setSuccess]       = useState('');
-  const [darpanStatus, setDarpanStatus] = useState('idle'); // idle, verified, invalid
+  const [darpanStatus, setDarpanStatus] = useState('idle'); // idle, verifying, verified, invalid
+  const [darpanDetails, setDarpanDetails] = useState(null);
+  const [vetLicenseStatus, setVetLicenseStatus] = useState('idle'); // idle, verifying, verified, invalid
+  const [vetLicenseDetails, setVetLicenseDetails] = useState(null);
+  const [municipalId, setMunicipalId] = useState('');
+  const [municipalStatus, setMunicipalStatus] = useState('idle'); // idle, verifying, verified, invalid
+  const [municipalDetails, setMunicipalDetails] = useState(null);
+
+  const API_BASE = 'http://127.0.0.1:8000/api/auth';
+
+  const verifyVetLicense = async (licenseNumber) => {
+    if (!licenseNumber.trim()) return;
+    setVetLicenseStatus('verifying');
+    setVetLicenseDetails(null);
+    try {
+      const res = await fetch(`${API_BASE}/verify-vet-license/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ license_number: licenseNumber }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'AUTHENTICATED') {
+        setVetLicenseStatus('verified');
+        setVetLicenseDetails(data);
+      } else {
+        setVetLicenseStatus('invalid');
+        setVetLicenseDetails(data);
+      }
+    } catch {
+      setVetLicenseStatus('invalid');
+      setVetLicenseDetails({ message: 'Network error. Verification service unavailable.' });
+    }
+  };
+
+  const verifyDarpanId = async (darpanId) => {
+    if (!darpanId.trim()) return;
+    setDarpanStatus('verifying');
+    setDarpanDetails(null);
+    try {
+      const res = await fetch(`${API_BASE}/verify-darpan/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ darpan_id: darpanId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'VERIFIED') {
+        setDarpanStatus('verified');
+        setDarpanDetails(data);
+      } else {
+        setDarpanStatus('invalid');
+        setDarpanDetails(data);
+      }
+    } catch {
+      setDarpanStatus('invalid');
+      setDarpanDetails({ message: 'Network error. Verification service unavailable.' });
+    }
+  };
+
+  const verifyMunicipalRegistration = async (mId) => {
+    if (!mId.trim()) return;
+    setMunicipalStatus('verifying');
+    setMunicipalDetails(null);
+    try {
+      const res = await fetch(`${API_BASE}/verify-municipal/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ municipal_id: mId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'VERIFIED') {
+        setMunicipalStatus('verified');
+        setMunicipalDetails(data);
+        setForm(p => ({
+          ...p,
+          civic_profile: {
+            ...p.civic_profile,
+            jurisdiction_area: data.zone || p.civic_profile.jurisdiction_area
+          }
+        }));
+      } else {
+        setMunicipalStatus('invalid');
+        setMunicipalDetails(data);
+      }
+    } catch {
+      setMunicipalStatus('invalid');
+      setMunicipalDetails({ message: 'Network error. Verification service unavailable.' });
+    }
+  };
 
   const [form, setForm] = useState({
     // Base
@@ -298,10 +385,44 @@ const Register = () => {
                 placeholder="Green Valley Animal Hospital" /></div>
           </div>
           <div className="auth-field auth-field--full">
-            <label>Medical License Number (VCI / State Council)</label>
-            <div className="auth-input-wrap"><Award size={15} className="auth-input-icon" />
-              <input name="medical_license_number" value={vp.medical_license_number} onChange={ch}
-                placeholder="e.g. KVC-1234" /></div>
+            <label>Medical License Number (KSVC / State Council)</label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div className="auth-input-wrap" style={{ flex: 1 }}>
+                <Award size={15} className="auth-input-icon" />
+                <input name="medical_license_number" value={vp.medical_license_number}
+                  onChange={(e) => { ch(e); setVetLicenseStatus('idle'); setVetLicenseDetails(null); }}
+                  placeholder="e.g. KSVC.Reg.1234" />
+              </div>
+              <button
+                type="button"
+                disabled={vetLicenseStatus === 'verifying' || !vp.medical_license_number.trim()}
+                style={{
+                  background: vetLicenseStatus === 'verified' ? '#059669' : vetLicenseStatus === 'invalid' ? '#dc2626' : '#4f46e5',
+                  color: 'white', border: 'none', borderRadius: '8px', padding: '0 1rem',
+                  cursor: vetLicenseStatus === 'verifying' ? 'wait' : 'pointer',
+                  fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.35rem',
+                  minWidth: '120px', justifyContent: 'center', transition: 'all 0.3s ease',
+                }}
+                onClick={() => verifyVetLicense(vp.medical_license_number)}
+              >
+                {vetLicenseStatus === 'verifying' && <><Loader2 size={14} className="auth-btn-spinner" /> Verifying…</>}
+                {vetLicenseStatus === 'idle' && <><ShieldCheck size={14} /> Verify License</>}
+                {vetLicenseStatus === 'verified' && <><CheckCircle size={14} /> Verified</>}
+                {vetLicenseStatus === 'invalid' && <><ShieldX size={14} /> Retry</>}
+              </button>
+            </div>
+            {vetLicenseStatus === 'verified' && vetLicenseDetails && (
+              <div style={{ color: '#4ade80', fontSize: '0.85rem', marginTop: '0.4rem', background: 'rgba(74,222,128,0.08)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(74,222,128,0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 'bold', marginBottom: '0.25rem' }}><CheckCircle size={14} /> License Authenticated</div>
+                <div style={{ fontSize: '0.78rem', color: '#86efac' }}>Registry: {vetLicenseDetails.state_council} • Expires: {vetLicenseDetails.expiry}</div>
+              </div>
+            )}
+            {vetLicenseStatus === 'invalid' && vetLicenseDetails && (
+              <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.4rem', background: 'rgba(239,68,68,0.08)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 'bold', marginBottom: '0.25rem' }}><AlertCircle size={14} /> Verification Failed</div>
+                <div style={{ fontSize: '0.78rem', color: '#fca5a5' }}>{vetLicenseDetails.message}</div>
+              </div>
+            )}
           </div>
           <div className="auth-field auth-field--full">
             <label>Upload Registration Certificate</label>
@@ -347,30 +468,44 @@ const Register = () => {
                 placeholder="Happy Paws Animal Shelter" /></div>
           </div>
           <div className="auth-field auth-field--full">
-            <label>NGO Darpan Unique ID</label>
+            <label>NGO Darpan Unique ID (Kerala)</label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <div className="auth-input-wrap" style={{ flex: 1 }}>
                 <FileText size={15} className="auth-input-icon" />
-                <input name="shelter_registration_number" value={sp.shelter_registration_number} onChange={(e) => { ch(e); setDarpanStatus('idle'); }}
+                <input name="shelter_registration_number" value={sp.shelter_registration_number}
+                  onChange={(e) => { ch(e); setDarpanStatus('idle'); setDarpanDetails(null); }}
                   placeholder="e.g. KL/2026/0123456" />
               </div>
               <button 
-                type="button" 
-                style={{ background: '#4f46e5', color: 'white', border: 'none', borderRadius: '8px', padding: '0 1rem', cursor: 'pointer', fontWeight: 'bold' }}
-                onClick={() => {
-                  const regex = /^[A-Z]{2}\/\d{4}\/\d+$/;
-                  if (regex.test(sp.shelter_registration_number)) {
-                    setDarpanStatus('verified');
-                  } else {
-                    setDarpanStatus('invalid');
-                  }
+                type="button"
+                disabled={darpanStatus === 'verifying' || !sp.shelter_registration_number.trim()}
+                style={{
+                  background: darpanStatus === 'verified' ? '#059669' : darpanStatus === 'invalid' ? '#dc2626' : '#4f46e5',
+                  color: 'white', border: 'none', borderRadius: '8px', padding: '0 1rem',
+                  cursor: darpanStatus === 'verifying' ? 'wait' : 'pointer',
+                  fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.35rem',
+                  minWidth: '120px', justifyContent: 'center', transition: 'all 0.3s ease',
                 }}
+                onClick={() => verifyDarpanId(sp.shelter_registration_number)}
               >
-                Verify ID
+                {darpanStatus === 'verifying' && <><Loader2 size={14} className="auth-btn-spinner" /> Verifying…</>}
+                {darpanStatus === 'idle' && <><ShieldCheck size={14} /> Verify ID</>}
+                {darpanStatus === 'verified' && <><CheckCircle size={14} /> Verified</>}
+                {darpanStatus === 'invalid' && <><ShieldX size={14} /> Retry</>}
               </button>
             </div>
-            {darpanStatus === 'verified' && <div style={{ color: '#4ade80', fontSize: '0.85rem', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><CheckCircle size={14} /> Verified via NGO Darpan API</div>}
-            {darpanStatus === 'invalid' && <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><AlertCircle size={14} /> Invalid format. Pending Manual Verification.</div>}
+            {darpanStatus === 'verified' && darpanDetails && (
+              <div style={{ color: '#4ade80', fontSize: '0.85rem', marginTop: '0.4rem', background: 'rgba(74,222,128,0.08)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(74,222,128,0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 'bold', marginBottom: '0.25rem' }}><CheckCircle size={14} /> Organization Verified via NGO Darpan</div>
+                <div style={{ fontSize: '0.78rem', color: '#86efac' }}>Org: {darpanDetails.org_name} • State: {darpanDetails.state} • Standing: {darpanDetails.compliance?.replace('_', ' ')}</div>
+              </div>
+            )}
+            {darpanStatus === 'invalid' && darpanDetails && (
+              <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.4rem', background: 'rgba(239,68,68,0.08)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 'bold', marginBottom: '0.25rem' }}><AlertCircle size={14} /> Verification Failed</div>
+                <div style={{ fontSize: '0.78rem', color: '#fca5a5' }}>{darpanDetails.message}</div>
+              </div>
+            )}
           </div>
           <div className="auth-field">
             <label>Capacity (animals)</label>
@@ -427,6 +562,56 @@ const Register = () => {
             <div className="auth-input-wrap"><Phone size={15} className="auth-input-icon" />
               <input name="official_contact" value={cp.official_contact} onChange={ch}
                 placeholder="+91 98765 43210" /></div>
+          </div>
+
+          {/* LSGD Kerala Municipal License Verification Portal Panel */}
+          <div className="auth-field auth-field--full" style={{ marginTop: '1.5rem', padding: '1.25rem', borderRadius: '12px', background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.15)' }}>
+            <label style={{ color: '#c4b5fd', fontSize: '0.95rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 'bold' }}>
+              <Building2 size={18} /> LSGD Kerala (Sanchaya/Sevana) Department Code Verification
+            </label>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', marginBottom: '1rem' }}>
+              Verify your local body municipal authority registration code under LSGD Kerala guidelines.
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div className="auth-input-wrap" style={{ flex: 1 }}>
+                <Award size={15} className="auth-input-icon" />
+                <input 
+                  type="text" 
+                  placeholder="e.g. COCHIN-CORP-2026-04192" 
+                  value={municipalId}
+                  onChange={(e) => { setMunicipalId(e.target.value); setMunicipalStatus('idle'); setMunicipalDetails(null); }}
+                />
+              </div>
+              <button
+                type="button"
+                disabled={municipalStatus === 'verifying' || !municipalId.trim()}
+                onClick={() => verifyMunicipalRegistration(municipalId)}
+                style={{
+                  background: municipalStatus === 'verified' ? '#059669' : municipalStatus === 'invalid' ? '#dc2626' : '#4f46e5',
+                  color: 'white', border: 'none', borderRadius: '8px', padding: '0 1rem',
+                  cursor: municipalStatus === 'verifying' ? 'wait' : 'pointer',
+                  fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.35rem',
+                  minWidth: '120px', justifyContent: 'center', transition: 'all 0.3s ease',
+                }}
+              >
+                {municipalStatus === 'verifying' && <><Loader2 size={14} className="auth-btn-spinner" /> Verifying…</>}
+                {municipalStatus === 'idle' && <><ShieldCheck size={14} /> Verify ID</>}
+                {municipalStatus === 'verified' && <><CheckCircle size={14} /> Verified</>}
+                {municipalStatus === 'invalid' && <><ShieldX size={14} /> Retry</>}
+              </button>
+            </div>
+            {municipalStatus === 'verified' && municipalDetails && (
+              <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', borderRadius: '8px', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', fontSize: '0.85rem', color: '#4ade80' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 'bold', marginBottom: '0.25rem' }}><CheckCircle size={14} /> LSGD Kerala Department Verified</div>
+                <div style={{ fontSize: '0.78rem', color: '#86efac' }}>Local Body: {municipalDetails.zone} • Validity: {municipalDetails.registered_date} to {municipalDetails.expiry_date}</div>
+              </div>
+            )}
+            {municipalStatus === 'invalid' && municipalDetails && (
+              <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', fontSize: '0.85rem', color: '#ef4444' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 'bold', marginBottom: '0.25rem' }}><AlertCircle size={14} /> Verification Failed</div>
+                <div style={{ fontSize: '0.78rem', color: '#fca5a5' }}>{municipalDetails.message}</div>
+              </div>
+            )}
           </div>
         </div>
       );

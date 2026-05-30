@@ -85,6 +85,8 @@ const PetPassportForm = () => {
     }
   }, [id, authFetch, isLivestock]);
 
+  // Municipal verification functions removed from pet register page
+
   if (isFetching) return <div style={{ color: 'white', padding: '3rem', textAlign: 'center' }}>Loading Data...</div>;
 
   return (
@@ -116,6 +118,7 @@ const PetPassportForm = () => {
             }
             if (values.microchipId) data.rfid_tag = values.microchipId;
             if (values.avatar) data.media_url = values.avatar;
+            // Municipal registration data moved to Civic Authority verification page
             
             const baseUrl = isLivestock ? 'http://localhost:8000/api/citizens/livestocks/' : 'http://localhost:8000/api/citizens/pets/';
             const url = id ? `${baseUrl}${id}/` : baseUrl;
@@ -255,6 +258,8 @@ const PetPassportForm = () => {
                 <ErrorMessage name="microchipId" component="div" className="form-error" />
               </div>
             </div>
+
+            {/* LSGD municipal verification moved to Civic Authority portal */}
 
             <div className="form-actions">
               <button type="submit" disabled={isSubmitting} className="btn btn-primary btn-lg">

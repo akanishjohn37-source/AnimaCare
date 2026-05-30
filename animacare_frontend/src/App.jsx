@@ -20,6 +20,7 @@ const AdoptionPortal     = lazy(() => import('./pages/citizens/AdoptionPortal'))
 const MedicalViewer      = lazy(() => import('./pages/citizens/MedicalViewer'));
 const Appointments       = lazy(() => import('./pages/citizens/Appointments'));
 const VaccinationScheduler = lazy(() => import('./pages/citizens/VaccinationScheduler'));
+const OwnershipVerification = lazy(() => import('./pages/citizens/OwnershipVerification'));
 
 
 // Shelter Admin
@@ -148,6 +149,11 @@ function App() {
                   <Route path="/vaccination-scheduler" element={
                     <ProtectedRoute roles={['citizen', 'veterinarian', 'shelter_admin']}>
                       <VaccinationScheduler />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/verify-ownership" element={
+                    <ProtectedRoute roles={['citizen']}>
+                      <OwnershipVerification />
                     </ProtectedRoute>
                   } />
 
