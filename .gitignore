@@ -53,3 +53,9 @@ PRD_AnimaCare.md
 Testing_Report_AnimaCare.md
 animacare_documentation.md
 
+# Local Dev / Scratch Scripts (not part of the main codebase/tests)
+animacare_backend/test*.py
+animacare_backend/debug*.py
+animacare_backend/retroactive*.py
+
+
