@@ -9,5 +9,5 @@ pip install -r requirements.txt
 python manage.py collectstatic --no-input
 python manage.py migrate
 
-# Create default superuser if it doesn't exist
-python manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@example.com', 'AdminPassword123!')"
+# Create or update default superuser to ensure it is active
+python manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); user, _ = User.objects.get_or_create(username='admin', defaults={'email': 'admin@example.com', 'role': 'admin'}); user.set_password('AdminPassword123!'); user.account_status = 'active'; user.is_superuser = True; user.is_staff = True; user.save()"
