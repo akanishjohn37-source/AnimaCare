@@ -298,10 +298,11 @@ const SuperAdminDashboard = () => {
                           <RoleBadge role={u.role} />
                           <StatusBadge status={u.account_status} />
                         </div>
-                        <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', display: 'flex', gap: '1rem' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                           <span>@{u.username}</span>
                           <span>{u.email}</span>
                           {u.phone_number && <span>📞 {u.phone_number}</span>}
+                          <span>Jurisdiction: {u.zone || 'N/A'}</span>
                           <span>Registered: {new Date(u.date_joined).toLocaleDateString()}</span>
                         </div>
                       </div>
@@ -387,6 +388,7 @@ const SuperAdminDashboard = () => {
                       <th>Name</th>
                       <th>Username</th>
                       <th>Role</th>
+                      <th>Jurisdiction</th>
                       <th>Status</th>
                       <th>Joined</th>
                       <th>Actions</th>
@@ -399,6 +401,7 @@ const SuperAdminDashboard = () => {
                         <td style={{ fontWeight: 600, color: '#fff' }}>{u.full_name}</td>
                         <td style={{ color: 'rgba(255,255,255,0.5)' }}>@{u.username}</td>
                         <td><RoleBadge role={u.role} /></td>
+                        <td style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem' }}>{u.zone || 'N/A'}</td>
                         <td><StatusBadge status={u.account_status} /></td>
                         <td style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem' }}>
                           {new Date(u.date_joined).toLocaleDateString()}

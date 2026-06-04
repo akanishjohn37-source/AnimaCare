@@ -95,6 +95,11 @@ const Dashboard = () => {
       <div className="page-header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '1rem' }}>
         <div>
           <h1 className="page-title gradient-text">Welcome back, {user?.first_name || 'Citizen'}</h1>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', margin: '0.2rem 0 0.5rem 0' }}>
+            <span style={{ fontSize: '0.78rem', background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: '#a78bfa', padding: '0.2rem 0.65rem', borderRadius: 20, fontWeight: 700 }}>
+              📍 Local Body: {user?.zone || 'Kollam Corporation'}
+            </span>
+          </div>
           <p className="page-subtitle">Manage your digital profiles, adoptions, and monitor active alerts.</p>
         </div>
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>

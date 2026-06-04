@@ -59,7 +59,7 @@ NGO_DARPAN_REGISTRY = {
 
 
 # ─── 3. Municipal Registration Registry (LSGD Kerala) ───────────────────────────────────────
-# Mock registry: municipal_license_id → { owner_name_hash, pet_name, microchip, zone, status }
+#
 MUNICIPAL_REGISTRY = {
     "TVM-CORP-2026-001": {
         "owner_id_hash": hashlib.sha256("ABCDE1234F".encode()).hexdigest(),

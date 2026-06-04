@@ -533,3 +533,23 @@ class VerifyOwnerPetBindingView(APIView):
             return Response(details, status=status.HTTP_200_OK)
         else:
             return Response(details, status=status.HTTP_400_BAD_REQUEST)
+
+
+class OccupiedCivicZonesView(APIView):
+    """
+    Returns the list of zones/corporations that already have an active
+    or pending Civic Authority account.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        occupied_zones = list(
+            User.objects.filter(
+                role='civic_authority',
+                account_status__in=['active', 'pending']
+            ).values_list('zone', flat=True).distinct()
+        )
+        # Filter out empty strings
+        occupied_zones = [z for z in occupied_zones if z]
+        return Response({"occupied_zones": occupied_zones}, status=status.HTTP_200_OK)
+

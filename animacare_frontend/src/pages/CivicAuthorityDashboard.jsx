@@ -37,7 +37,7 @@ const CivicAuthorityDashboard = () => {
   const [deleteReason, setDeleteReason] = useState('');
   const [deleteDetails, setDeleteDetails] = useState('');
   
-  const { authFetch } = useAuth();
+  const { user, authFetch } = useAuth();
   
   // Livestock Data
   const [rowData, setRowData] = useState([]);
@@ -212,6 +212,11 @@ const CivicAuthorityDashboard = () => {
       <div className="civic-header">
         <div className="civic-title">
           <h1>Disease and Disaster Alert Feature</h1>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', margin: '0.35rem 0' }}>
+            <span style={{ fontSize: '0.75rem', background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', color: '#c084fc', padding: '0.2rem 0.65rem', borderRadius: 20, fontWeight: 700 }}>
+              📍 Local Body: {user?.zone || 'Kollam Corporation'}
+            </span>
+          </div>
           <p>Real-Time Alerts and Emergency Broadcast for Citizens & NGOs</p>
         </div>
         <button className="export-btn" onClick={handleExport}>
@@ -446,93 +451,7 @@ const CivicAuthorityDashboard = () => {
         </div>
       </motion.div>
 
-      <motion.div 
-        className="panel"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.5 }}
-        style={{ marginTop: '2rem' }}
-      >
-        <div className="panel-header">
-          <h2><Building2 size={20} /> LSGD Kerala (Sanchaya/Sevana) License Verification Portal</h2>
-        </div>
-        <div style={{ padding: '1rem', background: '#1e1e2d', borderRadius: '8px' }}>
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-            Verify animal municipal licenses registered under the Local Self Government Department (LSGD) of Kerala.
-          </p>
-          <form onSubmit={verifyMunicipalRegistration} style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
-            <div className="form-group" style={{ flex: '1 1 300px', margin: 0 }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e2e8f0', fontSize: '0.9rem' }}>LSGD License Code</label>
-              <input
-                type="text"
-                className="civic-input"
-                style={{ width: '100%' }}
-                placeholder="e.g. COCHIN-CORP-2026-04192"
-                value={municipalId}
-                onChange={(e) => { setMunicipalId(e.target.value); setMunicipalStatus('idle'); setMunicipalDetails(null); }}
-              />
-            </div>
-            <div className="form-group" style={{ flex: '1 1 200px', margin: 0 }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e2e8f0', fontSize: '0.9rem' }}>Local Body Jurisdiction</label>
-              <select
-                className="civic-input"
-                style={{ width: '100%' }}
-                value={issuingZone}
-                onChange={(e) => setIssuingZone(e.target.value)}
-                disabled={municipalStatus === 'verified'}
-              >
-                <option value="">Select Local Body...</option>
-                <option value="Thiruvananthapuram Corporation">Thiruvananthapuram Corporation</option>
-                <option value="Kochi Municipal Corporation">Kochi Municipal Corporation</option>
-                <option value="Kozhikode Corporation">Kozhikode Corporation</option>
-                <option value="Kollam Corporation">Kollam Corporation</option>
-                <option value="Thrissur Corporation">Thrissur Corporation</option>
-                <option value="Kannur Corporation">Kannur Corporation</option>
-                <option value="Other Grama Panchayat">Other Grama Panchayat</option>
-              </select>
-            </div>
-            <button 
-              type="submit" 
-              className="broadcast-btn" 
-              style={{ 
-                width: 'auto', 
-                height: '42px', 
-                padding: '0 1.5rem', 
-                background: municipalStatus === 'verified' ? '#10b981' : municipalStatus === 'invalid' ? '#ef4444' : '#7c3aed',
-                cursor: municipalStatus === 'verifying' ? 'wait' : 'pointer'
-              }}
-              disabled={municipalStatus === 'verifying' || !municipalId.trim()}
-            >
-              {municipalStatus === 'verifying' ? 'Verifying...' : 'VERIFY LICENSE'}
-            </button>
-          </form>
 
-          {municipalStatus === 'verified' && municipalDetails && (
-            <div style={{ marginTop: '1.5rem', padding: '1rem', borderRadius: '8px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#10b981', fontWeight: 'bold', marginBottom: '0.5rem' }}>
-                <CheckCircle size={18} />
-                <span>LSGD KERALA REGISTRY: VERIFIED COMPLIANT</span>
-              </div>
-              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.88rem' }}>
-                <strong>Jurisdiction Body:</strong> {municipalDetails.zone} <br />
-                <strong>Validity Period:</strong> {municipalDetails.registered_date} to {municipalDetails.expiry_date}
-              </div>
-            </div>
-          )}
-
-          {municipalStatus === 'invalid' && municipalDetails && (
-            <div style={{ marginTop: '1.5rem', padding: '1rem', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444', fontWeight: 'bold', marginBottom: '0.5rem' }}>
-                <AlertCircle size={18} />
-                <span>LSGD KERALA REGISTRY: COMPLIANCE MISMATCH</span>
-              </div>
-              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.88rem' }}>
-                <strong>Status Error:</strong> {municipalDetails.message || 'The registration code could not be verified by Kerala local self-government compliance rules.'}
-              </div>
-            </div>
-          )}
-        </div>
-      </motion.div>
 
       {/* Deletion Modal Overlay */}
       {deletingReportId && (

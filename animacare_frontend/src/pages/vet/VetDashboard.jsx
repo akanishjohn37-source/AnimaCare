@@ -443,6 +443,11 @@ const VetDashboard = () => {
           </div>
           <div>
             <h1 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>Clinical Portal</h1>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', margin: '0.2rem 0' }}>
+              <span style={{ fontSize: '0.72rem', background: 'rgba(74,222,128,0.12)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ade80', padding: '0.15rem 0.5rem', borderRadius: 20, fontWeight: 700 }}>
+                📍 Local Body: {user?.zone || 'Kollam Corporation'}
+              </span>
+            </div>
             <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.83rem', margin: 0 }}>Dr. {user?.first_name} {user?.last_name} — Attending Veterinarian</p>
           </div>
         </div>

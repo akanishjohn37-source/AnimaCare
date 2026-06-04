@@ -24,7 +24,7 @@ L.Icon.Default.mergeOptions({
 });
 
 export default function ShelterDashboard() {
-  const { authFetch } = useAuth();
+  const { user, authFetch } = useAuth();
   const [activeTab, setActiveTab] = useState('rescue');
   const [nearbyAlerts, setNearbyAlerts] = useState([]);
   const [selectedMapAlert, setSelectedMapAlert] = useState(null);
@@ -453,7 +453,12 @@ export default function ShelterDashboard() {
       <header className="bg-neutral-800 p-6 border-b border-neutral-700 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-emerald-400 flex items-center gap-3"><PawPrint size={32} /> Shelter Command Center</h1>
-          <p className="text-neutral-400 mt-1">Operational control for rescues and adoptions.</p>
+          <div className="flex gap-2 items-center mt-1.5">
+            <span className="text-[11px] font-black uppercase tracking-wider bg-emerald-950/80 border border-emerald-800/80 text-emerald-400 px-3 py-1 rounded-full flex items-center gap-1">
+              📍 Local Body: {user?.zone || 'Kollam Corporation'}
+            </span>
+          </div>
+          <p className="text-neutral-400 mt-1.5">Operational control for rescues and adoptions.</p>
         </div>
         <div className="flex items-center gap-4">
            <div className="bg-neutral-900 px-4 py-2 rounded-xl border border-neutral-700 flex items-center gap-3">

@@ -5,7 +5,7 @@ from .views import (
     PendingUsersView, ApproveUserView, AllUsersView, UserStatsView, VetsView, NotificationViewSet,
     TokenRefreshView,
     VerifyVetLicenseView, VerifyNGODarpanView, VerifyMunicipalRegistrationView,
-    VerifyOwnerPetBindingView,
+    VerifyOwnerPetBindingView, OccupiedCivicZonesView,
 )
 
 router = DefaultRouter()
@@ -33,4 +33,5 @@ urlpatterns = [
     path('verify-darpan/', VerifyNGODarpanView.as_view(), name='verify-darpan'),
     path('verify-municipal/', VerifyMunicipalRegistrationView.as_view(), name='verify-municipal'),
     path('verify-ownership/', VerifyOwnerPetBindingView.as_view(), name='verify-ownership'),
+    path('occupied-civic-zones/', OccupiedCivicZonesView.as_view(), name='occupied-civic-zones'),
 ]

@@ -24,6 +24,7 @@ class User(AbstractUser):
     phone_number = models.CharField(max_length=20, blank=True)
     profile_picture = models.URLField(blank=True)
     address = models.TextField(blank=True)
+    zone = models.CharField(max_length=255, blank=True, default='')
     # For admins: auto-active, never needs approval
     requires_approval = models.BooleanField(default=True)
     approval_note = models.TextField(blank=True)  # Admin can leave a note on rejection/approval

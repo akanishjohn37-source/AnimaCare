@@ -40,7 +40,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
-            'password', 'confirm_password', 'role', 'phone_number', 'address',
+            'password', 'confirm_password', 'role', 'phone_number', 'address', 'zone',
             'veterinarian_profile', 'shelter_profile', 'civic_profile',
         ]
 
@@ -55,6 +55,18 @@ class RegisterSerializer(serializers.ModelSerializer):
         # Admins cannot self-register through public API
         if role == 'admin':
             raise serializers.ValidationError({"role": "Admin accounts must be created by a super-administrator."})
+
+        if role == 'civic_authority':
+            zone = data.get('zone')
+            if not zone:
+                raise serializers.ValidationError({"zone": "Jurisdiction zone is required for civic authority accounts."})
+            already_exists = User.objects.filter(
+                role='civic_authority',
+                account_status__in=['active', 'pending'],
+                zone=zone
+            ).exists()
+            if already_exists:
+                raise serializers.ValidationError({"zone": f"An active or pending Civic Authority already exists for {zone}."})
 
         return data
 
@@ -151,7 +163,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'role', 'role_display', 'account_status', 'status_display',
-            'phone_number', 'address', 'profile_picture',
+            'phone_number', 'address', 'zone', 'profile_picture',
             'date_joined', 'approved_at',
             'veterinarian_profile', 'shelter_profile', 'civic_profile',
         ]
@@ -177,7 +189,7 @@ class UserAdminSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'full_name', 'role', 'role_display',
-            'account_status', 'status_display', 'phone_number',
+            'account_status', 'status_display', 'phone_number', 'zone',
             'date_joined', 'approval_note', 'approved_at',
         ]
 

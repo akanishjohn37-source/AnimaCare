@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -43,6 +43,15 @@ const ROLES = [
   },
 ];
 
+const KERALA_LOCAL_BODIES = [
+  'Kochi Municipal Corporation',
+  'Thiruvananthapuram Corporation',
+  'Kozhikode Corporation',
+  'Kollam Corporation',
+  'Thrissur Corporation',
+  'Kannur Corporation',
+];
+
 const STEPS = ['Select Role', 'Personal Info', 'Professional Details', 'Review'];
 
 const Register = () => {
@@ -62,6 +71,7 @@ const Register = () => {
   const [municipalId, setMunicipalId] = useState('');
   const [municipalStatus, setMunicipalStatus] = useState('idle'); // idle, verifying, verified, invalid
   const [municipalDetails, setMunicipalDetails] = useState(null);
+  const [occupiedZones, setOccupiedZones] = useState([]);
 
   const API_BASE = 'http://127.0.0.1:8000/api/auth';
 
@@ -125,10 +135,17 @@ const Register = () => {
       });
       const data = await res.json();
       if (res.ok && data.status === 'VERIFIED') {
+        const selectedJur = form.civic_profile.jurisdiction_area;
+        if (selectedJur && data.zone !== selectedJur) {
+          setMunicipalStatus('invalid');
+          setMunicipalDetails({ message: `Jurisdiction mismatch: This code is registered for '${data.zone}', but you selected '${selectedJur}'.` });
+          return;
+        }
         setMunicipalStatus('verified');
         setMunicipalDetails(data);
         setForm(p => ({
           ...p,
+          zone: data.zone || p.zone,
           civic_profile: {
             ...p.civic_profile,
             jurisdiction_area: data.zone || p.civic_profile.jurisdiction_area
@@ -144,11 +161,22 @@ const Register = () => {
     }
   };
 
+  useEffect(() => {
+    fetch(`${API_BASE}/occupied-civic-zones/`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.occupied_zones) {
+          setOccupiedZones(data.occupied_zones);
+        }
+      })
+      .catch(err => console.error("Error fetching occupied zones:", err));
+  }, []);
+
   const [form, setForm] = useState({
     // Base
     username: '', email: '', first_name: '', last_name: '',
     password: '', confirm_password: '',
-    phone_number: '', address: '',
+    phone_number: '', address: '', zone: '',
     // Vet
     veterinarian_profile: {
       clinic_hospital_name: '', medical_license_number: '',
@@ -194,7 +222,7 @@ const Register = () => {
     if (step === 1) {
       return !!(form.username && form.email && form.first_name &&
              form.last_name && form.password && form.confirm_password &&
-             form.phone_number.length === 10);
+             form.phone_number.length === 10 && (selectedRole === 'civic_authority' || form.zone));
     }
     if (step === 2) {
       if (selectedRole === 'veterinarian') {
@@ -204,7 +232,9 @@ const Register = () => {
         return Object.values(form.shelter_profile).every(v => v.trim() !== '') && form.shelter_profile.shelter_contact_number.length === 10;
       }
       if (selectedRole === 'civic_authority') {
-        return Object.values(form.civic_profile).every(v => v.trim() !== '') && form.civic_profile.official_contact.length === 10;
+        return Object.values(form.civic_profile).every(v => v.trim() !== '') && 
+               form.civic_profile.official_contact.length === 10 && 
+               municipalStatus === 'verified';
       }
     }
     return true;
@@ -233,6 +263,7 @@ const Register = () => {
         role: selectedRole,
         phone_number: form.phone_number,
         address: form.address,
+        zone: form.zone,
       };
 
       if (selectedRole === 'veterinarian') payload.veterinarian_profile = form.veterinarian_profile;
@@ -336,6 +367,35 @@ const Register = () => {
             onChange={change} placeholder="City, State" />
         </div>
       </div>
+      {selectedRole !== 'civic_authority' && (
+        <div className="auth-field auth-field--full">
+          <label htmlFor="reg-zone">Local Body Jurisdiction (Corporation / Zone)</label>
+          <div className="auth-input-wrap">
+            <MapPin size={15} className="auth-input-icon" />
+            <select 
+              id="reg-zone" 
+              name="zone" 
+              value={form.zone} 
+              onChange={change}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                color: '#fff',
+                outline: 'none',
+                padding: '0 0.5rem',
+                fontSize: '0.9rem',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="" disabled style={{ background: '#0f172a' }}>Select Local Body / Corporation</option>
+              {KERALA_LOCAL_BODIES.map(lb => (
+                <option key={lb} value={lb} style={{ background: '#0f172a' }}>{lb}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
       <div className="auth-field">
         <label htmlFor="reg-password">Password</label>
         <div className="auth-input-wrap">
@@ -552,10 +612,49 @@ const Register = () => {
                 placeholder="Animal Welfare Officer" /></div>
           </div>
           <div className="auth-field">
-            <label>Jurisdiction Area</label>
-            <div className="auth-input-wrap"><Map size={15} className="auth-input-icon" />
-              <input name="jurisdiction_area" value={cp.jurisdiction_area} onChange={ch}
-                placeholder="North Zone, City Name" /></div>
+            <label htmlFor="civic-jurisdiction">Jurisdiction Area (Corporation)</label>
+            <div className="auth-input-wrap">
+              <Map size={15} className="auth-input-icon" />
+              <select 
+                id="civic-jurisdiction" 
+                name="jurisdiction_area" 
+                value={cp.jurisdiction_area} 
+                onChange={(e) => {
+                  ch(e);
+                  setForm(p => ({ ...p, zone: e.target.value }));
+                  setMunicipalStatus('idle');
+                  setMunicipalDetails(null);
+                }}
+                style={{
+                  width: '100%',
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#fff',
+                  outline: 'none',
+                  padding: '0 0.5rem',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="" disabled style={{ background: '#0f172a' }}>Select Corporation</option>
+                {KERALA_LOCAL_BODIES.map(lb => {
+                  const isOccupied = occupiedZones.includes(lb);
+                  return (
+                    <option 
+                      key={lb} 
+                      value={lb} 
+                      disabled={isOccupied} 
+                      style={{ 
+                        background: '#0f172a',
+                        color: isOccupied ? '#64748b' : '#fff'
+                      }}
+                    >
+                      {lb} {isOccupied ? '(Already Registered)' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
           </div>
           <div className="auth-field">
             <label>Official Contact</label>
