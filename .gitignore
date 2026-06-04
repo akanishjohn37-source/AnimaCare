@@ -1,0 +1,47 @@
+# AnimaCare Root Gitignore
+
+# Byte-compiled / optimized / DLL files
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+
+# OS / Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environments & Private Configs
+.env
+.env.local
+.env.*.local
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Django Databases & Logs
+*.sqlite3
+*.sqlite3-journal
+*.log
+check2.log
+check_err.log
+error.txt
+error_output.txt
+error_output2.txt
+migrations.txt
+
+# Node / Frontend Build & Cache
+node_modules/
+dist/
+dist-ssr/
+.cache/
+.npm/
