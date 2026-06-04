@@ -45,3 +45,11 @@ dist/
 dist-ssr/
 .cache/
 .npm/
+
+# Documentation, Diagrams & Reports (Not required for code execution)
+*.docx
+*.pdf
+PRD_AnimaCare.md
+Testing_Report_AnimaCare.md
+animacare_documentation.md
+
