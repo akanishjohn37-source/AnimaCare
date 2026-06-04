@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, AlertCircle, Phone, Camera, Send, Loader2 } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, GeoJSON } from 'react-leaflet';
+import invertedKeralaData from '../../assets/inverted_kerala.json';
+import keralaData from '../../assets/kerala_feature.json';
+
+const KERALA_BOUNDS = [
+  [8.15, 74.85],
+  [12.85, 77.40]
+];
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './SOSMap.css';
@@ -24,7 +31,9 @@ const MapEvents = ({ location, setLocation }) => {
   });
 
   useEffect(() => {
-    map.flyTo([location.lat, location.lng], map.getZoom(), { animate: true, duration: 1.5 });
+    if (location.lat !== 0 && location.lng !== 0) {
+      map.flyTo([location.lat, location.lng], map.getZoom(), { animate: true, duration: 1.5 });
+    }
   }, [location, map]);
 
   return null;
@@ -38,9 +47,19 @@ const SOSMap = () => {
   const [alertType, setAlertType] = useState('rescue');
   const [photo, setPhoto] = useState(null);
   const [location, setLocation] = useState({ lat: 10.8505, lng: 76.2711 });
+  const [toastMessage, setToastMessage] = useState('');
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 3500);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (location.lat === 0 && location.lng === 0) {
+      showToast("Please select a valid location inside Kerala before submitting.");
+      return;
+    }
     setReportState('submitting');
     
     try {
@@ -79,10 +98,14 @@ const SOSMap = () => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          if (lat >= 8.15 && lat <= 12.85 && lng >= 74.85 && lng <= 77.40) {
+            setLocation({ lat, lng });
+          } else {
+            showToast("Your physical location is outside Kerala. Marker cleared.");
+            setLocation({ lat: 0, lng: 0 });
+          }
         },
         (error) => {
           console.error("Error obtaining location", error);
@@ -97,6 +120,20 @@ const SOSMap = () => {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="sos-container">
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-24 left-1/2 transform -translate-x-1/2 z-[9999] bg-red-600 text-white px-6 py-3 rounded-full font-bold shadow-2xl flex items-center gap-2"
+          >
+            <AlertCircle size={20} />
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="sos-header">
         <h1 className="page-title text-danger">Emergency & Disease Alert</h1>
         <p className="page-subtitle">Report an animal in immediate danger or log a disease sighting. This will notify the authorities.</p>
@@ -105,8 +142,28 @@ const SOSMap = () => {
       <div className="sos-layout">
         <div className="map-view glass-panel">
           <div className="map-placeholder" style={{ position: 'relative', zIndex: 1, height: '450px' }}>
-            <MapContainer center={[location.lat, location.lng]} zoom={14} style={{ height: '100%', width: '100%', borderRadius: '12px' }}>
+            <MapContainer 
+              bounds={KERALA_BOUNDS}
+              minZoom={7}
+              maxBounds={KERALA_BOUNDS}
+              maxBoundsViscosity={1.0}
+              style={{ height: '100%', width: '100%', borderRadius: '12px' }}
+            >
               <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <GeoJSON 
+                data={invertedKeralaData} 
+                style={{ color: 'transparent', fillColor: '#111827', fillOpacity: 0.95 }} 
+                interactive={true} 
+                eventHandlers={{
+                  click: (e) => {
+                    L.DomEvent.stop(e);
+                    setLocation({ lat: 0, lng: 0 });
+                    showToast("Cannot place marker outside Kerala state boundaries!");
+                  }
+                }}
+              />
+              <GeoJSON data={keralaData} style={{ color: '#047857', weight: 8, opacity: 0.4, fillColor: 'transparent' }} interactive={false} />
+              <GeoJSON data={keralaData} style={{ color: '#34d399', weight: 3, opacity: 1, fillColor: 'transparent' }} interactive={false} />
               <Marker position={[location.lat, location.lng]} icon={customMarkerIcon}>
                 <Popup>Incident Location<br />{location.lat.toFixed(4)}, {location.lng.toFixed(4)}</Popup>
               </Marker>

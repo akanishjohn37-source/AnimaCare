@@ -1,10 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap, GeoJSON } from 'react-leaflet';
+import invertedKeralaData from '../assets/inverted_kerala.json';
+import keralaData from '../assets/kerala_feature.json';
 
-const ChangeView = ({ center, zoom }) => {
+const KERALA_BOUNDS = [
+  [8.15, 74.85],
+  [12.85, 77.40]
+];
+
+const ChangeView = ({ center, zoom, bounds }) => {
   const map = useMap();
-  map.setView(center, zoom);
+  if (bounds) {
+    map.fitBounds(bounds);
+  } else {
+    map.setView(center, zoom);
+  }
   return null;
 }
 
@@ -313,8 +324,18 @@ const CivicAuthorityDashboard = () => {
                 <span style={{ color: '#e2e8f0' }}>{selectedReport.type} reported by {selectedReport.reporterName} ({selectedReport.time})</span>
               </div>
             )}
-            <MapContainer center={mapCenter} zoom={mapZoom} style={{ flex: 1, width: '100%' }} zoomControl={false}>
-              <ChangeView center={mapCenter} zoom={mapZoom} />
+            <MapContainer 
+              bounds={KERALA_BOUNDS}
+              minZoom={7}
+              maxBounds={KERALA_BOUNDS}
+              maxBoundsViscosity={1.0}
+              style={{ flex: 1, width: '100%' }} 
+              zoomControl={false}
+            >
+              <ChangeView center={mapCenter} zoom={mapZoom} bounds={!selectedReport ? KERALA_BOUNDS : null} />
+              <GeoJSON data={invertedKeralaData} style={{ color: 'transparent', fillColor: '#1e1e2d', fillOpacity: 0.95 }} interactive={false} />
+              <GeoJSON data={keralaData} style={{ color: '#f87171', weight: 8, opacity: 0.4, fillColor: 'transparent' }} interactive={false} />
+              <GeoJSON data={keralaData} style={{ color: '#ef4444', weight: 3, opacity: 1, fillColor: 'transparent' }} interactive={false} />
               <TileLayer
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 attribution='&copy; <a href="https://carto.com/">CartoDB</a>'

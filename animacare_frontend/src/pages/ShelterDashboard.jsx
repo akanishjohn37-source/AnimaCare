@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from 'react-leaflet';
+import invertedKeralaData from '../assets/inverted_kerala.json';
+import keralaData from '../assets/kerala_feature.json';
+
+const KERALA_BOUNDS = [
+  [8.15, 74.85],
+  [12.85, 77.40]
+];
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -837,8 +844,19 @@ export default function ShelterDashboard() {
               <button onClick={() => setSelectedMapAlert(null)} className="text-neutral-400 hover:text-white transition-colors text-2xl font-light">&times;</button>
             </div>
             <div className="h-[500px] w-full bg-neutral-800 relative">
-              <MapContainer center={[selectedMapAlert.lat, selectedMapAlert.lng]} zoom={15} scrollWheelZoom={false} style={{ height: '100%', width: '100%', zIndex: 10 }}>
+              <MapContainer 
+                center={[selectedMapAlert.lat, selectedMapAlert.lng]} 
+                zoom={15} 
+                scrollWheelZoom={false} 
+                minZoom={7}
+                maxBounds={KERALA_BOUNDS}
+                maxBoundsViscosity={1.0}
+                style={{ height: '100%', width: '100%', zIndex: 10 }}
+              >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <GeoJSON data={invertedKeralaData} style={{ color: 'transparent', fillColor: '#171717', fillOpacity: 0.95 }} interactive={false} />
+                <GeoJSON data={keralaData} style={{ color: '#047857', weight: 8, opacity: 0.4, fillColor: 'transparent' }} interactive={false} />
+                <GeoJSON data={keralaData} style={{ color: '#34d399', weight: 3, opacity: 1, fillColor: 'transparent' }} interactive={false} />
                 <Marker position={[selectedMapAlert.lat, selectedMapAlert.lng]}>
                   <Popup><div className="font-bold text-neutral-800">SOS Location</div><p className="text-xs text-neutral-600">{selectedMapAlert.location}</p></Popup>
                 </Marker>
