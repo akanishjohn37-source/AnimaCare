@@ -73,7 +73,7 @@ const Register = () => {
   const [municipalDetails, setMunicipalDetails] = useState(null);
   const [occupiedZones, setOccupiedZones] = useState([]);
 
-  const API_BASE = 'http://127.0.0.1:8000/api/auth';
+  const API_BASE = `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/auth`;
 
   const verifyVetLicense = async (licenseNumber) => {
     if (!licenseNumber.trim()) return;

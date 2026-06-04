@@ -54,7 +54,7 @@ const CivicAuthorityDashboard = () => {
     setMunicipalStatus('verifying');
     setMunicipalDetails(null);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/auth/verify-municipal/', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/auth/verify-municipal/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ municipal_id: municipalId }),

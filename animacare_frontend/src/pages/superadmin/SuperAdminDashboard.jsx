@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './SuperAdminDashboard.css';
 
-const API = 'http://127.0.0.1:8000/api/auth';
+const API = `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/auth`;
 
 const STATUS_COLOR = {
   active:    { bg: 'rgba(74,222,128,0.12)',  border: 'rgba(74,222,128,0.3)',  color: '#4ade80' },

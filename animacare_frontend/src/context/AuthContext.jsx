@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const API = 'http://127.0.0.1:8000/api/auth';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API = `${API_BASE_URL}/api/auth`;
 
 const AuthContext = createContext(null);
 
@@ -125,7 +126,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const authFetch = useCallback(async (url, opts = {}) => {
-    const makeRequest = (currentAuthToken) => fetch(url, {
+    const targetUrl = url.replace(/^https?:\/\/(localhost|127\.0\.0\.1):8000/, API_BASE_URL);
+    const makeRequest = (currentAuthToken) => fetch(targetUrl, {
       ...opts,
       headers: {
         'Content-Type': 'application/json',
