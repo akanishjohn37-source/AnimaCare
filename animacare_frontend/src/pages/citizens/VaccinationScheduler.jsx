@@ -20,8 +20,8 @@ const SPECIES_EMOJI = {
   goat: '🐐', chicken: '🐣', duck: '🦆', hen: '🐣', horse: '🐴', bird: '🐦',
 };
 
-/* ── Vaccine checkboxes per species (what the vet can confirm today) ── */
-const VACCINE_OPTIONS = {
+/* ── Injection checkboxes per species (what the vet can confirm today) ── */
+const INJECTION_OPTIONS = {
   dog: [
     { key: 'dhppil_1', label: 'DHPPiL Dose 1 (6 Weeks)', ageWeeksMin: 5 },
     { key: '7in1',     label: '7-in-1 Combo Vaccine (10 Weeks)', ageWeeksMin: 9 },
@@ -124,10 +124,10 @@ const VaccinationScheduler = () => {
     return { weeks, months, totalDays, label };
   };
 
-  /* ── Get applicable vaccines for this pet ── */
-  const getApplicableVaccines = (pet) => {
+  /* ── Get applicable injections for this pet ── */
+  const getApplicableInjections = (pet) => {
     const species = (pet.species || '').toLowerCase();
-    const options = VACCINE_OPTIONS[species] || [];
+    const options = INJECTION_OPTIONS[species] || [];
     const age = getAgeInfo(pet.dob);
     const gender = (pet.gender || '').toLowerCase();
 
@@ -197,7 +197,7 @@ const VaccinationScheduler = () => {
   };
 
   const handleDeleteSchedule = async (scheduleId) => {
-    if (!window.confirm('Delete this entire vaccination schedule?')) return;
+    if (!window.confirm('Delete this entire injection schedule?')) return;
     try {
       await authFetch(`${API_SCHEDULES}/${scheduleId}/`, { method: 'DELETE' });
       setSchedules(prev => prev.filter(s => s.id !== scheduleId));
@@ -214,13 +214,13 @@ const VaccinationScheduler = () => {
   const isUpcoming = (dateStr) => new Date(dateStr) >= new Date(new Date().toISOString().split('T')[0]);
 
   const ageInfo = selectedPet ? getAgeInfo(selectedPet.dob) : null;
-  const applicableVaccines = selectedPet ? getApplicableVaccines(selectedPet) : [];
+  const applicableInjections = selectedPet ? getApplicableInjections(selectedPet) : [];
 
   return (
     <div className="vacc-scheduler">
-      <h1>💉 Vaccination Scheduler</h1>
+      <h1>💉 Injection Scheduler</h1>
       <p className="subtitle">
-        Check in patients, confirm today's injections, and automatically generate future vaccination timelines with smart deworming reminders.
+        Check in patients, confirm today's injections, and automatically generate future injection timelines with smart deworming reminders.
       </p>
 
       {/* ═══════ Step 1: Appointment Check-In ═══════ */}
@@ -265,7 +265,7 @@ const VaccinationScheduler = () => {
                 <div>
                   <div style={{ fontWeight: 700, color: '#fff' }}>{pet.name} <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400, fontSize: '0.82rem' }}>({pet.species}{pet.breed ? ` • ${pet.breed}` : ''})</span></div>
                   <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.4)' }}>
-                    {pet.gender || 'Unknown gender'} • DOB: {pet.dob || 'N/A'} • Status: {pet.health_status || 'Healthy'}
+                    {pet.gender || 'Unknown gender'} • DOB: {pet.dob || 'N/A'}
                   </div>
                 </div>
               </div>
@@ -326,17 +326,17 @@ const VaccinationScheduler = () => {
         <div className="vacc-form-section">
           <h2>💉 Step 4 — Confirm Injections Given Today</h2>
           <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.85rem', marginBottom: '1rem' }}>
-            Check the vaccines you administered during this visit. The system will auto-generate the future timeline.
+            Check the injections you administered during this visit. The system will auto-generate the future timeline.
           </p>
 
-          {applicableVaccines.length === 0 ? (
+          {applicableInjections.length === 0 ? (
             <div className="custom-track-message">
               <h3>❓ No Built-in Schedule</h3>
-              <p>No standard vaccine blueprint found for this species ({selectedPet.species}). Please consult local veterinary guidelines and create a manual entry.</p>
+              <p>No standard injection blueprint found for this species ({selectedPet.species}). Please consult local veterinary guidelines and create a manual entry.</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-              {applicableVaccines.map(v => (
+              {applicableInjections.map(v => (
                 <label key={v.key} style={{
                   display: 'flex', alignItems: 'center', gap: '0.85rem',
                   padding: '0.85rem 1.25rem', borderRadius: 12, cursor: 'pointer',
@@ -376,7 +376,7 @@ const VaccinationScheduler = () => {
       {/* ═══════ Generated Schedules ═══════ */}
       <div style={{ marginTop: '2.5rem' }}>
         <h2 style={{ color: '#fff', fontSize: '1.3rem', fontWeight: 800, marginBottom: '1rem' }}>
-          📅 Generated Vaccination Timelines
+          📅 Generated Injection Timelines
         </h2>
 
         {loading ? (
@@ -384,8 +384,8 @@ const VaccinationScheduler = () => {
         ) : schedules.length === 0 ? (
           <div className="vacc-empty-state">
             <div className="emoji-large">🩺</div>
-            <p style={{ fontSize: '1rem', fontWeight: 600 }}>No vaccination timelines generated yet</p>
-            <p style={{ fontSize: '0.85rem' }}>Search for a patient above and confirm their today's vaccinations to generate their personalized future timeline.</p>
+            <p style={{ fontSize: '1rem', fontWeight: 600 }}>No injection timelines generated yet</p>
+            <p style={{ fontSize: '0.85rem' }}>Search for a patient above and confirm their today's injections to generate their personalized future timeline.</p>
           </div>
         ) : (
           <div className="vacc-schedules-list">
@@ -441,7 +441,7 @@ const VaccinationScheduler = () => {
                                 <div className="content">
                                   <span className={`type-badge type-${item.item_type}`}>
                                     {item.item_type === 'deworming' ? '🪱 Deworming' :
-                                     item.item_type === 'vaccine' ? '💉 Vaccine' :
+                                     item.item_type === 'injection' ? '💉 Injection' :
                                      item.item_type === 'annual' ? '🔄 Annual' : '📅 Seasonal'}
                                   </span>
                                   <div className="title">{item.title}</div>

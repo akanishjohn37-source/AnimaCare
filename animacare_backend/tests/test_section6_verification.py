@@ -93,11 +93,10 @@ class Section6_VerificationEngineTests(TestCase):
     # ── Engine 4: Owner-Pet Binding Verification ─────────────────────────
 
     def test_10_ownership_binding_all_vectors(self):
-        """All 4 binding vectors must be provided."""
+        """All 3 binding vectors must be provided."""
         response = self.client.post('/api/auth/verify-ownership/', {
             'municipal_id': 'COCHIN-CORP-2026-04192',
             'owner_gov_id': 'ABCDE1234F',
-            'microchip_id': '981020012345678',
             'vaccination_batch': 'VAX-2026-BATCH-001',
         }, format='json')
         # Should pass format validation at minimum
@@ -107,25 +106,24 @@ class Section6_VerificationEngineTests(TestCase):
         """Incomplete vectors should return specific error."""
         response = self.client.post('/api/auth/verify-ownership/', {
             'municipal_id': 'COCHIN-CORP-2026-04192',
-            # Missing: owner_gov_id, microchip_id, vaccination_batch
+            # Missing: owner_gov_id, vaccination_batch
         }, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         data = response.json()
         self.assertEqual(data['error'], 'INCOMPLETE_VECTORS')
         self.assertIn('missing_fields', data)
-        self.assertEqual(len(data['missing_fields']), 3)
+        self.assertEqual(len(data['missing_fields']), 2)
 
     def test_12_ownership_binding_empty_fields(self):
         """Empty fields should be treated as missing."""
         response = self.client.post('/api/auth/verify-ownership/', {
             'municipal_id': '',
             'owner_gov_id': '',
-            'microchip_id': '',
             'vaccination_batch': '',
         }, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.json()['error'], 'INCOMPLETE_VECTORS')
-        self.assertEqual(len(response.json()['missing_fields']), 4)
+        self.assertEqual(len(response.json()['missing_fields']), 3)
 
     # ── Occupied Civic Zones ─────────────────────────────────────────────
 

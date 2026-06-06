@@ -72,6 +72,8 @@ const Register = () => {
   const [municipalStatus, setMunicipalStatus] = useState('idle'); // idle, verifying, verified, invalid
   const [municipalDetails, setMunicipalDetails] = useState(null);
   const [occupiedZones, setOccupiedZones] = useState([]);
+  const [farmLocations, setFarmLocations] = useState([]);
+  const [currentLocationInput, setCurrentLocationInput] = useState('');
 
   const API_BASE = `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/auth`;
 
@@ -187,6 +189,7 @@ const Register = () => {
     shelter_profile: {
       shelter_name: '', shelter_registration_number: '',
       shelter_address: '', shelter_contact_number: '', capacity: '',
+      shelter_type: 'mixed', specific_animal: '',
     },
     // Civic
     civic_profile: {
@@ -229,7 +232,12 @@ const Register = () => {
         return Object.values(form.veterinarian_profile).every(v => v.trim() !== '') && form.veterinarian_profile.professional_contact_number.length === 10;
       }
       if (selectedRole === 'shelter_admin') {
-        return Object.values(form.shelter_profile).every(v => v.trim() !== '') && form.shelter_profile.shelter_contact_number.length === 10;
+        const sp = form.shelter_profile;
+        const baseOk = !!(sp.shelter_name && sp.shelter_registration_number && sp.shelter_address && sp.capacity !== '' && sp.shelter_contact_number.length === 10);
+        if (sp.shelter_type === 'specific') {
+          return baseOk && !!(sp.specific_animal && sp.specific_animal.trim());
+        }
+        return baseOk;
       }
       if (selectedRole === 'civic_authority') {
         return Object.values(form.civic_profile).every(v => v.trim() !== '') && 
@@ -269,6 +277,7 @@ const Register = () => {
       if (selectedRole === 'veterinarian') payload.veterinarian_profile = form.veterinarian_profile;
       if (selectedRole === 'shelter_admin') payload.shelter_profile = form.shelter_profile;
       if (selectedRole === 'civic_authority') payload.civic_profile = form.civic_profile;
+      if (selectedRole === 'citizen') payload.farm_locations = farmLocations;
 
       const result = await register(payload);
 
@@ -426,10 +435,122 @@ const Register = () => {
   const renderProfessionalStep = () => {
     if (selectedRole === 'citizen') {
       return (
-        <div className="auth-no-extra">
-          <CheckCircle size={48} color="#4ade80" />
-          <h3>All set!</h3>
-          <p>Citizens don't need additional verification. Your account will be activated immediately.</p>
+        <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'left' }}>
+          <h3 style={{ color: '#fff', fontSize: '1.25rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Building2 size={20} color="#22d3ee" /> Farm Locations (Optional)
+          </h3>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+            If you own livestock, register your farm locations below. You can select these locations from a dropdown when adding livestock passports.
+          </p>
+
+          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
+            <div className="auth-input-wrap" style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+              <MapPin size={15} className="auth-input-icon" style={{ marginLeft: '0.75rem' }} />
+              <input
+                value={currentLocationInput}
+                onChange={(e) => setCurrentLocationInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (currentLocationInput.trim()) {
+                      if (!farmLocations.includes(currentLocationInput.trim())) {
+                        setFarmLocations([...farmLocations, currentLocationInput.trim()]);
+                      }
+                      setCurrentLocationInput('');
+                    }
+                  }
+                }}
+                placeholder="e.g. West Barn, Sector 4 Meadow"
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#fff',
+                  outline: 'none',
+                  padding: '0.75rem'
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (currentLocationInput.trim()) {
+                  if (!farmLocations.includes(currentLocationInput.trim())) {
+                    setFarmLocations([...farmLocations, currentLocationInput.trim()]);
+                  }
+                  setCurrentLocationInput('');
+                }
+              }}
+              style={{
+                background: '#22d3ee',
+                color: '#0f172a',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '0 1.5rem',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease-in-out'
+              }}
+            >
+              Add
+            </button>
+          </div>
+
+          {farmLocations.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem' }}>Registered Locations ({farmLocations.length})</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {farmLocations.map((loc, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      background: 'rgba(34, 211, 238, 0.1)',
+                      border: '1px solid rgba(34, 211, 238, 0.3)',
+                      borderRadius: '20px',
+                      padding: '0.25rem 0.75rem',
+                      color: '#22d3ee',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    <span>{loc}</span>
+                    <button
+                      type="button"
+                      onClick={() => setFarmLocations(farmLocations.filter((_, i) => i !== idx))}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        padding: 0,
+                        fontSize: '1rem',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                      title="Remove location"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: '1.5rem', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+              No farm locations added yet. You can still register without them and manage them later.
+            </div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'rgba(74, 222, 128, 0.05)', border: '1px solid rgba(74, 222, 128, 0.15)', borderRadius: '8px', color: '#4ade80', fontSize: '0.85rem' }}>
+            <CheckCircle size={16} />
+            <span>Registration verification is automatic for citizen accounts.</span>
+          </div>
         </div>
       );
     }
@@ -573,6 +694,38 @@ const Register = () => {
               <input name="capacity" type="number" value={sp.capacity} onChange={ch}
                 placeholder="50" /></div>
           </div>
+          <div className="auth-field">
+            <label>Shelter Type</label>
+            <div className="auth-input-wrap">
+              <Building2 size={15} className="auth-input-icon" />
+              <select 
+                name="shelter_type" 
+                value={sp.shelter_type} 
+                onChange={ch}
+                style={{
+                  width: '100%',
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#fff',
+                  outline: 'none',
+                  padding: '0 0.5rem',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="mixed" style={{ background: '#0f172a' }}>Mixed Animal Shelter</option>
+                <option value="specific" style={{ background: '#0f172a' }}>Specific Animal Shelter</option>
+              </select>
+            </div>
+          </div>
+          {sp.shelter_type === 'specific' && (
+            <div className="auth-field auth-field--full">
+              <label>Target Animal / Species</label>
+              <div className="auth-input-wrap"><Activity size={15} className="auth-input-icon" />
+                <input name="specific_animal" value={sp.specific_animal} onChange={ch}
+                  placeholder="e.g. Dogs, Cats, Birds" /></div>
+            </div>
+          )}
           <div className="auth-field">
             <label>Contact Number</label>
             <div className="auth-input-wrap"><Phone size={15} className="auth-input-icon" />
@@ -730,6 +883,14 @@ const Register = () => {
         <div className="auth-review-item"><span>Username</span><strong>{form.username}</strong></div>
         <div className="auth-review-item"><span>Email</span><strong>{form.email}</strong></div>
         {form.phone_number && <div className="auth-review-item"><span>Phone</span><strong>{form.phone_number}</strong></div>}
+        {selectedRole === 'shelter_admin' && (
+          <>
+            <div className="auth-review-item"><span>Shelter Name</span><strong>{form.shelter_profile.shelter_name}</strong></div>
+            <div className="auth-review-item"><span>NGO Darpan ID</span><strong>{form.shelter_profile.shelter_registration_number}</strong></div>
+            <div className="auth-review-item"><span>Capacity</span><strong>{form.shelter_profile.capacity}</strong></div>
+            <div className="auth-review-item"><span>Shelter Type</span><strong>{form.shelter_profile.shelter_type === 'specific' ? `Specific (${form.shelter_profile.specific_animal})` : 'Mixed Animal'}</strong></div>
+          </>
+        )}
       </div>
       {roleObj?.approval && (
         <div className="auth-alert auth-alert--info" style={{ marginTop: '1rem' }}>

@@ -479,13 +479,11 @@ class VerifyOwnerPetBindingView(APIView):
     """
     Verification Engine 4: Owner-Pet Binding Verification.
     
-    The most intricate verification pipeline — cross-validates
-    4 distinct credential vectors to prove legal ownership:
+    Cross-validates 3 distinct credential vectors to prove legal ownership:
     
     Vector 1: Municipal License ID String
     Vector 2: Owner's Government ID (SHA-256 hashed on server)
-    Vector 3: Animal's Microchip Serial ID
-    Vector 4: Vaccination Batch Serial String
+    Vector 3: Vaccination Batch Serial String
     
     Sequential validation: any single vector failure halts the entire chain.
     
@@ -496,17 +494,14 @@ class VerifyOwnerPetBindingView(APIView):
     def post(self, request):
         municipal_id = request.data.get('municipal_id', '').strip()
         owner_gov_id = request.data.get('owner_gov_id', '').strip()
-        microchip_id = request.data.get('microchip_id', '').strip()
         vaccination_batch = request.data.get('vaccination_batch', '').strip()
 
-        # Validate all 4 vectors are present
+        # Validate all 3 vectors are present
         missing = []
         if not municipal_id:
             missing.append('Municipal License ID')
         if not owner_gov_id:
             missing.append('Owner Government ID')
-        if not microchip_id:
-            missing.append('Microchip Serial ID')
         if not vaccination_batch:
             missing.append('Vaccination Batch ID')
 
@@ -522,11 +517,10 @@ class VerifyOwnerPetBindingView(APIView):
 
         # Regex sanitization: remove whitespace, hyphens from gov ID, force uppercase
         owner_gov_id_clean = re.sub(r'[\s-]', '', owner_gov_id).upper()
-        microchip_id_clean = re.sub(r'[\s-]', '', microchip_id)
         vaccination_batch_clean = re.sub(r'\s', '', vaccination_batch).upper()
 
         is_valid, details = verify_owner_pet_binding(
-            municipal_id, owner_gov_id_clean, microchip_id_clean, vaccination_batch_clean
+            municipal_id, owner_gov_id_clean, vaccination_batch_clean
         )
 
         if is_valid:

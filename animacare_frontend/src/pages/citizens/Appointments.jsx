@@ -1,43 +1,64 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Calendar, Clock, User, Plus, CheckCircle, AlertCircle, Trash2, MapPin, Stethoscope, ChevronRight, X, ChevronDown, CalendarDays } from 'lucide-react';
+import { Calendar, Clock, User, Plus, CheckCircle, AlertCircle, Trash2, MapPin, Stethoscope, ChevronRight, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const TIME_SLOTS = [
-  "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-  "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00"
-];
 
 const Appointments = () => {
   const { user, authFetch } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [vets, setVets] = useState([]);
   const [pets, setPets] = useState([]);
+  const [livestock, setLivestock] = useState([]);
+  const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedVet, setSelectedVet] = useState(null);
-  const [newAppt, setNewAppt] = useState({
-    pet: '',
-    vet: '',
-    date: '',
-    time: '09:00',
-    reason: ''
-  });
 
-  const today = new Date().toISOString().split('T')[0];
+  // New slot-based booking states
+  const [animalType, setAnimalType] = useState('pet'); // 'pet' or 'livestock'
+  const [selectedAnimalId, setSelectedAnimalId] = useState('');
+  const [selectedSlotId, setSelectedSlotId] = useState('');
+  const [bookingReason, setBookingReason] = useState('');
+  const [quickVetId, setQuickVetId] = useState('');
+
+
+
+  const fetchAppointmentsAndSlots = async () => {
+    try {
+      const [apptsRes, slotsRes] = await Promise.all([
+        authFetch('http://localhost:8000/api/clinical/appointments/'),
+        authFetch('http://localhost:8000/api/clinical/slots/')
+      ]);
+      if (apptsRes.ok) {
+        const d = await apptsRes.json();
+        setAppointments(d.results || (Array.isArray(d) ? d : []));
+      }
+      if (slotsRes.ok) {
+        const d = await slotsRes.json();
+        setSlots(d.results || (Array.isArray(d) ? d : []));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [apptsRes, vetsRes, petsRes] = await Promise.all([
+        const [apptsRes, vetsRes, petsRes, livestockRes, slotsRes] = await Promise.all([
           authFetch('http://localhost:8000/api/clinical/appointments/'),
           authFetch('http://localhost:8000/api/auth/vets/'),
-          authFetch('http://localhost:8000/api/citizens/pets/')
+          authFetch('http://localhost:8000/api/citizens/pets/'),
+          authFetch('http://localhost:8000/api/citizens/livestocks/'),
+          authFetch('http://localhost:8000/api/clinical/slots/')
         ]);
         
         if (apptsRes.ok) { const d = await apptsRes.json(); setAppointments(d.results || (Array.isArray(d) ? d : [])); }
         if (vetsRes.ok) { const d = await vetsRes.json(); setVets(d.results || (Array.isArray(d) ? d : [])); }
         if (petsRes.ok) { const d = await petsRes.json(); setPets(d.results || (Array.isArray(d) ? d : [])); }
+        if (livestockRes.ok) { const d = await livestockRes.json(); setLivestock(d.results || (Array.isArray(d) ? d : [])); }
+        if (slotsRes.ok) { const d = await slotsRes.json(); setSlots(d.results || (Array.isArray(d) ? d : [])); }
       } catch (err) {
         console.error("Fetch data error", err);
       } finally {
@@ -49,31 +70,50 @@ const Appointments = () => {
 
   const handleCreateAppointment = async (e) => {
     e.preventDefault();
-    if (!newAppt.pet || (!newAppt.vet && !selectedVet)) {
-        alert("Please select a pet and veterinarian.");
+    const vetId = selectedVet?.id || quickVetId;
+    if (!selectedAnimalId || !vetId || !selectedSlotId) {
+        alert("Please select an animal, veterinarian, and slot.");
         return;
     }
+    const selectedSlot = slots.find(s => s.id === parseInt(selectedSlotId));
+    if (!selectedSlot) {
+        alert("Selected slot is invalid.");
+        return;
+    }
+
     try {
-      const dateTime = `${newAppt.date}T${newAppt.time}:00Z`;
+      const dateTime = `${selectedSlot.date}T${selectedSlot.start_time}`;
+      const payload = {
+        vet: vetId,
+        slot: selectedSlot.id,
+        date: dateTime,
+        reason: bookingReason
+      };
+      if (animalType === 'pet') {
+        payload.pet = selectedAnimalId;
+        payload.livestock = null;
+      } else {
+        payload.livestock = selectedAnimalId;
+        payload.pet = null;
+      }
+
       const res = await authFetch('http://localhost:8000/api/clinical/appointments/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pet: newAppt.pet,
-          vet: newAppt.vet || selectedVet?.id,
-          date: dateTime,
-          reason: newAppt.reason
-        })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
-        const created = await res.json();
-        setAppointments([...appointments, created]);
+        await fetchAppointmentsAndSlots();
         setShowModal(false);
         setSelectedVet(null);
-        setNewAppt({ pet: '', vet: '', date: '', time: '09:00', reason: '' });
+        setSelectedAnimalId('');
+        setSelectedSlotId('');
+        setBookingReason('');
+        setQuickVetId('');
+        alert("Appointment booked successfully!");
       } else {
         const errData = await res.json();
-        alert(`Error: ${JSON.stringify(errData)}`);
+        alert(`Error booking appointment: ${JSON.stringify(errData)}`);
       }
     } catch (err) {
       console.error(err);
@@ -88,7 +128,7 @@ const Appointments = () => {
         body: JSON.stringify({ status })
       });
       if (res.ok) {
-        setAppointments(appointments.map(a => a.id === id ? { ...a, status } : a));
+        await fetchAppointmentsAndSlots();
       }
     } catch (err) {
       console.error(err);
@@ -102,7 +142,7 @@ const Appointments = () => {
       await Promise.all(cancelled.map(a => 
         authFetch(`http://localhost:8000/api/clinical/appointments/${a.id}/`, { method: 'DELETE' })
       ));
-      setAppointments(appointments.filter(a => a.status !== 'Cancelled'));
+      await fetchAppointmentsAndSlots();
     } catch (err) {
       console.error(err);
     }
@@ -116,17 +156,18 @@ const Appointments = () => {
       await Promise.all(completed.map(a => 
         authFetch(`http://localhost:8000/api/clinical/appointments/${a.id}/`, { method: 'DELETE' })
       ));
-      setAppointments(appointments.filter(a => a.status !== 'Completed'));
+      await fetchAppointmentsAndSlots();
     } catch (err) {
       console.error(err);
     }
   };
 
-
   const openBookingForVet = (vet) => {
     setSelectedVet(vet);
-    setNewAppt({ ...newAppt, vet: vet.id });
+    setQuickVetId(vet.id);
     setShowModal(true);
+    // Refresh slots to include any newly created slots by the vet
+    fetchAppointmentsAndSlots();
   };
 
   const inputStyle = {
@@ -168,7 +209,7 @@ const Appointments = () => {
             </button>
           )}
           <button 
-            onClick={() => { setSelectedVet(null); setShowModal(true); }}
+            onClick={() => { setSelectedVet(null); setShowModal(true); fetchAppointmentsAndSlots(); }}
             className="btn btn-primary" 
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 8px 24px rgba(139,92,246,0.3)' }}
           >
@@ -244,7 +285,10 @@ const Appointments = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '4px' }}>
-                         <h4 style={{ color: '#fff', margin: 0, fontSize: '1rem' }}>{appt.pet_detail?.name}{appt.pet_detail?.species ? ` (${appt.pet_detail.species})` : ''}</h4>
+                         <h4 style={{ color: '#fff', margin: 0, fontSize: '1rem' }}>
+                           {appt.pet_detail ? appt.pet_detail.name : (appt.livestock_detail ? appt.livestock_detail.name : 'Unknown Animal')}
+                           {(appt.pet_detail?.species || appt.livestock_detail?.species) ? ` (${appt.pet_detail?.species || appt.livestock_detail?.species})` : ''}
+                         </h4>
                          <span className={`badge ${appt.status === 'Completed' ? 'badge-success' : appt.status === 'Cancelled' ? 'badge-secondary' : 'badge-primary'}`} style={{ fontSize: '0.6rem' }}>
                             {appt.status}
                          </span>
@@ -295,94 +339,124 @@ const Appointments = () => {
                <X size={24} />
             </button>
             
-            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-               <h2 style={{ color: '#fff', margin: 0, fontSize: '1.75rem' }}>{selectedVet ? `Visit Dr. ${selectedVet.first_name}` : 'New Appointment'}</h2>
-               <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Select your pet and choose a preferred time slot.</p>
-            </div>
-
-            <form onSubmit={handleCreateAppointment} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div style={{ position: 'relative' }}>
-                <label style={labelStyle}>Select Pet</label>
-                <div style={{ position: 'relative' }}>
-                  <select 
-                    required
-                    value={newAppt.pet}
-                    onChange={(e) => setNewAppt({...newAppt, pet: e.target.value})}
-                    style={inputStyle}
-                  >
-                    <option value="" style={{ background: '#1e293b', color: '#fff' }}>-- Choose Your Pet --</option>
-                    {pets.map(p => (
-                      <option key={p.id} value={p.id} style={{ background: '#1e293b', color: '#fff' }}>
-                        {p.name} ({p.species}{p.breed ? ` - ${p.breed}` : ''})
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
-                </div>
-              </div>
-
-              {!selectedVet && (
-                <div style={{ position: 'relative' }}>
-                  <label style={labelStyle}>Select Veterinarian</label>
-                  <div style={{ position: 'relative' }}>
-                    <select 
-                      required
-                      value={newAppt.vet}
-                      onChange={(e) => setNewAppt({...newAppt, vet: e.target.value})}
-                      style={inputStyle}
-                    >
-                      <option value="" style={{ background: '#1e293b', color: '#fff' }}>-- Choose Veterinarian --</option>
-                      {vets.map(v => <option key={v.id} value={v.id} style={{ background: '#1e293b', color: '#fff' }}>Dr. {v.username}</option>)}
-                    </select>
-                    <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
-                  </div>
-                </div>
-              )}
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '1rem' }}>
-                <div style={{ position: 'relative' }}>
-                  <label style={labelStyle}>Preferred Date</label>
-                  <div style={{ position: 'relative' }}>
-                    <input 
-                      type="date" 
-                      required
-                      min={today}
-                      value={newAppt.date}
-                      onChange={(e) => setNewAppt({...newAppt, date: e.target.value})}
-                      style={{ ...inputStyle, paddingRight: '2.5rem' }} 
-                    />
-                    <CalendarDays size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
-                  </div>
-                </div>
-                <div style={{ position: 'relative' }}>
-                  <label style={labelStyle}>Time Slot</label>
-                  <div style={{ position: 'relative' }}>
-                    <select 
-                      required
-                      value={newAppt.time}
-                      onChange={(e) => setNewAppt({...newAppt, time: e.target.value})}
-                      style={inputStyle}
-                    >
-                      {TIME_SLOTS.map(slot => <option key={slot} value={slot} style={{ background: '#1e293b', color: '#fff' }}>{slot}</option>)}
-                    </select>
-                    <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Reason for Examination</label>
-                <textarea 
-                  rows="3"
-                  value={newAppt.reason}
-                  onChange={(e) => setNewAppt({...newAppt, reason: e.target.value})}
-                  placeholder="Describe your pet's symptoms or visit reason..."
-                  style={{ ...inputStyle, resize: 'none', appearance: 'auto', cursor: 'text' }}
-                />
-              </div>
-
-              <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem', padding: '1rem', fontWeight: 700, fontSize: '1rem' }}>Confirm Booking</button>
-            </form>
+             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                <h2 style={{ color: '#fff', margin: 0, fontSize: '1.75rem' }}>{selectedVet ? `Visit Dr. ${selectedVet.first_name || selectedVet.username}` : 'New Appointment'}</h2>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Select your animal and choose an available consultation slot.</p>
+             </div>
+ 
+             <form onSubmit={handleCreateAppointment} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                 <div>
+                   <label style={labelStyle}>Animal Type</label>
+                   <div style={{ position: 'relative' }}>
+                     <select 
+                       value={animalType}
+                       onChange={(e) => {
+                         setAnimalType(e.target.value);
+                         setSelectedAnimalId('');
+                       }}
+                       style={inputStyle}
+                     >
+                       <option value="pet">Pet</option>
+                       <option value="livestock">Livestock</option>
+                     </select>
+                     <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
+                   </div>
+                 </div>
+ 
+                 <div>
+                   <label style={labelStyle}>Select {animalType === 'pet' ? 'Pet' : 'Livestock'}</label>
+                   <div style={{ position: 'relative' }}>
+                     <select 
+                       required
+                       value={selectedAnimalId}
+                       onChange={(e) => setSelectedAnimalId(e.target.value)}
+                       style={inputStyle}
+                     >
+                       <option value="">-- Choose {animalType === 'pet' ? 'Pet' : 'Livestock'} --</option>
+                       {animalType === 'pet' ? (
+                         pets.map(p => (
+                           <option key={p.id} value={p.id}>
+                             {p.name} ({p.species})
+                           </option>
+                         ))
+                       ) : (
+                         livestock.map(l => (
+                           <option key={l.id} value={l.id}>
+                             {l.name} ({l.species})
+                           </option>
+                         ))
+                       )}
+                     </select>
+                     <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
+                   </div>
+                 </div>
+               </div>
+ 
+               {!selectedVet && (
+                 <div style={{ position: 'relative' }}>
+                   <label style={labelStyle}>Select Veterinarian</label>
+                   <div style={{ position: 'relative' }}>
+                     <select 
+                       required
+                       value={quickVetId}
+                       onChange={(e) => {
+                         setQuickVetId(e.target.value);
+                         setSelectedSlotId('');
+                       }}
+                       style={inputStyle}
+                     >
+                       <option value="">-- Choose Veterinarian --</option>
+                       {vets.map(v => <option key={v.id} value={v.id}>Dr. {v.first_name || v.username} {v.last_name}</option>)}
+                     </select>
+                     <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
+                   </div>
+                 </div>
+               )}
+ 
+               <div style={{ position: 'relative' }}>
+                 <label style={labelStyle}>Available Slots</label>
+                 <div style={{ position: 'relative' }}>
+                   <select 
+                     required
+                     value={selectedSlotId}
+                     onChange={(e) => setSelectedSlotId(e.target.value)}
+                     style={inputStyle}
+                     disabled={!(selectedVet?.id || quickVetId)}
+                   >
+                     <option value="">-- Choose an Available Slot --</option>
+                     {slots
+                       .filter(s => s.vet === (selectedVet?.id || parseInt(quickVetId)))
+                       .map(s => (
+                         <option key={s.id} value={s.id}>
+                           {s.date} @ {s.start_time.substring(0, 5)} - {s.end_time.substring(0, 5)} ({s.max_appointments - s.booked_count} left)
+                         </option>
+                       ))
+                     }
+                   </select>
+                   <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
+                 </div>
+                 {!(selectedVet?.id || quickVetId) && (
+                   <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.75rem', marginTop: '0.3rem' }}>Please select a veterinarian first to see available slots.</p>
+                 )}
+                 {(selectedVet?.id || quickVetId) && slots.filter(s => s.vet === (selectedVet?.id || parseInt(quickVetId))).length === 0 && (
+                   <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.3rem' }}>No available slots found for this veterinarian.</p>
+                 )}
+               </div>
+ 
+               <div>
+                 <label style={labelStyle}>Reason for Examination</label>
+                 <textarea 
+                   rows="3"
+                   value={bookingReason}
+                   onChange={(e) => setBookingReason(e.target.value)}
+                   placeholder="Describe symptoms or visit reason..."
+                   style={{ ...inputStyle, resize: 'none', appearance: 'auto', cursor: 'text' }}
+                 />
+               </div>
+ 
+               <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem', padding: '1rem', fontWeight: 700, fontSize: '1rem' }}>Confirm Booking</button>
+             </form>
           </motion.div>
         </motion.div>
       )}

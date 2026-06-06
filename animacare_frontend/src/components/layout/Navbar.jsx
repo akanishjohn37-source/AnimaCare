@@ -21,7 +21,7 @@ const NAV_MAP = {
 
   veterinarian: [
     { to: '/vet-dashboard',     icon: LayoutDashboard, label: 'Clinical Portal' },
-    { to: '/vaccination-scheduler', icon: Calendar, label: 'Vaccines' },
+    { to: '/vaccination-scheduler', icon: Calendar, label: 'Injections' },
     { to: '/predictive-health', icon: BarChart2,        label: 'Analytics'    },
   ],
   shelter_admin: [

@@ -13,10 +13,10 @@ class PetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pet
         fields = '__all__'
-        read_only_fields = ('owner',)
+        read_only_fields = ('owner', 'health_status')
 
 class LivestockSerializer(serializers.ModelSerializer):
     class Meta:
         model = Livestock
         fields = '__all__'
-        read_only_fields = ('owner',)
+        read_only_fields = ('owner', 'health_status')

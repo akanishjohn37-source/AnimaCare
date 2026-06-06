@@ -1,4 +1,5 @@
 from django.db import models
+# pyrefly: ignore [missing-import]
 from apps.users.models import User
 
 class Shelter(models.Model):
@@ -39,12 +40,14 @@ class AdoptionApplication(models.Model):
         ('Under Review', 'Under Review'),
         ('Interview Scheduled', 'Interview Scheduled'),
         ('Approved', 'Approved'),
+        ('Accepted', 'Accepted'),  # Applicant confirmed they want the pet
         ('Rejected', 'Rejected'),
         ('Cancelled', 'Cancelled'),
     )
     applicant = models.ForeignKey(User, on_delete=models.CASCADE, related_name='adoption_applications', limit_choices_to={'role': 'citizen'})
     animal = models.ForeignKey(AnimalInventory, on_delete=models.CASCADE, related_name='applications')
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending')
+    applicant_confirmed = models.BooleanField(default=False)  # Whether applicant accepted/rejected after approval
     feedback = models.TextField(blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     

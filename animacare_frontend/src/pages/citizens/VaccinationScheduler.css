@@ -318,7 +318,7 @@
   margin-bottom: 0.25rem;
 }
 
-.type-vaccine    { background: rgba(74,222,128,0.15); color: #4ade80; }
+.type-injection  { background: rgba(74,222,128,0.15); color: #4ade80; }
 .type-deworming  { background: rgba(251,191,36,0.15); color: #fbbf24; }
 .type-annual     { background: rgba(129,140,248,0.15); color: #818cf8; }
 .type-seasonal   { background: rgba(34,211,238,0.15); color: #22d3ee; }

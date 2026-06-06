@@ -57,5 +57,8 @@ animacare_documentation.md
 animacare_backend/test*.py
 animacare_backend/debug*.py
 animacare_backend/retroactive*.py
-
+tables.txt
+error_output.txt
+error_output2.txt
+error.txt
 

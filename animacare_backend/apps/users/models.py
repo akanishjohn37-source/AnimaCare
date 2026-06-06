@@ -73,6 +73,8 @@ class ShelterAdminProfile(models.Model):
     shelter_address = models.TextField()
     shelter_contact_number = models.CharField(max_length=20)
     capacity = models.PositiveIntegerField(default=0)
+    shelter_type = models.CharField(max_length=50, default='mixed')  # 'mixed' or 'specific'
+    specific_animal = models.CharField(max_length=100, blank=True, null=True)
     registration_document_url = models.URLField(blank=True)
 
     def __str__(self):

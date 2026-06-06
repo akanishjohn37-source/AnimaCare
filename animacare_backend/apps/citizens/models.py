@@ -9,29 +9,39 @@ class Pet(models.Model):
     health_status = models.CharField(max_length=100, default='Healthy')
     gender = models.CharField(max_length=50, blank=True, null=True)
     dob = models.DateField(blank=True, null=True)
-    rfid_tag = models.CharField(max_length=100, unique=True, blank=True, null=True)
     media_url = models.TextField(blank=True, null=True) # Allows Base64 string fallback
-    
-    # Municipal Registration Verification (Engine 3)
-    municipal_license_id = models.CharField(max_length=100, blank=True, null=True)
-    issuing_zone = models.CharField(max_length=200, blank=True, null=True)
-    is_municipally_verified = models.BooleanField(default=False)
-    municipal_verified_at = models.DateTimeField(blank=True, null=True)
     
     # Owner-Pet Binding Verification (Engine 4)
     ownership_verified = models.BooleanField(default=False)
     ownership_verified_at = models.DateTimeField(blank=True, null=True)
-    
+
     def __str__(self):
         return f"{self.name} ({self.species})"
-
-class Livestock(Pet):
-    livestock_type = models.CharField(max_length=100) # e.g. Poultry, Cattle, Sheep
-    herd_size = models.PositiveIntegerField(default=1)
-    farm_location = models.TextField(blank=True, null=True)
+    
+class FarmLocation(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='farm_locations')
+    name = models.CharField(max_length=255)
 
     def __str__(self):
-        return f"Livestock: {self.name} ({self.livestock_type}) - Herd size: {self.herd_size}"
+        return f"{self.name} (Owner: {self.owner.username})"
+
+class Livestock(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='livestocks', null=True, blank=True)
+    name = models.CharField(max_length=100, default='', blank=True)
+    species = models.CharField(max_length=50, default='', blank=True) # Bovine, Poultry, etc.
+    livestock_type = models.CharField(max_length=100, default='', blank=True) # e.g. Poultry, Cattle, Sheep
+    farm_location = models.CharField(max_length=255, blank=True, null=True)
+    health_status = models.CharField(max_length=100, default='Healthy')
+    gender = models.CharField(max_length=50, blank=True, null=True)
+    dob = models.DateField(blank=True, null=True)
+    media_url = models.TextField(blank=True, null=True) # Allows Base64 string fallback
+    
+    # Owner-Pet Binding Verification (Engine 4)
+    ownership_verified = models.BooleanField(default=False)
+    ownership_verified_at = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Livestock: {self.name} ({self.livestock_type}) - Location: {self.farm_location}"
 
 class SOSAlert(models.Model):
     STATUS_CHOICES = [
@@ -47,7 +57,7 @@ class SOSAlert(models.Model):
     
     reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sos_alerts')
     alert_type = models.CharField(max_length=20, choices=ALERT_TYPE_CHOICES, default='rescue')
-    animal_description = models.TextField()
+    animal_description = models.TextField(blank=True, null=True)
     location = models.CharField(max_length=255) 
     timestamp = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')

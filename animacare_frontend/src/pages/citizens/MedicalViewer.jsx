@@ -229,7 +229,6 @@ const MedicalViewer = () => {
               <img src={currentPet.media_url || "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=150&h=150&fit=crop"} alt={currentPet.name} className="profile-img-lg" />
               <div>
                 <h1 className="page-title">{currentPet.name}'s Medical History</h1>
-                <p className="page-subtitle">Microchip/Tag ID: {currentPet.microchip_id || currentPet.rfid_tag || 'Not Registered'}</p>
                 <div className="auth-badge">
                   <ShieldCheck size={16} /> Authenticated Veterinary Record
                 </div>
@@ -332,7 +331,7 @@ const MedicalViewer = () => {
               {selectedPetData.upcoming_vaccines && selectedPetData.upcoming_vaccines.length > 0 && (
                 <div style={{ marginTop: '2rem' }}>
                   <h2 className="section-title" style={{ marginBottom: '1rem' }}>
-                    <Syringe size={20} style={{ color: '#f59e0b' }} /> Upcoming Vaccine Alerts
+                    <Syringe size={20} style={{ color: '#f59e0b' }} /> Upcoming Injection Alerts
                   </h2>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     {selectedPetData.upcoming_vaccines.map(alert => (
@@ -350,7 +349,7 @@ const MedicalViewer = () => {
                                 background: alert.item_type === 'deworming' ? 'rgba(251,191,36,0.15)' : alert.item_type === 'annual' ? 'rgba(129,140,248,0.15)' : alert.item_type === 'seasonal' ? 'rgba(34,211,238,0.15)' : 'rgba(74,222,128,0.15)',
                                 color: alert.item_type === 'deworming' ? '#fbbf24' : alert.item_type === 'annual' ? '#818cf8' : alert.item_type === 'seasonal' ? '#22d3ee' : '#4ade80',
                               }}>
-                                {alert.item_type === 'deworming' ? '🪱 Deworming' : alert.item_type === 'vaccine' ? '💉 Vaccine' : alert.item_type === 'annual' ? '🔄 Annual' : '📅 Seasonal'}
+                                {alert.item_type === 'deworming' ? '🪱 Deworming' : alert.item_type === 'injection' ? '💉 Injection' : alert.item_type === 'annual' ? '🔄 Annual' : '📅 Seasonal'}
                               </span>
                               {alert.is_urgent && (
                                 <span style={{ fontSize: '0.62rem', fontWeight: 800, color: '#ef4444', background: 'rgba(239,68,68,0.15)', padding: '0.1rem 0.4rem', borderRadius: 4, textTransform: 'uppercase' }}>
@@ -395,7 +394,7 @@ const MedicalViewer = () => {
                         <div key={schedule.id} className="glass-panel log-card" style={{ borderLeft: `4px solid ${pct === 100 ? '#4ade80' : '#818cf8'}` }}>
                           <div className="log-header">
                             <h3 style={{ color: '#818cf8', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              💉 Vaccine Schedule
+                              💉 Injection Schedule
                               <span style={{
                                 fontSize: '0.65rem', fontWeight: 700, padding: '0.1rem 0.5rem',
                                 borderRadius: 20, textTransform: 'uppercase',
@@ -414,7 +413,7 @@ const MedicalViewer = () => {
                           </div>
                           <div className="log-body">
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
-                              <p style={{ margin: 0 }}><strong>Progress:</strong> {completed}/{totalVaccines} vaccines completed</p>
+                              <p style={{ margin: 0 }}><strong>Progress:</strong> {completed}/{totalVaccines} injections completed</p>
                               <span style={{ fontSize: '0.78rem', fontWeight: 700, color: pct === 100 ? '#4ade80' : '#818cf8' }}>{pct}%</span>
                             </div>
                             <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 6, height: 8, marginBottom: '1rem', overflow: 'hidden' }}>
@@ -452,7 +451,7 @@ const MedicalViewer = () => {
                                         background: item.item_type === 'deworming' ? 'rgba(251,191,36,0.15)' : item.item_type === 'annual' ? 'rgba(129,140,248,0.15)' : item.item_type === 'seasonal' ? 'rgba(34,211,238,0.15)' : 'rgba(74,222,128,0.15)',
                                         color: item.item_type === 'deworming' ? '#fbbf24' : item.item_type === 'annual' ? '#818cf8' : item.item_type === 'seasonal' ? '#22d3ee' : '#4ade80',
                                       }}>
-                                        {item.item_type === 'deworming' ? '🪱 Deworm' : item.item_type === 'vaccine' ? '💉 Vaccine' : item.item_type === 'annual' ? '🔄 Annual' : '📅 Seasonal'}
+                                        {item.item_type === 'deworming' ? '🪱 Deworm' : item.item_type === 'injection' ? '💉 Injection' : item.item_type === 'annual' ? '🔄 Annual' : '📅 Seasonal'}
                                       </span>
                                       {/* Title */}
                                       <span style={{

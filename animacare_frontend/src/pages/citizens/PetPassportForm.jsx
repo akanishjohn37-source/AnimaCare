@@ -12,11 +12,8 @@ const PetSchema = Yup.object().shape({
   species: Yup.string().required('Species is required'),
   breed: Yup.string().when('isLivestock', { is: false, then: () => Yup.string().required('Breed is required') }),
   livestock_type: Yup.string().when('isLivestock', { is: true, then: () => Yup.string().required('Livestock type is required') }),
-  herd_size: Yup.number().when('isLivestock', { is: true, then: () => Yup.number().min(1).required('Herd size is required') }),
   gender: Yup.string().required('Gender is required'),
-  health_status: Yup.string().required('Health status is required'),
   dob: Yup.date().max(new Date(), 'Date cannot be in the future').required('Date is required'),
-  microchipId: Yup.string().matches(/^[0-9]*$/, 'Must contain only digits').max(15, 'Cannot exceed 15 digits'),
 });
 
 const compressImage = (file) => {
@@ -44,8 +41,8 @@ const compressImage = (file) => {
 const PetPassportForm = () => {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [initialData, setInitialData] = useState({ 
-    name: '', species: '', breed: '', gender: '', dob: '', microchipId: '',
-    livestock_type: '', herd_size: 1, farm_location: '', health_status: 'Healthy'
+    name: '', species: '', breed: '', gender: '', dob: '',
+    livestock_type: '', farm_location: ''
   });
   const [isFetching, setIsFetching] = useState(false);
   const { id } = useParams();
@@ -54,7 +51,7 @@ const PetPassportForm = () => {
   const queryParams = new URLSearchParams(location.search);
   const type = queryParams.get('type') || 'pet';
   const isLivestock = type === 'livestock';
-  const { authFetch } = useAuth();
+  const { authFetch, user } = useAuth();
 
   useEffect(() => {
     if (id) {
@@ -72,11 +69,8 @@ const PetPassportForm = () => {
             breed: data.breed || '',
             gender: data.gender || '',
             dob: data.dob ? new Date(data.dob).toISOString().split('T')[0] : '',
-            microchipId: data.rfid_tag || '',
             livestock_type: data.livestock_type || '',
-            herd_size: data.herd_size || 1,
-            farm_location: data.farm_location || '',
-            health_status: data.health_status || 'Healthy'
+            farm_location: data.farm_location || ''
           });
           if (data.media_url) setAvatarPreview(data.media_url);
         })
@@ -107,16 +101,13 @@ const PetPassportForm = () => {
               species: values.species,
               gender: values.gender,
               dob: values.dob,
-              health_status: values.health_status,
             };
             if (!isLivestock) {
               data.breed = values.breed;
             } else {
               data.livestock_type = values.livestock_type;
-              data.herd_size = values.herd_size;
               data.farm_location = values.farm_location;
             }
-            if (values.microchipId) data.rfid_tag = values.microchipId;
             if (values.avatar) data.media_url = values.avatar;
             // Municipal registration data moved to Civic Authority verification page
             
@@ -212,13 +203,16 @@ const PetPassportForm = () => {
                     <ErrorMessage name="livestock_type" component="div" className="form-error" />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Herd Size *</label>
-                    <Field type="number" name="herd_size" className="form-control" min="1" />
-                    <ErrorMessage name="herd_size" component="div" className="form-error" />
-                  </div>
-                  <div className="form-group">
                     <label className="form-label">Farm Location</label>
-                    <Field type="text" name="farm_location" className="form-control" placeholder="Sector 4 Farm" />
+                    <Field as="select" name="farm_location" className="form-control">
+                      <option value="">Select Farm Location</option>
+                      {(user?.farm_locations || []).map((loc) => (
+                        <option key={loc.id || loc.name} value={loc.name}>
+                          {loc.name}
+                        </option>
+                      ))}
+                    </Field>
+                    <ErrorMessage name="farm_location" component="div" className="form-error" />
                   </div>
                 </>
               )}
@@ -240,23 +234,6 @@ const PetPassportForm = () => {
                 <ErrorMessage name="dob" component="div" className="form-error" />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Health Status *</label>
-                <Field as="select" name="health_status" className="form-control">
-                  <option value="Healthy">Healthy</option>
-                  <option value="Injured">Injured</option>
-                  <option value="Sick">Sick</option>
-                  <option value="Critical">Critical</option>
-                  <option value="Unknown">Unknown</option>
-                </Field>
-                <ErrorMessage name="health_status" component="div" className="form-error" />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Microchip / Tag ID (Optional)</label>
-                <Field type="text" name="microchipId" className="form-control" placeholder="15-digit ID" maxLength="15" />
-                <ErrorMessage name="microchipId" component="div" className="form-error" />
-              </div>
             </div>
 
             {/* LSGD municipal verification moved to Civic Authority portal */}

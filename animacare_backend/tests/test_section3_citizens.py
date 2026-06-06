@@ -118,10 +118,10 @@ class Section3_CitizensTests(TestCase):
         pet_id = create_resp.json()['id']
 
         response = self.client.patch(f'/api/citizens/pets/{pet_id}/', {
-            'health_status': 'Under Treatment',
+            'breed': 'Labrador',
         }, format='json', HTTP_AUTHORIZATION=f'Bearer {self.citizen_token}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json()['health_status'], 'Under Treatment')
+        self.assertEqual(response.json()['breed'], 'Labrador')
 
     def test_05_citizen_delete_pet(self):
         """Citizen can delete their pet record."""
@@ -157,18 +157,17 @@ class Section3_CitizensTests(TestCase):
             'name': 'Daisy',
             'species': 'Cow',
             'livestock_type': 'Cattle',
-            'herd_size': 5,
             'farm_location': 'Green Valley Farm',
         }, format='json', HTTP_AUTHORIZATION=f'Bearer {self.citizen_token}')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.json()['livestock_type'], 'Cattle')
-        self.assertEqual(response.json()['herd_size'], 5)
+        self.assertEqual(response.json()['farm_location'], 'Green Valley Farm')
 
     def test_08_citizen_list_own_livestock(self):
         """Citizen sees only their own livestock."""
         self.client.post('/api/citizens/livestocks/', {
             'name': 'Daisy', 'species': 'Cow', 'livestock_type': 'Cattle',
-            'herd_size': 5, 'farm_location': 'Farm A',
+            'farm_location': 'Farm A',
         }, format='json', HTTP_AUTHORIZATION=f'Bearer {self.citizen_token}')
 
         response = self.client.get('/api/citizens/livestocks/',

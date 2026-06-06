@@ -85,6 +85,31 @@ const Dashboard = () => {
     } catch (err) { console.error("Clear apps error", err); }
   };
 
+  const handleAcceptAdoption = async (appId) => {
+    if (!window.confirm("Are you sure you want to accept this adoption? The pet will be transferred to your profile.")) return;
+    try {
+      const res = await authFetch(`http://localhost:8000/api/shelter/applications/${appId}/accept_adoption/`, { method: 'POST' });
+      if (res.ok) { 
+        setApplications(applications.map(app => app.id === appId ? { ...app, status: 'Accepted' } : app)); 
+        alert("Adoption confirmed! The pet has been added to your profile.");
+        // Refetch pets to show the newly added pet
+        const petsRes = await authFetch('http://localhost:8000/api/citizens/pets/');
+        if (petsRes.ok) {
+           const data = await petsRes.json();
+           if (data.results) setPets(data.results);
+        }
+      }
+    } catch (err) { console.error(err); }
+  };
+
+  const handleRejectAdoption = async (appId) => {
+    if (!window.confirm("Are you sure you want to decline this adoption?")) return;
+    try {
+      const res = await authFetch(`http://localhost:8000/api/shelter/applications/${appId}/reject_adoption/`, { method: 'POST' });
+      if (res.ok) { setApplications(applications.map(app => app.id === appId ? { ...app, status: 'Cancelled' } : app)); }
+    } catch (err) { console.error(err); }
+  };
+
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
 
@@ -178,10 +203,6 @@ const Dashboard = () => {
                             {isAdopted && <span style={{ fontSize: '10px', background: 'var(--success-bg)', color: 'var(--success)', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>ADOPTED</span>}
                           </div>
                           <p>{pet.breed || pet.species || 'Unknown Breed'}</p>
-                          <div className="pet-badges">
-                            {pet.rfid_tag && <span className="badge badge-success">Microchipped</span>}
-                            <span className="badge badge-primary">{pet.health_status || 'Healthy'}</span>
-                          </div>
                         </div>
                         <div className="pet-actions">
                           <Link to={`/pet/edit/${pet.id}?type=pet`} className="action-btn" title="Edit Pet"><Edit2 size={18} /></Link>
@@ -196,18 +217,20 @@ const Dashboard = () => {
                 {activeTab === 'livestocks' && (
                   livestocks.length > 0 ? livestocks.map(ls => (
                     <div key={ls.id} className="pet-item" style={{ borderLeft: '4px solid #10b981' }}>
-                      <div className="pet-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
-                        <Activity size={24} />
-                      </div>
+                      {ls.media_url ? (
+                        <img src={ls.media_url} alt={ls.name} className="pet-avatar" />
+                      ) : (
+                        <div className="pet-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+                          <Activity size={24} />
+                        </div>
+                      )}
                       <div className="pet-info">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <h3>{ls.name}</h3>
-                          <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>Herd Size: {ls.herd_size}</span>
                         </div>
                         <p>{ls.livestock_type} • {ls.species}</p>
                         <div className="pet-badges">
                           {ls.farm_location && <span className="badge badge-secondary">{ls.farm_location}</span>}
-                          <span className="badge badge-primary" style={{ background: ls.health_status === 'Healthy' ? '#10b981' : '#f59e0b' }}>{ls.health_status || 'Healthy'}</span>
                         </div>
                       </div>
                       <div className="pet-actions">
@@ -246,6 +269,12 @@ const Dashboard = () => {
                       </div>
                     </div>
                     <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>Applied on: {new Date(app.timestamp).toLocaleDateString()}</p>
+                    {app.status === 'Approved' && (
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                         <button onClick={() => handleAcceptAdoption(app.id)} className="btn btn-primary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#10b981', borderColor: '#10b981', borderRadius: '6px' }}>Confirm</button>
+                         <button onClick={() => handleRejectAdoption(app.id)} className="btn btn-secondary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', borderColor: '#ef4444', color: '#ef4444', borderRadius: '6px' }}>Decline</button>
+                      </div>
+                    )}
                   </div>
                 ))
               ) : (

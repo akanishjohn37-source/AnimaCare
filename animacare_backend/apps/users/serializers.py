@@ -35,13 +35,18 @@ class RegisterSerializer(serializers.ModelSerializer):
     veterinarian_profile = VeterinarianProfileSerializer(required=False)
     shelter_profile = ShelterAdminProfileSerializer(required=False)
     civic_profile = CivicAuthorityProfileSerializer(required=False)
+    farm_locations = serializers.ListField(
+        child=serializers.CharField(max_length=255),
+        required=False,
+        write_only=True
+    )
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'password', 'confirm_password', 'role', 'phone_number', 'address', 'zone',
-            'veterinarian_profile', 'shelter_profile', 'civic_profile',
+            'veterinarian_profile', 'shelter_profile', 'civic_profile', 'farm_locations',
         ]
 
     def validate(self, data):
@@ -74,6 +79,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         vet_data = validated_data.pop('veterinarian_profile', None)
         shelter_data = validated_data.pop('shelter_profile', None)
         civic_data = validated_data.pop('civic_profile', None)
+        farm_locations_data = validated_data.pop('farm_locations', [])
 
         role = validated_data.get('role', 'citizen')
         # Citizens are auto-approved; all others require admin approval
@@ -101,6 +107,12 @@ class RegisterSerializer(serializers.ModelSerializer):
             )
         elif role == 'civic_authority' and civic_data:
             CivicAuthorityProfile.objects.create(user=user, **civic_data)
+
+        if role == 'citizen' and farm_locations_data:
+            from apps.citizens.models import FarmLocation
+            for name in farm_locations_data:
+                if name.strip():
+                    FarmLocation.objects.create(owner=user, name=name.strip())
 
         return user
 
@@ -157,6 +169,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     role_display = serializers.SerializerMethodField()
     status_display = serializers.SerializerMethodField()
+    farm_locations = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -166,6 +179,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'phone_number', 'address', 'zone', 'profile_picture',
             'date_joined', 'approved_at',
             'veterinarian_profile', 'shelter_profile', 'civic_profile',
+            'farm_locations',
         ]
 
     def get_full_name(self, obj):
@@ -176,6 +190,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def get_status_display(self, obj):
         return obj.get_account_status_display()
+
+    def get_farm_locations(self, obj):
+        locations = [{"id": loc.id, "name": loc.name} for loc in obj.farm_locations.all()]
+        names = {loc["name"] for loc in locations}
+        if "Heven Root" not in names:
+            locations.append({"id": "default-heven-root", "name": "Heven Root"})
+        if "Golden Vally" not in names:
+            locations.append({"id": "default-golden-vally", "name": "Golden Vally"})
+        return locations
 
 
 # ── Admin: User list for approval panel ──────────────────────────────────────

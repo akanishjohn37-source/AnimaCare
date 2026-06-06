@@ -240,10 +240,73 @@ class LivestockViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'livestock_type']
 
     def get_queryset(self):
-        # Only return livestocks belonging to the logged-in user
         if getattr(self, 'swagger_fake_view', False):
             return self.queryset.none()
+        if self.request.user.role == 'veterinarian':
+            return self.queryset.all()
         return self.queryset.filter(owner=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    @action(detail=True, methods=['get'])
+    def medical_report(self, request, pk=None):
+        from django.shortcuts import get_object_or_404
+        livestock = get_object_or_404(Livestock, pk=pk)
+        user = request.user
+        
+        # Owners can always see their livestock
+        is_owner = livestock.owner == user
+        # Veterinarians can see if they have an appointment
+        from apps.clinical.models import Appointment
+        has_appointment = Appointment.objects.filter(
+            livestock=livestock, 
+            vet=user, 
+            status__in=['Scheduled', 'Completed']
+        ).exists()
+        
+        if not is_owner and not has_appointment and user.role != 'admin':
+            return Response({"error": "Unauthorized access to medical records."}, status=403)
+        
+        # Fetch detailed history
+        from apps.clinical.serializers import ConsultationLogSerializer, SelfReportedRecordSerializer, VaccinationScheduleSerializer
+        from apps.clinical.models import VaccinationSchedule, VaccinationScheduleItem
+        from datetime import date
+        
+        consultations = livestock.consultations.all().order_by('-date')
+        self_reports = livestock.self_reports.all().order_by('-date')
+        
+        # Vaccination schedules for this livestock
+        vacc_schedules = VaccinationSchedule.objects.filter(livestock=livestock).order_by('-created_at')
+        
+        # Upcoming vaccine alerts (next 90 days, not completed)
+        today = date.today()
+        from datetime import timedelta
+        upcoming_items = VaccinationScheduleItem.objects.filter(
+            schedule__livestock=livestock,
+            is_completed=False,
+            scheduled_date__gte=today,
+            scheduled_date__lte=today + timedelta(days=90)
+        ).order_by('scheduled_date')[:10]
+        
+        upcoming_alerts = []
+        for item in upcoming_items:
+            days_until = (item.scheduled_date - today).days
+            upcoming_alerts.append({
+                'id': item.id,
+                'schedule_id': item.schedule_id,
+                'title': item.title,
+                'description': item.description,
+                'item_type': item.item_type,
+                'scheduled_date': item.scheduled_date.isoformat(),
+                'days_until': days_until,
+                'is_urgent': days_until <= 7,
+            })
+        
+        return Response({
+            "pet": LivestockSerializer(livestock).data,
+            "medical_history": ConsultationLogSerializer(consultations, many=True).data,
+            "self_reports": SelfReportedRecordSerializer(self_reports, many=True).data,
+            "vaccination_schedules": VaccinationScheduleSerializer(vacc_schedules, many=True).data,
+            "upcoming_vaccines": upcoming_alerts,
+        })

@@ -118,7 +118,7 @@ class PublicHealthAnalyticsView(APIView):
                 "species": l.livestock_type or l.species,
                 "location": l.farm_location or "Unknown Location",
                 "status": getattr(l, 'health_status', 'Healthy') or 'Healthy',
-                "tags": str(l.herd_size),
+                "tags": "Individual",
                 "lastChecked": last_checked
             })
 

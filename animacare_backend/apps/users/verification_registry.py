@@ -64,7 +64,6 @@ MUNICIPAL_REGISTRY = {
     "TVM-CORP-2026-001": {
         "owner_id_hash": hashlib.sha256("ABCDE1234F".encode()).hexdigest(),
         "pet_name": "Buddy",
-        "microchip_id": "956118000123456",
         "vaccination_batch": "ARV-BATCH-2026-A01",
         "zone": "Thiruvananthapuram Corporation",
         "status": "valid",
@@ -74,7 +73,6 @@ MUNICIPAL_REGISTRY = {
     "COCHIN-CORP-2026-04192": {
         "owner_id_hash": hashlib.sha256("FGHIJ5678K".encode()).hexdigest(),
         "pet_name": "Luna",
-        "microchip_id": "956118000654321",
         "vaccination_batch": "ARV-BATCH-2026-B02",
         "zone": "Kochi Municipal Corporation",
         "status": "valid",
@@ -84,7 +82,6 @@ MUNICIPAL_REGISTRY = {
     "KOZ-CORP-2024-003": {
         "owner_id_hash": hashlib.sha256("KLMNO9012P".encode()).hexdigest(),
         "pet_name": "Max",
-        "microchip_id": "956118000987654",
         "vaccination_batch": "ARV-BATCH-2024-C03",
         "zone": "Kozhikode Corporation",
         "status": "valid",
@@ -176,9 +173,9 @@ def verify_municipal_registration(municipal_id):
     }
 
 
-def verify_owner_pet_binding(municipal_id, owner_gov_id, microchip_id, vaccination_batch):
+def verify_owner_pet_binding(municipal_id, owner_gov_id, vaccination_batch):
     """
-    Sequential 4-vector binding verification for Kerala.
+    Sequential 3-vector binding verification for Kerala.
     Each check must pass before proceeding to the next.
     
     The owner_gov_id is hashed with SHA-256 before comparison.
@@ -204,27 +201,19 @@ def verify_owner_pet_binding(municipal_id, owner_gov_id, microchip_id, vaccinati
             "failed_vector": 2,
         }
 
-    # ─── Query C: Microchip serial match? ───
-    if microchip_id.strip() != entry["microchip_id"]:
-        return False, {
-            "error": "MICROCHIP_MISMATCH",
-            "message": "Animal microchip serial ID does not match the registered animal profile.",
-            "failed_vector": 3,
-        }
-
-    # ─── Query D: Vaccination batch match? ───
+    # ─── Query C: Vaccination batch match? ───
     if vaccination_batch.strip().upper() != entry["vaccination_batch"].upper():
         return False, {
             "error": "MEDICAL_BATCH_MISMATCH",
             "message": "Anti-Rabies Vaccine batch serial does not match clinical records for this animal.",
-            "failed_vector": 4,
+            "failed_vector": 3,
         }
 
-    # All 4 vectors passed
+    # All 3 vectors passed
     return True, {
         "status": "BINDING_VERIFIED",
-        "message": "All 4 verification vectors confirmed. Owner-Pet binding is secure.",
+        "message": "All 3 verification vectors confirmed. Owner-Pet binding is secure.",
         "pet_name": entry["pet_name"],
         "zone": entry["zone"],
-        "vectors_passed": 4,
+        "vectors_passed": 3,
     }

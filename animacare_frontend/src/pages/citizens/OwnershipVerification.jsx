@@ -10,15 +10,13 @@ import './OwnershipVerification.css';
 const VECTORS = [
   { key: 'municipal_id', label: 'LSGD Kerala Municipal License ID', icon: Hash, placeholder: 'COCHIN-CORP-2026-04192', hint: 'Your pet\'s civic registration token from the local self government.' },
   { key: 'owner_gov_id', label: 'Owner Government ID (PAN)', icon: Fingerprint, placeholder: 'ABCDE1234F', hint: 'This value is SHA-256 hashed on the server. Plaintext is never stored.' },
-  { key: 'microchip_id', label: 'Animal Microchip Serial ID', icon: Cpu, placeholder: '956118000123456', hint: 'The 15-digit ISO microchip serial (e.g. starting with 956) implanted in your animal.' },
-  { key: 'vaccination_batch', label: 'Anti-Rabies Vaccine Batch Serial', icon: Syringe, placeholder: 'ARV-BATCH-2026-A01', hint: 'The batch serial from your pet\'s most recent clinical vaccination record signed by a KSVC vet.' },
+  { key: 'vaccination_batch', label: 'Anti-Rabies Injection Batch Serial', icon: Syringe, placeholder: 'ARV-BATCH-2026-A01', hint: 'The batch serial from your pet\'s most recent clinical injection record signed by a KSVC vet.' },
 ];
 
 const VECTOR_ERRORS = {
   REGISTRY_NOT_FOUND: { vector: 1, label: 'Municipal License ID', color: '#ef4444' },
   IDENTITY_MISMATCH: { vector: 2, label: 'Owner Identity Hash', color: '#f97316' },
-  MICROCHIP_MISMATCH: { vector: 3, label: 'Microchip Serial', color: '#eab308' },
-  MEDICAL_BATCH_MISMATCH: { vector: 4, label: 'Vaccination Batch', color: '#ec4899' },
+  MEDICAL_BATCH_MISMATCH: { vector: 3, label: 'Injection Batch', color: '#ec4899' },
   INCOMPLETE_VECTORS: { vector: 0, label: 'Missing Fields', color: '#94a3b8' },
 };
 
@@ -26,7 +24,6 @@ const OwnershipVerification = ({ petId, onVerified }) => {
   const [form, setForm] = useState({
     municipal_id: '',
     owner_gov_id: '',
-    microchip_id: '',
     vaccination_batch: '',
   });
   const [status, setStatus] = useState('idle'); // idle, verifying, verified, failed, locked
@@ -40,8 +37,6 @@ const OwnershipVerification = ({ petId, onVerified }) => {
     let cleaned = value;
     if (key === 'owner_gov_id') {
       cleaned = value.replace(/[\s-]/g, '').toUpperCase();
-    } else if (key === 'microchip_id') {
-      cleaned = value.replace(/[\s-]/g, '');
     } else if (key === 'vaccination_batch') {
       cleaned = value.replace(/\s/g, '').toUpperCase();
     }
@@ -116,7 +111,7 @@ const OwnershipVerification = ({ petId, onVerified }) => {
         </div>
         <h2 className="ov-title">Owner-Pet Binding Verification</h2>
         <p className="ov-subtitle">
-          Cross-validate 4 credential vectors to confirm legal ownership binding.
+          Cross-validate 3 credential vectors to confirm legal ownership binding.
         </p>
       </div>
 
@@ -138,7 +133,7 @@ const OwnershipVerification = ({ petId, onVerified }) => {
                 {vStatus === 'pending' && <span>{i + 1}</span>}
               </div>
               <span className="ov-pipeline-label">{v.label.split('(')[0].trim()}</span>
-              {i < 3 && <div className="ov-pipeline-line" />}
+              {i < 2 && <div className="ov-pipeline-line" />}
             </div>
           );
         })}
@@ -188,11 +183,11 @@ const OwnershipVerification = ({ petId, onVerified }) => {
             <div className="ov-result-icon"><ShieldCheck size={32} /></div>
             <div className="ov-result-body">
               <h3>Binding Verified — Ownership Confirmed</h3>
-              <p>All 4 verification vectors passed. An immutable verification seal has been applied to this pet's digital passport.</p>
+              <p>All 3 verification vectors passed. An immutable verification seal has been applied to this pet's digital passport.</p>
               <div className="ov-result-details">
                 <span>Pet: {result.pet_name}</span>
                 <span>Zone: {result.zone}</span>
-                <span>Vectors: {result.vectors_passed}/4 ✓</span>
+                <span>Vectors: {result.vectors_passed}/3 ✓</span>
               </div>
             </div>
           </motion.div>

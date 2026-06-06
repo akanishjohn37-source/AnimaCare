@@ -3,15 +3,91 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
-from .models import ConsultationLog, VaccinationLog, DigitalPrescription, DiagnosticMedia, Appointment, SelfReportedRecord, VaccinationSchedule, VaccinationScheduleItem
+from django.db.models import F, Q
+from .models import (
+    ConsultationLog, VaccinationLog, DigitalPrescription, DiagnosticMedia, 
+    Appointment, SelfReportedRecord, VaccinationSchedule, VaccinationScheduleItem,
+    AppointmentSlot, VetScheduleDay
+)
 from .serializers import (
     ConsultationLogSerializer, VaccinationLogSerializer, 
     DigitalPrescriptionSerializer, DiagnosticMediaSerializer, 
     AppointmentSerializer, SelfReportedRecordSerializer,
-    VaccinationScheduleSerializer, VaccinationScheduleItemSerializer
+    VaccinationScheduleSerializer, VaccinationScheduleItemSerializer,
+    AppointmentSlotSerializer, VetScheduleDaySerializer
 )
 from apps.users.models import Notification
 from datetime import timedelta, date
+from rest_framework.exceptions import ValidationError
+
+class AppointmentSlotViewSet(viewsets.ModelViewSet):
+    queryset = AppointmentSlot.objects.all()
+    serializer_class = AppointmentSlotSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'citizen':
+            from django.utils import timezone
+            from django.db.models import OuterRef, Exists
+            now = timezone.localtime(timezone.now())
+            current_date = now.date()
+            current_time = now.time()
+
+            active_slots = self.queryset.filter(
+                is_active=True,
+                booked_count__lt=F('max_appointments')
+            )
+            active_slots = active_slots.filter(
+                Q(date__gt=current_date) | Q(date=current_date, start_time__gt=current_time)
+            )
+
+            # Exclude slots where vet is marked as absent on that specific date
+            absent_exists = VetScheduleDay.objects.filter(
+                vet=OuterRef('vet'),
+                date=OuterRef('date'),
+                status='absent'
+            )
+            active_slots = active_slots.annotate(
+                is_absent=Exists(absent_exists)
+            ).filter(is_absent=False)
+
+            return active_slots.distinct()
+        
+        elif user.role == 'veterinarian':
+            return self.queryset.filter(vet=user)
+
+        return self.queryset.all()
+
+    def perform_create(self, serializer):
+        if self.request.user.role != 'veterinarian':
+            raise ValidationError("Only veterinarians can create appointment slots.")
+        serializer.save(vet=self.request.user)
+
+
+class VetScheduleDayViewSet(viewsets.ModelViewSet):
+    queryset = VetScheduleDay.objects.all()
+    serializer_class = VetScheduleDaySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'veterinarian':
+            return self.queryset.filter(vet=user)
+        return self.queryset.all()
+
+    def perform_create(self, serializer):
+        if self.request.user.role != 'veterinarian':
+            raise ValidationError("Only veterinarians can mark schedule days.")
+        date_val = serializer.validated_data.get('date')
+        status_val = serializer.validated_data.get('status', 'present')
+        obj, created = VetScheduleDay.objects.update_or_create(
+            vet=self.request.user,
+            date=date_val,
+            defaults={'status': status_val}
+        )
+        serializer.instance = obj
+
 
 class AppointmentViewSet(viewsets.ModelViewSet):
     queryset = Appointment.objects.all()
@@ -27,17 +103,45 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         if user.role == 'veterinarian':
             return self.queryset.filter(vet=user)
         elif user.role == 'citizen':
-            return self.queryset.filter(owner=user)
+            return self.queryset.filter(
+                Q(pet__owner=user) | Q(livestock__owner=user)
+            )
         return self.queryset.all()
 
     def perform_create(self, serializer):
-        appointment = serializer.save(owner=self.request.user)
+        appointment = serializer.save()
+        if appointment.slot:
+            appointment.slot.booked_count += 1
+            appointment.slot.save()
+
+        name = appointment.pet.name if appointment.pet else appointment.livestock.name
+        species = appointment.pet.species if appointment.pet else appointment.livestock.species
         # Notify the Veterinarian
         Notification.objects.create(
             recipient=appointment.vet,
             title="New Appointment Booked",
-            message=f"Citizen {self.request.user.username} has booked an appointment for {appointment.pet.name} ({appointment.pet.species}) on {appointment.date}."
+            message=f"Citizen {self.request.user.username} has booked an appointment for {name} ({species}) on {appointment.date}."
         )
+
+    def perform_update(self, serializer):
+        old_status = serializer.instance.status
+        appointment = serializer.save()
+        new_status = appointment.status
+        
+        if old_status == 'Scheduled' and new_status == 'Cancelled' and appointment.slot:
+            appointment.slot.booked_count = max(0, appointment.slot.booked_count - 1)
+            appointment.slot.save()
+        elif old_status == 'Cancelled' and new_status == 'Scheduled' and appointment.slot:
+            if appointment.slot.booked_count >= appointment.slot.max_appointments:
+                raise ValidationError("This appointment slot is already fully booked.")
+            appointment.slot.booked_count += 1
+            appointment.slot.save()
+
+    def perform_destroy(self, instance):
+        if instance.slot and instance.status == 'Scheduled':
+            instance.slot.booked_count = max(0, instance.slot.booked_count - 1)
+            instance.slot.save()
+        instance.delete()
 
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
@@ -49,6 +153,17 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         appointment.save()
         return Response({"status": "Appointment marked as completed."})
 
+    @action(detail=True, methods=['post'])
+    def call_owner(self, request, pk=None):
+        appointment = self.get_object()
+        name = appointment.pet.name if appointment.pet else appointment.livestock.name
+        Notification.objects.create(
+            recipient=appointment.owner,
+            title="Appointment Call Alert",
+            message=f"Dr. {request.user.first_name or request.user.username} is calling you for {name}'s appointment. Please proceed to the examination cabin immediately."
+        )
+        return Response({"status": "Owner notified."})
+
 class ConsultationLogViewSet(viewsets.ModelViewSet):
     queryset = ConsultationLog.objects.all()
     serializer_class = ConsultationLogSerializer
@@ -58,10 +173,22 @@ class ConsultationLogViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date']
 
     def perform_create(self, serializer):
-        # Verify the vet has an appointment with this pet
-        pet = serializer.validated_data['pet']
-        has_appt = Appointment.objects.filter(pet=pet, vet=self.request.user, status__in=['Scheduled', 'Completed']).exists()
+        # Verify the vet has an appointment with this pet or livestock
+        pet = serializer.validated_data.get('pet')
+        livestock = serializer.validated_data.get('livestock')
         
+        has_appt = False
+        owner = None
+        name = "Animal"
+        if pet:
+            has_appt = Appointment.objects.filter(pet=pet, vet=self.request.user, status__in=['Scheduled', 'Completed']).exists()
+            owner = pet.owner
+            name = pet.name
+        elif livestock:
+            has_appt = Appointment.objects.filter(livestock=livestock, vet=self.request.user, status__in=['Scheduled', 'Completed']).exists()
+            owner = livestock.owner
+            name = livestock.name
+            
         if not has_appt and self.request.user.role != 'admin':
             # We still allow creation but maybe warn or log it. 
             # In a strict system, we might block this.
@@ -80,11 +207,12 @@ class ConsultationLogViewSet(viewsets.ModelViewSet):
             )
         
         # Notify the Owner
-        Notification.objects.create(
-            recipient=pet.owner,
-            title="Medical Record Updated",
-            message=f"Dr. {self.request.user.username} has added a new consultation log for {pet.name}."
-        )
+        if owner:
+            Notification.objects.create(
+                recipient=owner,
+                title="Medical Record Updated",
+                message=f"Dr. {self.request.user.username} has added a new consultation log for {name}."
+            )
 
         # Vet clinical public health alert logic
         if consultation.zoonotic_disease_flag:
@@ -145,11 +273,11 @@ def _generate_items(schedule, vaccines_given=None):
         # If vet confirmed DHPPiL Dose 1 today → schedule next booster in 28 days
         if 'dhppil_1' in vaccines_given:
             next_date = today + timedelta(days=28)
-            items.append((next_date, 'vaccine', 'Second 7-in-1 Combo Vaccine (Next Booster)',
+            items.append((next_date, 'injection', 'Second 7-in-1 Combo Injection (Next Booster)',
                          f"Following your vet visit today, {name} is scheduled for their next booster shot on {next_date.strftime('%b %d, %Y')}. Do not forget to deworm them 4 days before!"))
             # Then schedule final booster 28 days after that
             final_date = next_date + timedelta(days=28)
-            items.append((final_date, 'vaccine', 'Final Combo Booster + Anti-Rabies',
+            items.append((final_date, 'injection', 'Final Combo Booster + Anti-Rabies',
                          f"Following your vet visit today, {name} is scheduled for their final combo booster and anti-rabies on {final_date.strftime('%b %d, %Y')}."))
             # Then annual booster
             for year in range(1, 4):
@@ -160,7 +288,7 @@ def _generate_items(schedule, vaccines_given=None):
         elif '7in1' in vaccines_given:
             # Vet gave 7-in-1 today → schedule final booster in 28 days
             final_date = today + timedelta(days=28)
-            items.append((final_date, 'vaccine', 'Final Combo Booster + Anti-Rabies',
+            items.append((final_date, 'injection', 'Final Combo Booster + Anti-Rabies',
                          f"Following your vet visit today, {name} is scheduled for their final combo booster and anti-rabies on {final_date.strftime('%b %d, %Y')}."))
             for year in range(1, 4):
                 annual_date = final_date + timedelta(days=365 * year)
@@ -183,11 +311,11 @@ def _generate_items(schedule, vaccines_given=None):
         else:
             # Fallback: generate full timeline from DOB
             for days_offset, title, desc in [
-                (42, 'First DHPPiL Combo (6 Weeks)', f"Vaccine due for {name}!"),
+                (42, 'First DHPPiL Combo (6 Weeks)', f"Injection due for {name}!"),
                 (70, '7-in-1 Combo (10 Weeks)', f"Booster time for {name}!"),
                 (98, 'Final Booster + Anti-Rabies (14 Weeks)', f"Important shot for {name}!"),
             ]:
-                items.append((dob + timedelta(days=days_offset), 'vaccine', title, desc))
+                items.append((dob + timedelta(days=days_offset), 'injection', title, desc))
             for year in range(1, 4):
                 items.append((dob + timedelta(days=98 + 365 * year), 'annual', f'Annual Booster (Year {year})',
                              f"Annual booster for {name}."))
@@ -195,11 +323,11 @@ def _generate_items(schedule, vaccines_given=None):
     elif track == 'kitten':
         if 'fvrcp_1' in vaccines_given:
             next_date = today + timedelta(days=28)
-            items.append((next_date, 'vaccine', 'Second FVRCP Vaccine (Next Booster)',
+            items.append((next_date, 'injection', 'Second FVRCP Injection (Next Booster)',
                          f"Following your vet visit today, {name} is scheduled for their second FVRCP on {next_date.strftime('%b %d, %Y')}."))
             final_date = next_date + timedelta(days=28)
-            items.append((final_date, 'vaccine', 'Third FVRCP + Anti-Rabies',
-                         f"{name} needs their third FVRCP vaccine and anti-rabies shot on {final_date.strftime('%b %d, %Y')}."))
+            items.append((final_date, 'injection', 'Third FVRCP + Anti-Rabies',
+                         f"{name} needs their third FVRCP injection and anti-rabies shot on {final_date.strftime('%b %d, %Y')}."))
             for year in range(1, 4):
                 annual_date = final_date + timedelta(days=365 * year)
                 items.append((annual_date, 'annual', f'Annual FVRCP & Anti-Rabies (Year {year})',
@@ -207,7 +335,7 @@ def _generate_items(schedule, vaccines_given=None):
 
         elif 'fvrcp_2' in vaccines_given:
             final_date = today + timedelta(days=28)
-            items.append((final_date, 'vaccine', 'Third FVRCP + Anti-Rabies',
+            items.append((final_date, 'injection', 'Third FVRCP + Anti-Rabies',
                          f"{name} needs their third FVRCP and anti-rabies on {final_date.strftime('%b %d, %Y')}."))
             for year in range(1, 4):
                 annual_date = final_date + timedelta(days=365 * year)
@@ -230,7 +358,7 @@ def _generate_items(schedule, vaccines_given=None):
                 (70, 'Second FVRCP (10 Weeks)', f"Kitten booster for {name}!"),
                 (98, 'Third FVRCP + Rabies (14 Weeks)', f"Full protection for {name}!"),
             ]:
-                items.append((dob + timedelta(days=days_offset), 'vaccine', title, desc))
+                items.append((dob + timedelta(days=days_offset), 'injection', title, desc))
             for year in range(1, 4):
                 items.append((dob + timedelta(days=98 + 365 * year), 'annual', f'Annual Booster (Year {year})',
                              f"Annual booster for {name}."))
@@ -247,7 +375,7 @@ def _generate_items(schedule, vaccines_given=None):
         if schedule.gender and schedule.gender.lower() == 'female':
             age_days = (today - dob).days
             if 120 <= age_days <= 240:
-                items.append((today + timedelta(days=7), 'vaccine', 'One-Time Brucellosis Vaccine (Female Calf)',
+                items.append((today + timedelta(days=7), 'injection', 'One-Time Brucellosis Injection (Female Calf)',
                               f"One-time shield! {name} is at the right age for her lifelong Brucellosis vaccine. Please schedule it this week."))
 
     elif track == 'small_ruminant':
@@ -265,7 +393,7 @@ def _generate_items(schedule, vaccines_given=None):
             (14, 'Gumboro Disease Vaccine (Day 14)',
              f"Flock safety! Your birds are due for their Gumboro Disease vaccine today."),
         ]:
-            items.append((dob + timedelta(days=days_offset), 'vaccine', title, desc))
+            items.append((dob + timedelta(days=days_offset), 'injection', title, desc))
 
     elif track == 'equine':
         for year in range(0, 4):
@@ -276,7 +404,7 @@ def _generate_items(schedule, vaccines_given=None):
     # Add deworming prep 4 days before every vaccine
     deworming_items = []
     for scheduled_date, itype, title, desc in items:
-        if itype in ('vaccine', 'seasonal', 'annual'):
+        if itype in ('injection', 'seasonal', 'annual'):
             deworm_date = scheduled_date - timedelta(days=4)
             deworming_items.append((deworm_date, 'deworming', f'Deworming Prep for: {title}',
                                     f"Time to prep {name}! Please give them their deworming medicine today so they are safe and ready for their upcoming vaccination in 4 days."))
@@ -324,16 +452,21 @@ class VaccinationScheduleViewSet(viewsets.ModelViewSet):
         except ValueError:
             return Response({"error": "Invalid date_of_birth format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
 
-        from apps.citizens.models import Pet
+        from apps.citizens.models import Pet, Livestock
         pet = None
+        livestock = None
         if pet_id:
             try:
                 pet = Pet.objects.get(id=pet_id)
             except Pet.DoesNotExist:
-                pass
+                try:
+                    livestock = Livestock.objects.get(id=pet_id)
+                except Livestock.DoesNotExist:
+                    pass
 
         schedule = VaccinationSchedule.objects.create(
             pet=pet,
+            livestock=livestock,
             owner=request.user,
             animal_name=animal_name,
             animal_type=animal_type,
@@ -346,17 +479,17 @@ class VaccinationScheduleViewSet(viewsets.ModelViewSet):
             created_items = _generate_items(schedule, vaccines_given=vaccines_given)
 
             # Notify the pet owner (not the vet)
-            notify_user = pet.owner if pet else request.user
-            vaccine_count = len([i for i in created_items if i.item_type != 'deworming'])
+            notify_user = pet.owner if pet else (livestock.owner if livestock else request.user)
+            inject_count = len([i for i in created_items if i.item_type != 'deworming'])
             vet_name = request.user.get_full_name() or request.user.username
 
             Notification.objects.create(
                 recipient=notify_user,
-                title=f"Vaccination Timeline Generated for {animal_name}",
+                title=f"Injection Timeline Generated for {animal_name}",
                 message=(
-                    f"Following your vet visit today with Dr. {vet_name}, a personalized vaccination timeline "
-                    f"for {animal_name} ({animal_type.title()}) has been generated with {vaccine_count} upcoming "
-                    f"vaccine reminders and deworming prep alerts. Check your notifications for dates!"
+                    f"Following your vet visit today with Dr. {vet_name}, a personalized injection timeline "
+                    f"for {animal_name} ({animal_type.title()}) has been generated with {inject_count} upcoming "
+                    f"injection reminders and deworming prep alerts. Check your notifications for dates!"
                 )
             )
 

@@ -19,7 +19,7 @@ class AnimalInventoryViewSet(viewsets.ModelViewSet):
     serializer_class = AnimalInventorySerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['species', 'is_available', 'is_adopted', 'medical_triage_status']
-    search_fields = ['name', 'breed', 'microchip_id']
+    search_fields = ['name', 'breed']
     ordering_fields = ['intake_date']
 
     def get_queryset(self):
@@ -108,26 +108,11 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
                 else:
                     message = f"Great news! The shelter has scheduled an interview for your adoption application for {application.animal.name}. Please check your dashboard for details."
             elif new_status == 'Approved':
-                title = "Adoption Approved! 🎉"
-                message = f"Congratulations! Your adoption application for {application.animal.name} has been approved. Welcome to your new best friend!"
-                
-                # Mark animal as adopted and remove from public market
-                animal = application.animal
-                animal.is_adopted = True
-                animal.is_available = False
-                animal.save()
-                
-                # Auto-create the Pet record in the Citizen's profile
-                from apps.citizens.models import Pet
-                Pet.objects.get_or_create(
-                    owner=application.applicant,
-                    name=animal.name,
-                    species=animal.species,
-                    defaults={
-                        'breed': animal.breed,
-                        'health_status': animal.medical_triage_status,
-                        'media_url': animal.media_url
-                    }
+                title = "Adoption Approved — Please Confirm! 🎉"
+                message = (
+                    f"Congratulations! Your adoption application for {application.animal.name} has been approved. "
+                    f"Please confirm whether you would like to accept and take the pet home, or decline the adoption. "
+                    f"Visit your Adoption Portal to confirm your decision."
                 )
             elif new_status == 'Rejected':
                 title = "Adoption Application Update"
@@ -159,6 +144,78 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
                 
             return Response({'status': 'Status updated', 'feedback': application.feedback})
         return Response({'error': 'Invalid status'}, status=400)
+
+    @action(detail=True, methods=['post'])
+    def accept_adoption(self, request, pk=None):
+        """Applicant confirms they want the pet after approval."""
+        application = self.get_object()
+        if application.applicant != request.user:
+            return Response({'error': 'Unauthorized'}, status=403)
+        if application.status != 'Approved':
+            return Response({'error': 'Application must be in Approved status to accept.'}, status=400)
+
+        application.status = 'Accepted'
+        application.applicant_confirmed = True
+        application.save()
+
+        # Mark animal as adopted and remove from public market
+        animal = application.animal
+        animal.is_adopted = True
+        animal.is_available = False
+        animal.save()
+
+        # Auto-create the Pet record in the Citizen's profile
+        from apps.citizens.models import Pet
+        Pet.objects.get_or_create(
+            owner=application.applicant,
+            name=animal.name,
+            species=animal.species,
+            defaults={
+                'breed': animal.breed,
+                'health_status': animal.medical_triage_status,
+                'media_url': animal.media_url
+            }
+        )
+
+        # Notify the Shelter Admin
+        shelter_admin = application.animal.shelter.admin
+        Notification.objects.create(
+            recipient=shelter_admin,
+            title="Adoption Accepted! 🎉",
+            message=f"Citizen {request.user.username} has confirmed and accepted the adoption of {application.animal.name}. The pet has been transferred to their profile."
+        )
+        # Notify the Applicant
+        Notification.objects.create(
+            recipient=application.applicant,
+            title="Welcome to your new best friend! 🐾",
+            message=f"You have successfully accepted {application.animal.name}. The pet has been added to your profile. Welcome to your new family member!"
+        )
+
+        return Response({'status': 'Adoption accepted and finalized.'})
+
+    @action(detail=True, methods=['post'])
+    def reject_adoption(self, request, pk=None):
+        """Applicant decides they no longer want the pet after approval."""
+        application = self.get_object()
+        if application.applicant != request.user:
+            return Response({'error': 'Unauthorized'}, status=403)
+        if application.status != 'Approved':
+            return Response({'error': 'Application must be in Approved status to reject.'}, status=400)
+
+        application.status = 'Cancelled'
+        application.applicant_confirmed = False
+        application.feedback = (application.feedback or '') + ' [Applicant declined after approval]'
+        application.save()
+
+        # Notify the Shelter Admin
+        shelter_admin = application.animal.shelter.admin
+        Notification.objects.create(
+            recipient=shelter_admin,
+            title="Adoption Declined",
+            message=f"Citizen {request.user.username} has declined the adoption of {application.animal.name} after approval. The animal remains available."
+        )
+
+        return Response({'status': 'Adoption declined by applicant.'})
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):

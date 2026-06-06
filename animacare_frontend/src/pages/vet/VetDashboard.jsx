@@ -8,8 +8,8 @@ import { Link } from 'react-router-dom';
 
 const API_SCHEDULES = 'http://127.0.0.1:8000/api/clinical/vaccination-schedules';
 
-/* ── Inline Vaccine Checklist Sub-Component ─────────── */
-const VaccineChecklistInline = ({ options, petId, petDetail, age, authFetch }) => {
+/* ── Inline Injection Checklist Sub-Component ─────────── */
+const InjectionChecklistInline = ({ options, petId, petDetail, age, authFetch }) => {
   const [checked, setChecked] = React.useState([]);
   const [submitting, setSubmitting] = React.useState(false);
   const [existingSchedules, setExistingSchedules] = React.useState([]);
@@ -119,7 +119,7 @@ const VaccineChecklistInline = ({ options, petId, petDetail, age, authFetch }) =
       {!loadingExisting && existingSchedules.length > 0 && (
         <div style={{ marginBottom: '1.5rem' }}>
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '0.6rem' }}>
-            📋 Existing Vaccination Records
+            📋 Existing Injection Records
           </p>
           {existingSchedules.map(schedule => {
             const items = schedule.items || [];
@@ -188,7 +188,7 @@ const VaccineChecklistInline = ({ options, petId, petDetail, age, authFetch }) =
                             background: item.item_type === 'deworming' ? 'rgba(251,191,36,0.15)' : item.item_type === 'annual' ? 'rgba(129,140,248,0.15)' : item.item_type === 'seasonal' ? 'rgba(34,211,238,0.15)' : 'rgba(74,222,128,0.15)',
                             color: item.item_type === 'deworming' ? '#fbbf24' : item.item_type === 'annual' ? '#818cf8' : item.item_type === 'seasonal' ? '#22d3ee' : '#4ade80',
                           }}>
-                            {item.item_type === 'deworming' ? '🪱' : item.item_type === 'vaccine' ? '💉' : item.item_type === 'annual' ? '🔄' : '📅'}
+                            {item.item_type === 'deworming' ? '🪱' : item.item_type === 'injection' ? '💉' : item.item_type === 'annual' ? '🔄' : '📅'}
                           </span>
                           <span style={{
                             flex: 1, fontWeight: 600,
@@ -251,12 +251,12 @@ const VaccineChecklistInline = ({ options, petId, petDetail, age, authFetch }) =
         </div>
       )}
 
-      {/* ── New Vaccine Confirmation ── */}
+      {/* ── New Injection Confirmation ── */}
       <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
-        💉 Administer New Vaccines Today
+        💉 Administer New Injections Today
       </p>
       <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem', marginBottom: '0.6rem' }}>
-        Check which vaccines were given during this visit to generate future reminders:
+        Check which injections were given during this visit to generate future reminders:
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.85rem' }}>
         {options.map(v => (
@@ -296,16 +296,43 @@ const VaccineChecklistInline = ({ options, petId, petDetail, age, authFetch }) =
       {justGenerated && (
         <div style={{ marginTop: '1rem', background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: 12, padding: '1rem' }}>
           <p style={{ color: '#4ade80', fontWeight: 700, fontSize: '0.85rem', margin: '0 0 0.25rem 0' }}>
-            ✅ New timeline generated with {(justGenerated.items || []).filter(i => i.item_type !== 'deworming').length} vaccine reminders!
+            ✅ New timeline generated with {(justGenerated.items || []).filter(i => i.item_type !== 'deworming').length} injection reminders!
           </p>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', margin: 0 }}>
-            📱 Owner has been notified. Deworming reminders set 4 days before each vaccine.
+            📱 Owner has been notified. Deworming reminders set 4 days before each injection.
           </p>
         </div>
       )}
     </div>
   );
 };
+
+class Queue {
+  constructor(items = []) {
+    this.items = [...items];
+  }
+  enqueue(item) {
+    this.items.push(item);
+  }
+  dequeue() {
+    return this.items.shift();
+  }
+  peek() {
+    return this.items[0];
+  }
+  isEmpty() {
+    return this.items.length === 0;
+  }
+  size() {
+    return this.items.length;
+  }
+  getElements() {
+    return this.items;
+  }
+  enqueueFront(item) {
+    this.items.unshift(item);
+  }
+}
 
 const VetDashboard = () => {
   const { user, authFetch } = useAuth();
@@ -314,11 +341,17 @@ const VetDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [selectedPatient, setSelectedPatient] = useState(null);
   
+  // Queue DSA States
+  const [queueData, setQueueData] = useState([]);
+  const [skippedList, setSkippedList] = useState([]);
+  const [callingApptId, setCallingApptId] = useState(null);
+
   // Consultation Form
   const [consultationData, setConsultationData] = useState({
     vital_signs: { weight: '', temp: '', heartRate: '' },
     notes: '',
     zoonotic_disease_flag: '',
+    health_status: 'Healthy',
     media: null
   });
   const [patientHistory, setPatientHistory] = useState(null);
@@ -329,6 +362,111 @@ const VetDashboard = () => {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadDate, setDownloadDate] = useState('');
 
+  const [slots, setSlots] = useState([]);
+  const [scheduleDays, setScheduleDays] = useState([]);
+  const [newSlot, setNewSlot] = useState({ date: '', start_time: '', end_time: '' });
+  const [newDayStatus, setNewDayStatus] = useState({ date: '', status: 'present' });
+
+  const fetchSlotsAndDays = async () => {
+    try {
+      const [slotsRes, daysRes] = await Promise.all([
+        authFetch('http://localhost:8000/api/clinical/slots/'),
+        authFetch('http://localhost:8000/api/clinical/schedule-days/')
+      ]);
+      if (slotsRes.ok) {
+        const d = await slotsRes.json();
+        setSlots(d.results || (Array.isArray(d) ? d : []));
+      }
+      if (daysRes.ok) {
+        const d = await daysRes.json();
+        setScheduleDays(d.results || (Array.isArray(d) ? d : []));
+      }
+    } catch (err) {
+      console.error("Fetch Slots/Days Error", err);
+    }
+  };
+
+  const handleCreateSlot = async (e) => {
+    e.preventDefault();
+    if (!newSlot.date || !newSlot.start_time || !newSlot.end_time) {
+      alert("Please fill in all slot details.");
+      return;
+    }
+    try {
+      const res = await authFetch('http://localhost:8000/api/clinical/slots/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSlot)
+      });
+      if (res.ok) {
+        alert("Slot created successfully!");
+        setNewSlot({ date: '', start_time: '', end_time: '' });
+        await fetchSlotsAndDays();
+      } else {
+        const err = await res.json();
+        alert("Failed to create slot: " + JSON.stringify(err));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUpdateDayStatus = async (e) => {
+    e.preventDefault();
+    if (!newDayStatus.date || !newDayStatus.status) {
+      alert("Please choose a date and status.");
+      return;
+    }
+    try {
+      const res = await authFetch('http://localhost:8000/api/clinical/schedule-days/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newDayStatus)
+      });
+      if (res.ok) {
+        alert("Day status updated successfully!");
+        setNewDayStatus({ date: '', status: 'present' });
+        await fetchSlotsAndDays();
+      } else {
+        const err = await res.json();
+        alert("Failed to update status: " + JSON.stringify(err));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteSlot = async (slotId) => {
+    if (!window.confirm("Are you sure you want to delete this slot?")) return;
+    try {
+      const res = await authFetch(`http://localhost:8000/api/clinical/slots/${slotId}/`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setSlots(slots.filter(s => s.id !== slotId));
+      } else {
+        alert("Failed to delete slot.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteDay = async (dayId) => {
+    if (!window.confirm("Are you sure you want to remove this schedule status?")) return;
+    try {
+      const res = await authFetch(`http://localhost:8000/api/clinical/schedule-days/${dayId}/`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setScheduleDays(scheduleDays.filter(d => d.id !== dayId));
+      } else {
+        alert("Failed to delete schedule status.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -336,8 +474,16 @@ const VetDashboard = () => {
         const res = await authFetch('http://localhost:8000/api/clinical/appointments/');
         if (res.ok) {
           const data = await res.json();
-          setAppointments(data.results || (Array.isArray(data) ? data : []));
+          const allAppts = data.results || (Array.isArray(data) ? data : []);
+          setAppointments(allAppts);
+          
+          const todayStr = new Date().toDateString();
+          const todaysActive = allAppts
+            .filter(appt => appt.status === 'Scheduled' && new Date(appt.date).toDateString() === todayStr)
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+          setQueueData(todaysActive);
         }
+        await fetchSlotsAndDays();
       } catch (err) {
         console.error("Vet Dashboard Error", err);
       } finally {
@@ -352,7 +498,9 @@ const VetDashboard = () => {
       setShowHistory(false);
       const fetchHistory = async () => {
         try {
-          const res = await authFetch(`http://localhost:8000/api/citizens/pets/${selectedPatient.pet}/medical_report/`);
+          const id = selectedPatient.pet || selectedPatient.livestock;
+          const type = selectedPatient.livestock ? 'livestocks' : 'pets';
+          const res = await authFetch(`http://localhost:8000/api/citizens/${type}/${id}/medical_report/`);
           if (res.ok) {
             const data = await res.json();
             setPatientHistory(data);
@@ -367,6 +515,46 @@ const VetDashboard = () => {
     }
   }, [selectedPatient, authFetch]);
 
+  const handleCallPatient = async (appt) => {
+    setCallingApptId(appt.id);
+    try {
+      const res = await authFetch(`http://localhost:8000/api/clinical/appointments/${appt.id}/call_owner/`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        alert(`Notification sent: Calling ${appt.owner_name} for ${(appt.pet_detail || appt.livestock_detail)?.name}'s appointment.`);
+      } else {
+        alert("Failed to send call notification.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error sending call notification.");
+    }
+  };
+
+  const handleSkipPatient = (appt) => {
+    if (!appt) return;
+    const q = new Queue(queueData);
+    const dequeued = q.dequeue();
+    if (dequeued) {
+      setQueueData(q.getElements());
+      setSkippedList(prev => [...prev, dequeued]);
+      if (callingApptId === appt.id) {
+        setCallingApptId(null);
+      }
+      alert(`${(appt.pet_detail || appt.livestock_detail)?.name} skipped. Calling next in queue.`);
+    }
+  };
+
+  const handleCallBackPatient = async (appt) => {
+    if (!appt) return;
+    setSkippedList(prev => prev.filter(a => a.id !== appt.id));
+    const q = new Queue(queueData);
+    q.enqueueFront(appt);
+    setQueueData(q.getElements());
+    handleCallPatient(appt);
+  };
+
   const handleCompleteAppointment = async (id) => {
     if (!window.confirm("Are you sure the details are correct? Click OK to complete the visit, or Cancel to edit details.")) return;
     
@@ -376,6 +564,8 @@ const VetDashboard = () => {
       });
       if (res.ok) {
         setAppointments(appointments.map(a => a.id === id ? { ...a, status: 'Completed' } : a));
+        setQueueData(prev => prev.filter(a => a.id !== id));
+        setSkippedList(prev => prev.filter(a => a.id !== id));
         setSelectedPatient(null);
       } else {
         alert("Failed to mark visit as complete.");
@@ -395,20 +585,24 @@ const VetDashboard = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pet: selectedPatient.pet,
+          pet: selectedPatient.pet || null,
+          livestock: selectedPatient.livestock || null,
           vital_signs: consultationData.vital_signs,
           consultation_notes: consultationData.notes,
           zoonotic_disease_flag: consultationData.zoonotic_disease_flag || null,
+          health_status: consultationData.health_status,
           media_url: consultationData.media ? "https://images.unsplash.com/photo-1574701292021-99529ccf0e21?auto=format&fit=crop&q=80&w=400" : null
         })
       });
       if (res.ok) {
         alert("Medical record successfully submitted!");
-        const updatedHistoryRes = await authFetch(`http://localhost:8000/api/citizens/pets/${selectedPatient.pet}/medical_report/`);
+        const id = selectedPatient.pet || selectedPatient.livestock;
+        const type = selectedPatient.livestock ? 'livestocks' : 'pets';
+        const updatedHistoryRes = await authFetch(`http://localhost:8000/api/citizens/${type}/${id}/medical_report/`);
         if (updatedHistoryRes.ok) {
           setPatientHistory(await updatedHistoryRes.json());
         }
-        setConsultationData({ vital_signs: { weight: '', temp: '', heartRate: '' }, notes: '', zoonotic_disease_flag: '', media: null });
+        setConsultationData({ vital_signs: { weight: '', temp: '', heartRate: '' }, notes: '', zoonotic_disease_flag: '', health_status: 'Healthy', media: null });
         setSelectedFileName('');
       } else {
         const errText = await res.text();
@@ -457,62 +651,368 @@ const VetDashboard = () => {
         <>
           <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.5rem' }}>
             <button style={tabBtnStyle('overview')} onClick={() => setActiveTab('overview')}>Appointments</button>
+            <button style={tabBtnStyle('slots')} onClick={() => setActiveTab('slots')}>Manage Slots & Schedule</button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-            <div className="glass-panel" style={{ padding: '1.5rem' }}>
-              <h3 style={{ color: '#fff', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Calendar size={18} color="#4ade80" /> Today's Schedule
-              </h3>
-              {loading ? <p>Loading appointments...</p> : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {appointments.filter(a => a.status === 'Scheduled').map(appt => (
-                    <div key={appt.id} className="glass-panel" style={{ padding: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <h4 style={{ color: '#fff', margin: 0 }}>{appt.pet_detail?.name}{appt.pet_detail?.species ? ` (${appt.pet_detail.species})` : ''}</h4>
-                          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', margin: '4px 0' }}>Owner: {appt.owner_name}</p>
-                          <span style={{ fontSize: '0.75rem', color: '#4ade80' }}>{new Date(appt.date).toLocaleString()}</span>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button 
-                            onClick={() => setSelectedPatient(appt)}
-                            style={{ padding: '0.4rem 0.8rem', borderRadius: 8, background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ade80', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
-                          >Examine</button>
+          {activeTab === 'overview' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+              <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                <h3 style={{ color: '#fff', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Calendar size={18} color="#4ade80" /> Today's Queue Schedule
+                </h3>
+                {loading ? (
+                  <p>Loading appointments...</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    
+                    {/* Current Active Patient */}
+                    {queueData.length > 0 ? (
+                      (() => {
+                        const currentAppt = queueData[0];
+                        const isCalling = callingApptId === currentAppt.id;
+                        return (
+                          <div style={{
+                            background: 'rgba(74, 222, 128, 0.05)',
+                            border: '2px solid rgba(74, 222, 128, 0.3)',
+                            borderRadius: '12px',
+                            padding: '1.25rem',
+                            boxShadow: '0 8px 32px 0 rgba(74, 222, 128, 0.1)'
+                          }}>
+                            <span style={{
+                              display: 'inline-block',
+                              background: '#4ade80',
+                              color: '#000',
+                              fontSize: '0.7rem',
+                              fontWeight: 800,
+                              padding: '0.15rem 0.5rem',
+                              borderRadius: '4px',
+                              textTransform: 'uppercase',
+                              marginBottom: '0.75rem'
+                            }}>
+                              Current Patient
+                            </span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div>
+                                <h4 style={{ color: '#fff', margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>
+                                  {currentAppt.pet_detail?.name || currentAppt.livestock_detail?.name}{currentAppt.pet_detail?.species || currentAppt.livestock_detail?.species ? ` (${currentAppt.pet_detail?.species || currentAppt.livestock_detail?.species})` : ''}
+                                </h4>
+                                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem', margin: '4px 0' }}>
+                                  Owner: {currentAppt.owner_name}
+                                </p>
+                                <span style={{ fontSize: '0.8rem', color: '#4ade80', fontWeight: '600' }}>
+                                  {new Date(currentAppt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                  <button
+                                    onClick={() => handleCallPatient(currentAppt)}
+                                    style={{
+                                      padding: '0.4rem 0.8rem',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 700,
+                                      borderRadius: '8px',
+                                      background: isCalling ? 'rgba(245, 158, 11, 0.2)' : '#4ade80',
+                                      color: isCalling ? '#f59e0b' : '#000',
+                                      border: isCalling ? '1px solid rgba(245, 158, 11, 0.4)' : 'none',
+                                      cursor: 'pointer',
+                                      animation: isCalling ? 'pulse 1.5s infinite' : 'none'
+                                    }}
+                                  >
+                                    {isCalling ? '🔊 Calling...' : '📞 Call Patient'}
+                                  </button>
+                                  <button
+                                    onClick={() => setSelectedPatient(currentAppt)}
+                                    style={{
+                                      padding: '0.4rem 0.8rem',
+                                      borderRadius: 8,
+                                      background: 'rgba(74,222,128,0.1)',
+                                      border: '1px solid rgba(74,222,128,0.3)',
+                                      color: '#4ade80',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 600,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Examine
+                                  </button>
+                                </div>
+                                <button
+                                  onClick={() => handleSkipPatient(currentAppt)}
+                                  style={{
+                                    padding: '0.3rem 0.6rem',
+                                    borderRadius: 6,
+                                    background: 'rgba(239, 68, 68, 0.1)',
+                                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                                    color: '#ef4444',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Not Present (Skip)
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
+                        No active patients in the queue.
+                      </div>
+                    )}
+
+                    {/* Upcoming in Queue */}
+                    {queueData.length > 1 && (
+                      <div>
+                        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                          Upcoming in Line ({queueData.length - 1})
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          {queueData.slice(1).map((appt, idx) => (
+                            <div key={appt.id} className="glass-panel" style={{
+                              padding: '0.75rem 1rem',
+                              border: '1px solid rgba(255,255,255,0.05)',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center'
+                            }}>
+                              <div>
+                                <h5 style={{ color: 'rgba(255,255,255,0.9)', margin: 0, fontSize: '0.9rem' }}>
+                                  <span style={{ color: 'rgba(255,255,255,0.3)', marginRight: '0.5rem' }}>#{idx + 1}</span>
+                                  {appt.pet_detail?.name || appt.livestock_detail?.name} {appt.pet_detail?.species || appt.livestock_detail?.species ? `(${appt.pet_detail?.species || appt.livestock_detail?.species})` : ''}
+                                </h5>
+                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', margin: 0 }}>
+                                  Owner: {appt.owner_name}
+                                </p>
+                              </div>
+                              <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>
+                                {new Date(appt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       </div>
+                    )}
+
+                    {/* Skipped Patients */}
+                    {skippedList.length > 0 && (
+                      <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                        <p style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                          Skipped Patients (Not Present)
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          {skippedList.map(appt => (
+                            <div key={`skipped-${appt.id}`} className="glass-panel" style={{
+                              padding: '0.75rem 1rem',
+                              border: '1px solid rgba(239, 68, 68, 0.15)',
+                              background: 'rgba(239, 68, 68, 0.02)',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center'
+                            }}>
+                              <div>
+                                <h5 style={{ color: 'rgba(255,255,255,0.8)', margin: 0, fontSize: '0.9rem' }}>
+                                  {appt.pet_detail?.name || appt.livestock_detail?.name} {appt.pet_detail?.species || appt.livestock_detail?.species ? `(${appt.pet_detail?.species || appt.livestock_detail?.species})` : ''}
+                                </h5>
+                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', margin: 0 }}>
+                                  Owner: {appt.owner_name}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => handleCallBackPatient(appt)}
+                                className="btn btn-secondary"
+                                style={{
+                                  padding: '0.3rem 0.75rem',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                  border: '1px solid rgba(245, 158, 11, 0.4)',
+                                  color: '#f59e0b',
+                                  background: 'rgba(245, 158, 11, 0.05)',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                🔄 Call Back
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                )}
+              </div>
+
+              <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h3 style={{ color: '#fff', margin: 0 }}>⚡ Recent Completed</h3>
+                  <button 
+                    onClick={() => setShowDownloadModal(true)}
+                    style={{ padding: '0.4rem 0.8rem', borderRadius: 8, background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.3)', color: '#22d3ee', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                  >Download Reports</button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {appointments.filter(a => a.status === 'Completed').slice(0, 5).map(appt => (
+                    <div key={appt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flex: 1 }}>
+                      <span style={{ color: '#fff' }}>{appt.pet_detail?.name || appt.livestock_detail?.name}{appt.pet_detail?.species || appt.livestock_detail?.species ? ` (${appt.pet_detail?.species || appt.livestock_detail?.species})` : ''}</span>
+                      <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>• {new Date(appt.date).toLocaleDateString()}</span>
                     </div>
                   ))}
-                  {appointments.filter(a => a.status === 'Scheduled').length === 0 && <p style={{ color: 'rgba(255,255,255,0.3)' }}>No pending appointments.</p>}
                 </div>
-              )}
+              </div>
             </div>
+          )}
 
-            <div className="glass-panel" style={{ padding: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h3 style={{ color: '#fff', margin: 0 }}>⚡ Recent Completed</h3>
-                <button 
-                  onClick={() => setShowDownloadModal(true)}
-                  style={{ padding: '0.4rem 0.8rem', borderRadius: 8, background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.3)', color: '#22d3ee', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
-                >Download Reports</button>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {appointments.filter(a => a.status === 'Completed').slice(0, 5).map(appt => (
-                  <div key={appt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flex: 1 }}>
-                    <span style={{ color: '#fff' }}>{appt.pet_detail?.name}{appt.pet_detail?.species ? ` (${appt.pet_detail.species})` : ''}</span>
-                    <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>• {new Date(appt.date).toLocaleDateString()}</span>
+          {activeTab === 'slots' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+              {/* Left Column - Slots */}
+              <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                <h3 style={{ color: '#fff', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Calendar size={18} color="#4ade80" /> Create Consultation Slot
+                </h3>
+                <form onSubmit={handleCreateSlot} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+                  <div>
+                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: '0.3rem' }}>Select Day</label>
+                    <input 
+                      type="date" 
+                      required 
+                      min={new Date().toISOString().split('T')[0]}
+                      value={newSlot.date} 
+                      onChange={e => setNewSlot({ ...newSlot, date: e.target.value })}
+                      style={{ width: '100%', padding: '0.6rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+                    />
                   </div>
-                ))}
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: '0.3rem' }}>Start Time</label>
+                      <input 
+                        type="time" 
+                        required 
+                        value={newSlot.start_time} 
+                        onChange={e => setNewSlot({ ...newSlot, start_time: e.target.value })}
+                        style={{ width: '100%', padding: '0.6rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: '0.3rem' }}>End Time</label>
+                      <input 
+                        type="time" 
+                        required 
+                        value={newSlot.end_time} 
+                        onChange={e => setNewSlot({ ...newSlot, end_time: e.target.value })}
+                        style={{ width: '100%', padding: '0.6rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+                      />
+                    </div>
+                  </div>
+                  <button 
+                    type="submit" 
+                    style={{ padding: '0.75rem', borderRadius: 8, background: '#4ade80', color: '#000', fontWeight: 'bold', border: 'none', cursor: 'pointer', marginTop: '0.5rem' }}
+                  >
+                    Create Slot
+                  </button>
+                </form>
+
+                <h3 style={{ color: '#fff', marginBottom: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem' }}>Active Slots</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '300px', overflowY: 'auto' }}>
+                  {slots.length === 0 ? (
+                    <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem' }}>No slots scheduled.</p>
+                  ) : (
+                    slots.map(s => (
+                      <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8 }}>
+                        <div>
+                          <p style={{ color: '#fff', margin: 0, fontWeight: 600 }}>{s.date}</p>
+                          <p style={{ color: '#22d3ee', margin: 0, fontSize: '0.8rem' }}>{s.start_time.substring(0, 5)} - {s.end_time.substring(0, 5)}</p>
+                          <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0, fontSize: '0.75rem' }}>Booked: {s.booked_count} / {s.max_appointments}</p>
+                        </div>
+                        <button 
+                          onClick={() => handleDeleteSlot(s.id)}
+                          style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', padding: '0.4rem', borderRadius: 6, cursor: 'pointer' }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column - Present/Absent Schedule Days */}
+              <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                <h3 style={{ color: '#fff', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Calendar size={18} color="#4ade80" /> Mark Present / Absent Days
+                </h3>
+                <form onSubmit={handleUpdateDayStatus} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+                  <div>
+                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: '0.3rem' }}>Select Date</label>
+                    <input 
+                      type="date" 
+                      required 
+                      value={newDayStatus.date} 
+                      onChange={e => setNewDayStatus({ ...newDayStatus, date: e.target.value })}
+                      style={{ width: '100%', padding: '0.6rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: '0.3rem' }}>Status</label>
+                    <select 
+                      value={newDayStatus.status}
+                      onChange={e => setNewDayStatus({ ...newDayStatus, status: e.target.value })}
+                      style={{ width: '100%', padding: '0.6rem', borderRadius: 8, background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+                    >
+                      <option value="present">Present</option>
+                      <option value="absent">Absent</option>
+                    </select>
+                  </div>
+                  <button 
+                    type="submit" 
+                    style={{ padding: '0.75rem', borderRadius: 8, background: '#22d3ee', color: '#000', fontWeight: 'bold', border: 'none', cursor: 'pointer', marginTop: '0.5rem' }}
+                  >
+                    Save Status
+                  </button>
+                </form>
+
+                <h3 style={{ color: '#fff', marginBottom: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem' }}>Overridden Days Status</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '300px', overflowY: 'auto' }}>
+                  {scheduleDays.length === 0 ? (
+                    <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem' }}>No status overrides set.</p>
+                  ) : (
+                    scheduleDays.map(sd => (
+                      <div key={sd.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8 }}>
+                        <div>
+                          <p style={{ color: '#fff', margin: 0, fontWeight: 600 }}>{sd.date}</p>
+                          <span style={{ 
+                            fontSize: '0.75rem', 
+                            fontWeight: 700, 
+                            padding: '0.15rem 0.5rem', 
+                            borderRadius: 4, 
+                            background: sd.status === 'present' ? 'rgba(74,222,128,0.15)' : 'rgba(239,68,68,0.15)',
+                            color: sd.status === 'present' ? '#4ade80' : '#ef4444'
+                          }}>
+                            {sd.status.toUpperCase()}
+                          </span>
+                        </div>
+                        <button 
+                          onClick={() => handleDeleteDay(sd.id)}
+                          style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', padding: '0.4rem', borderRadius: 6, cursor: 'pointer' }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </>
       )}
 
       {selectedPatient && (
         <div className="glass-panel" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-             <h2 style={{ color: '#fff', margin: 0 }}>Clinical Examination: {selectedPatient.pet_detail?.name}{selectedPatient.pet_detail?.species ? ` (${selectedPatient.pet_detail.species})` : ''}</h2>
+             <h2 style={{ color: '#fff', margin: 0 }}>Clinical Examination: {(selectedPatient.pet_detail || selectedPatient.livestock_detail)?.name}{(selectedPatient.pet_detail || selectedPatient.livestock_detail)?.species ? ` (${(selectedPatient.pet_detail || selectedPatient.livestock_detail).species})` : ''}</h2>
              <button onClick={() => setSelectedPatient(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
                 <X size={24} />
              </button>
@@ -548,6 +1048,21 @@ const VetDashboard = () => {
                   onChange={(e) => setConsultationData({...consultationData, notes: e.target.value})}
                   style={{ width: '100%', padding: '0.75rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', marginBottom: '1.5rem' }}
                />
+
+               <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', marginBottom: '0.5rem' }}>Diagnosed Health Status *</label>
+                  <select 
+                     value={consultationData.health_status}
+                     onChange={(e) => setConsultationData({...consultationData, health_status: e.target.value})}
+                     style={{ width: '100%', padding: '0.75rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+                  >
+                     <option value="Healthy">Healthy</option>
+                     <option value="Sick">Sick</option>
+                     <option value="Injured">Injured</option>
+                     <option value="Critical">Critical</option>
+                     <option value="Under Treatment">Under Treatment</option>
+                  </select>
+               </div>
 
                <label style={{ display: 'block', color: '#ef4444', fontSize: '0.75rem', marginBottom: '0.5rem', fontWeight: 600 }}>⚠️ Report Communicable Disease (Civic Alert)</label>
                <select 
@@ -604,20 +1119,24 @@ const VetDashboard = () => {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
-                            pet: selectedPatient.pet,
+                            pet: selectedPatient.pet || null,
+                            livestock: selectedPatient.livestock || null,
                             vital_signs: consultationData.vital_signs,
                             consultation_notes: consultationData.notes,
                             zoonotic_disease_flag: consultationData.zoonotic_disease_flag || null,
+                            health_status: consultationData.health_status,
                             media_url: consultationData.media // This is now the Base64 string
                           })
                         });
                         if (res.ok) {
                           alert("Medical record successfully submitted!");
-                          const updatedHistoryRes = await authFetch(`http://localhost:8000/api/citizens/pets/${selectedPatient.pet}/medical_report/`);
+                          const id = selectedPatient.pet || selectedPatient.livestock;
+                          const type = selectedPatient.livestock ? 'livestocks' : 'pets';
+                          const updatedHistoryRes = await authFetch(`http://localhost:8000/api/citizens/${type}/${id}/medical_report/`);
                           if (updatedHistoryRes.ok) {
                             setPatientHistory(await updatedHistoryRes.json());
                           }
-                          setConsultationData({ vital_signs: { weight: '', temp: '', heartRate: '' }, notes: '', zoonotic_disease_flag: '', media: null });
+                          setConsultationData({ vital_signs: { weight: '', temp: '', heartRate: '' }, notes: '', zoonotic_disease_flag: '', health_status: 'Healthy', media: null });
                           setSelectedFileName('');
                         } else {
                           const errText = await res.text();
@@ -639,26 +1158,23 @@ const VetDashboard = () => {
             <div>
                <h3 style={{ color: '#22d3ee', fontSize: '1rem', marginBottom: '1rem' }}>Pet / Livestock Profile</h3>
                <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
-                     <img src={selectedPatient.pet_detail?.media_url || "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=150&h=150&fit=crop"} alt="Pet" style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover' }} />
-                     <div>
-                        <h4 style={{ color: '#fff', margin: 0 }}>{selectedPatient.pet_detail?.name}</h4>
-                        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
-                           Microchip/RFID: {patientHistory?.pet?.rfid_tag || 'Not Registered'}
-                        </p>
-                     </div>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
+                  <img src={(selectedPatient.pet_detail || selectedPatient.livestock_detail)?.media_url || "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=150&h=150&fit=crop"} alt="Pet" style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover' }} />
+                  <div>
+                    <h4 style={{ color: '#fff', margin: 0 }}>{(selectedPatient.pet_detail || selectedPatient.livestock_detail)?.name}</h4>
                   </div>
+                </div>
 
-                  {patientHistory?.pet && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem', fontSize: '0.85rem' }}>
-                       <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Species:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.species}</span></div>
-                       {patientHistory.pet.breed && <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Breed:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.breed}</span></div>}
-                       {patientHistory.pet.livestock_type && <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Type:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.livestock_type}</span></div>}
-                       <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Gender:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.gender || 'N/A'}</span></div>
-                       <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>DOB:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.dob ? new Date(patientHistory.pet.dob).toLocaleDateString() : 'Unknown'}</span></div>
-                       <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Status:</span> <span style={{ color: patientHistory.pet.health_status === 'Healthy' ? '#4ade80' : '#f59e0b' }}>{patientHistory.pet.health_status}</span></div>
-                    </div>
-                  )}
+                {patientHistory?.pet && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem', fontSize: '0.85rem' }}>
+                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Species:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.species}</span></div>
+                    {patientHistory.pet.breed && <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Breed:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.breed}</span></div>}
+                    {patientHistory.pet.livestock_type && <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Type:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.livestock_type}</span></div>}
+                    {patientHistory.pet.farm_location && <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Farm Location:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.farm_location}</span></div>}
+                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Gender:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.gender || 'N/A'}</span></div>
+                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>DOB:</span> <span style={{ color: '#fff' }}>{patientHistory.pet.dob ? new Date(patientHistory.pet.dob).toLocaleDateString() : 'Unknown'}</span></div>
+                  </div>
+                )}
 
                   <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                      <p style={{ color: '#22d3ee', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.5rem 0', fontWeight: 600 }}>Owner's Stated Reason for Visit</p>
@@ -742,12 +1258,13 @@ const VetDashboard = () => {
             </div>
           </div>
 
-          {/* ── Vaccination Schedule Section ────────────────────── */}
-          {selectedPatient.pet_detail && (() => {
-            const species = (selectedPatient.pet_detail.species || '').toLowerCase();
-            const dob = selectedPatient.pet_detail.dob;
-            const gender = (selectedPatient.pet_detail.gender || '').toLowerCase();
-            const petName = selectedPatient.pet_detail.name || 'Animal';
+          {/* ── Injection Schedule Section ────────────────────── */}
+          {(selectedPatient.pet_detail || selectedPatient.livestock_detail) && (() => {
+            const activeAnimal = selectedPatient.pet_detail || selectedPatient.livestock_detail;
+            const species = (activeAnimal.species || '').toLowerCase();
+            const dob = activeAnimal.dob;
+            const gender = (activeAnimal.gender || '').toLowerCase();
+            const petName = activeAnimal.name || 'Animal';
 
             // Age calculation
             const getAge = () => {
@@ -765,8 +1282,8 @@ const VetDashboard = () => {
             };
             const age = getAge();
 
-            // Vaccine options per species
-            const VACCINES = {
+            // Injection options per species
+            const INJECTIONS = {
               dog: [
                 { key: 'dhppil_1', label: 'DHPPiL Dose 1 (6 Weeks)', min: 5 },
                 { key: '7in1', label: '7-in-1 Combo Vaccine (10 Weeks)', min: 9 },
@@ -810,7 +1327,7 @@ const VetDashboard = () => {
               ],
             };
 
-            const options = (VACCINES[species] || []).filter(v => {
+            const options = (INJECTIONS[species] || []).filter(v => {
               if (v.min && age.weeks < v.min) return false;
               if (v.genderRestrict && v.genderRestrict !== gender) return false;
               if (v.genderRestrict === 'female' && (species === 'cow' || species === 'bovine') && (age.months < 4 || age.months > 8)) return false;
@@ -820,7 +1337,7 @@ const VetDashboard = () => {
             return (
               <div style={{ marginTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '2rem' }}>
                 <h3 style={{ color: '#818cf8', fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  💉 Vaccination Schedule
+                  💉 Injection Schedule
                 </h3>
 
                 {/* Age + Gender vitals */}
@@ -831,7 +1348,7 @@ const VetDashboard = () => {
                   </div>
                   <div style={{ background: 'rgba(129,140,248,0.06)', border: '1px solid rgba(129,140,248,0.15)', borderRadius: 10, padding: '0.85rem' }}>
                     <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Gender</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#818cf8', marginTop: '0.2rem' }}>{selectedPatient.pet_detail.gender || 'N/A'}</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#818cf8', marginTop: '0.2rem' }}>{activeAnimal.gender || 'N/A'}</div>
                   </div>
                   <div style={{ background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.15)', borderRadius: 10, padding: '0.85rem' }}>
                     <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Visit Date</div>
@@ -839,13 +1356,13 @@ const VetDashboard = () => {
                   </div>
                 </div>
 
-                {/* Vaccine checkboxes */}
+                {/* Injection checkboxes */}
                 {options.length === 0 ? (
                   <div style={{ padding: '1.25rem', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12, textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem' }}>
-                    ⚠️ No standard vaccine blueprint found for <strong>{selectedPatient.pet_detail.species}</strong> at this age. Please consult local veterinary guidelines.
+                    ⚠️ No standard injection blueprint found for <strong>{activeAnimal.species}</strong> at this age. Please consult local veterinary guidelines.
                   </div>
                 ) : (
-                  <VaccineChecklistInline
+                  <InjectionChecklistInline
                     options={options}
                     petId={selectedPatient.pet}
                     petDetail={selectedPatient.pet_detail}
@@ -982,6 +1499,13 @@ const VetDashboard = () => {
           </div>
         </div>
       )}
+      <style>{`
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.03); opacity: 0.8; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 };

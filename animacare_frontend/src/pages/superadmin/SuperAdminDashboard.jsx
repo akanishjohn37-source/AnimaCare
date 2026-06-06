@@ -305,6 +305,14 @@ const SuperAdminDashboard = () => {
                           <span>Jurisdiction: {u.zone || 'N/A'}</span>
                           <span>Registered: {new Date(u.date_joined).toLocaleDateString()}</span>
                         </div>
+                        {u.role === 'shelter_admin' && u.shelter_profile && (
+                          <div style={{ marginTop: '0.65rem', padding: '0.6rem 0.8rem', borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.82rem', color: 'rgba(255,255,255,0.7)', display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1rem' }}>
+                            <span><strong>Shelter:</strong> {u.shelter_profile.shelter_name}</span>
+                            <span><strong>NGO Darpan ID:</strong> {u.shelter_profile.shelter_registration_number}</span>
+                            <span><strong>Capacity:</strong> {u.shelter_profile.capacity}</span>
+                            <span><strong>Type:</strong> {u.shelter_profile.shelter_type === 'specific' ? `Specific (${u.shelter_profile.specific_animal})` : 'Mixed Animal'}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
