@@ -25,6 +25,18 @@ def _get_role(request):
 
 User = get_user_model()
 
+def _get_user(request):
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        try:
+            token = auth_header.split(' ', 1)[1]
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            user_id = payload.get('user_id')
+            return User.objects.get(id=user_id)
+        except:
+            return None
+    return None
+
 class ZoonoticHeatmapView(APIView):
   def get(self, request):
         if _get_role(request) not in ['civic_authority', 'admin']:
@@ -72,7 +84,8 @@ class ZoonoticHeatmapView(APIView):
 
 class BroadcastAlertView(APIView):
   def post(self, request):
-        if _get_role(request) not in ['civic_authority', 'admin']:
+        user = _get_user(request)
+        if not user or user.role not in ['civic_authority', 'admin']:
             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
         
         polygon = request.data.get("polygon", [])
@@ -83,7 +96,7 @@ class BroadcastAlertView(APIView):
             return Response({"error": "Polygon coordinates and message are required."}, status=status.HTTP_400_BAD_REQUEST)
         
         # Execute synchronously to avoid Redis hanging on local environments without Celery worker
-        result_message = send_mass_broadcast_task(message, target_group)
+        result_message = send_mass_broadcast_task(message, target_group, zone=user.zone)
         
         return Response({
             "message": "Broadcast executed successfully.",

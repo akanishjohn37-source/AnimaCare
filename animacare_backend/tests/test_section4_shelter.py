@@ -247,3 +247,38 @@ class Section4_ShelterTests(TestCase):
             }, format='json', HTTP_AUTHORIZATION=f'Bearer {self.shelter_token}'
         )
         self.assertEqual(response.status_code, 400)
+
+    def test_16_citizen_reply_interview_accept(self):
+        """Citizen accepting scheduled interview completes adoption and creates pet profile."""
+        app = AdoptionApplication.objects.create(
+            applicant=self.citizen, animal=self.animal, status='Interview Scheduled'
+        )
+        response = self.client.post(
+            f'/api/shelter/applications/{app.id}/reply_interview/', {
+                'response': 'accept'
+            }, format='json', HTTP_AUTHORIZATION=f'Bearer {self.citizen_token}'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        app.refresh_from_db()
+        self.assertEqual(app.status, 'Approved')
+        self.animal.refresh_from_db()
+        self.assertTrue(self.animal.is_adopted)
+        self.assertFalse(self.animal.is_available)
+        from apps.citizens.models import Pet
+        self.assertTrue(Pet.objects.filter(owner=self.citizen, name='Charlie').exists())
+
+    def test_17_citizen_reply_interview_reject(self):
+        """Citizen rejecting scheduled interview cancels application."""
+        app = AdoptionApplication.objects.create(
+            applicant=self.citizen, animal=self.animal, status='Interview Scheduled'
+        )
+        response = self.client.post(
+            f'/api/shelter/applications/{app.id}/reply_interview/', {
+                'response': 'reject'
+            }, format='json', HTTP_AUTHORIZATION=f'Bearer {self.citizen_token}'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        app.refresh_from_db()
+        self.assertEqual(app.status, 'Rejected')
+        self.animal.refresh_from_db()
+        self.assertFalse(self.animal.is_adopted)

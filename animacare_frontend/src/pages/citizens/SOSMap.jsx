@@ -14,6 +14,118 @@ import 'leaflet/dist/leaflet.css';
 import './SOSMap.css';
 import { useAuth } from '../../context/AuthContext';
 
+export const getMunicipalityFromLatLng = (lat, lng) => {
+  if (lat >= 8.15 && lat < 8.71) return 'Thiruvananthapuram Corporation';
+  if (lat >= 8.71 && lat < 9.41) return 'Kollam Corporation';
+  if (lat >= 9.41 && lat < 10.23) return 'Kochi Municipal Corporation';
+  if (lat >= 10.23 && lat < 10.90) return 'Thrissur Corporation';
+  if (lat >= 10.90 && lat < 11.57) return 'Kozhikode Corporation';
+  if (lat >= 11.57 && lat <= 12.85) return 'Kannur Corporation';
+  return null;
+};
+
+const municipalityZones = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: { name: "Thiruvananthapuram Corporation", color: "#f43f5e" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [74.85, 8.15],
+            [77.40, 8.15],
+            [77.40, 8.71],
+            [74.85, 8.71],
+            [74.85, 8.15]
+          ]
+        ]
+      }
+    },
+    {
+      type: "Feature",
+      properties: { name: "Kollam Corporation", color: "#ec4899" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [74.85, 8.71],
+            [77.40, 8.71],
+            [77.40, 9.41],
+            [74.85, 9.41],
+            [74.85, 8.71]
+          ]
+        ]
+      }
+    },
+    {
+      type: "Feature",
+      properties: { name: "Kochi Municipal Corporation", color: "#8b5cf6" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [74.85, 9.41],
+            [77.40, 9.41],
+            [77.40, 10.23],
+            [74.85, 10.23],
+            [74.85, 9.41]
+          ]
+        ]
+      }
+    },
+    {
+      type: "Feature",
+      properties: { name: "Thrissur Corporation", color: "#3b82f6" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [74.85, 10.23],
+            [77.40, 10.23],
+            [77.40, 10.90],
+            [74.85, 10.90],
+            [74.85, 10.23]
+          ]
+        ]
+      }
+    },
+    {
+      type: "Feature",
+      properties: { name: "Kozhikode Corporation", color: "#06b6d4" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [74.85, 10.90],
+            [77.40, 10.90],
+            [77.40, 11.57],
+            [74.85, 11.57],
+            [74.85, 10.90]
+          ]
+        ]
+      }
+    },
+    {
+      type: "Feature",
+      properties: { name: "Kannur Corporation", color: "#10b981" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [74.85, 11.57],
+            [77.40, 11.57],
+            [77.40, 12.85],
+            [74.85, 12.85],
+            [74.85, 11.57]
+          ]
+        ]
+      }
+    }
+  ]
+};
+
 const customMarkerIcon = new L.DivIcon({
   className: 'custom-leaflet-marker',
   html: `<div style="color: #ef4444; display: flex; justify-content: center; align-items: center; width: 36px; height: 36px; position: relative;">
@@ -151,6 +263,30 @@ const SOSMap = () => {
             >
               <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <GeoJSON 
+                data={municipalityZones} 
+                style={(feature) => ({
+                  color: feature.properties.color,
+                  weight: 1.5,
+                  dashArray: '4, 4',
+                  fillColor: feature.properties.color,
+                  fillOpacity: 0.1
+                })}
+                onEachFeature={(feature, layer) => {
+                  layer.on({
+                    mouseover: (e) => {
+                      e.target.setStyle({ fillOpacity: 0.22, weight: 2.5 });
+                    },
+                    mouseout: (e) => {
+                      e.target.setStyle({ fillOpacity: 0.1, weight: 1.5 });
+                    },
+                    click: (e) => {
+                      setLocation({ lat: e.latlng.lat, lng: e.latlng.lng });
+                    }
+                  });
+                  layer.bindTooltip(feature.properties.name, { sticky: true, className: 'municipality-tooltip' });
+                }}
+              />
+              <GeoJSON 
                 data={invertedKeralaData} 
                 style={{ color: 'transparent', fillColor: '#111827', fillOpacity: 0.95 }} 
                 interactive={true} 
@@ -169,11 +305,16 @@ const SOSMap = () => {
               </Marker>
               <MapEvents location={location} setLocation={setLocation} />
             </MapContainer>
-            <div style={{ position: 'absolute', bottom: '10px', left: '10px', zIndex: 1000, background: 'rgba(0,0,0,0.7)', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--glass-border)', color: '#fff' }}>
-              <p style={{ margin: 0, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <div style={{ position: 'absolute', bottom: '10px', left: '10px', zIndex: 1000, background: 'rgba(15, 23, 42, 0.85)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--glass-border)', color: '#fff', backdropFilter: 'blur(4px)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <p style={{ margin: 0, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 'bold' }}>
                 <MapPin size={16} color="var(--danger)" />
-                Lat: {location.lat.toFixed(4)} N, Long: {location.lng.toFixed(4)} E
+                Lat: {location.lat.toFixed(4)} N, Lng: {location.lng.toFixed(4)} E
               </p>
+              {location.lat !== 0 && (
+                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#10b981' }}>
+                  📍 {getMunicipalityFromLatLng(location.lat, location.lng) || 'Outside Service Area'}
+                </span>
+              )}
             </div>
           </div>
           <div className="map-controls">

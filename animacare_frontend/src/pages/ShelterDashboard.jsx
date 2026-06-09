@@ -77,14 +77,12 @@ export default function ShelterDashboard() {
   const prevAlertCountRef = useRef(0);
 
   const [kanban, setKanban] = useState({
-    columnOrder: ['Pending', 'Under Review', 'Interview Scheduled', 'Approved', 'Rejected', 'Cancelled'],
+    columnOrder: ['Pending', 'Interview Scheduled', 'Approved', 'Rejected'],
     columns: {
       'Pending': { id: 'Pending', title: 'Pending', taskIds: [] },
-      'Under Review': { id: 'Under Review', title: 'Under Review', taskIds: [] },
       'Interview Scheduled': { id: 'Interview Scheduled', title: 'Interview Scheduled', taskIds: [] },
       'Approved': { id: 'Approved', title: 'Approved', taskIds: [] },
-      'Rejected': { id: 'Rejected', title: 'Rejected', taskIds: [] },
-      'Cancelled': { id: 'Cancelled', title: 'Cancelled', taskIds: [] }
+      'Rejected': { id: 'Rejected', title: 'Rejected', taskIds: [] }
     },
     tasks: {}
   });
@@ -147,11 +145,9 @@ export default function ShelterDashboard() {
         const tasks = {};
         const columns = { 
           'Pending': { id: 'Pending', title: 'Pending', taskIds: [] }, 
-          'Under Review': { id: 'Under Review', title: 'Under Review', taskIds: [] }, 
           'Interview Scheduled': { id: 'Interview Scheduled', title: 'Interview Scheduled', taskIds: [] }, 
           'Approved': { id: 'Approved', title: 'Approved', taskIds: [] },
-          'Rejected': { id: 'Rejected', title: 'Rejected', taskIds: [] },
-          'Cancelled': { id: 'Cancelled', title: 'Cancelled', taskIds: [] }
+          'Rejected': { id: 'Rejected', title: 'Rejected', taskIds: [] }
         };
         data.forEach(app => {
           const taskId = `app-${app.id}`;
@@ -164,11 +160,24 @@ export default function ShelterDashboard() {
             breed: app.animal_detail?.breed || '',
             animal_detail: app.animal_detail || {}
           };
-          if (columns[app.status]) columns[app.status].taskIds.push(taskId);
-          else columns['Pending'].taskIds.push(taskId);
+          
+          let mappedStatus = app.status;
+          if (app.status === 'Under Review') {
+            mappedStatus = 'Pending';
+          } else if (app.status === 'Accepted') {
+            mappedStatus = 'Approved';
+          } else if (app.status === 'Cancelled') {
+            mappedStatus = 'Rejected';
+          }
+          
+          if (columns[mappedStatus]) {
+            columns[mappedStatus].taskIds.push(taskId);
+          } else {
+            columns['Pending'].taskIds.push(taskId);
+          }
         });
         setKanban({ 
-          columnOrder: ['Pending', 'Under Review', 'Interview Scheduled', 'Approved', 'Rejected', 'Cancelled'], 
+          columnOrder: ['Pending', 'Interview Scheduled', 'Approved', 'Rejected'], 
           columns, 
           tasks 
         });
@@ -181,7 +190,7 @@ export default function ShelterDashboard() {
     fetchApps();
     
     // Connect to WebSocket for real-time SOS alerts
-    const ws = new WebSocket('ws://localhost:8000/ws/shelter/dashboard/');
+    const ws = new WebSocket(`ws://localhost:8000/ws/shelter/dashboard/?zone=${encodeURIComponent(user?.zone || '')}`);
     
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -213,13 +222,26 @@ export default function ShelterDashboard() {
     };
     
     return () => ws.close();
-  }, [authFetch]);
+  }, [authFetch, user]);
 
   useEffect(() => { if (activeTab === 'inventory') fetchInventory(); }, [activeTab]);
 
   const onDragEnd = (result) => {
     const { destination, source, draggableId } = result;
     if (!destination || (destination.droppableId === source.droppableId && destination.index === source.index)) return;
+    
+    const task = kanban.tasks[draggableId];
+    if (destination.droppableId === 'Interview Scheduled') {
+      setSelectedApplication(task);
+      setIsScheduling(true);
+      return;
+    }
+    if (destination.droppableId === 'Rejected') {
+      setSelectedApplication(task);
+      setIsRejecting(true);
+      return;
+    }
+    
     const startColumn = kanban.columns[source.droppableId];
     const finishColumn = kanban.columns[destination.droppableId];
     if (startColumn === finishColumn) {
@@ -231,9 +253,8 @@ export default function ShelterDashboard() {
     const startTaskIds = Array.from(startColumn.taskIds); startTaskIds.splice(source.index, 1);
     const finishTaskIds = Array.from(finishColumn.taskIds); finishTaskIds.splice(destination.index, 0, draggableId);
     setKanban({ ...kanban, columns: { ...kanban.columns, [startColumn.id]: { ...startColumn, taskIds: startTaskIds }, [finishColumn.id]: { ...finishColumn, taskIds: finishTaskIds } } });
-    const task = kanban.tasks[draggableId];
     setKanban(prev => ({ ...prev, tasks: { ...prev.tasks, [draggableId]: { ...task, status: destination.droppableId } } }));
-    authFetch(`http://localhost:8000/api/shelter/applications/${task.dbId}/update_status/`, { method: 'PATCH', body: JSON.stringify({ status: destination.droppableId }) }).catch(e => console.error("Mock fallback"));
+    authFetch(`http://localhost:8000/api/shelter/applications/${task.dbId}/update_status/`, { method: 'POST', body: JSON.stringify({ status: destination.droppableId }) }).catch(e => console.error("Mock fallback"));
   };
 
   const handleApplicationAction = async (newStatus, feedback = '') => {
@@ -1026,11 +1047,6 @@ export default function ShelterDashboard() {
                         ) : (
                            <>
                               {selectedApplication.status === 'Pending' && (
-                                 <button className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 w-full" onClick={() => handleApplicationAction('Under Review')}>
-                                    <Search size={18} /> Review Applicant Details
-                                 </button>
-                              )}
-                              {selectedApplication.status === 'Under Review' && (
                                  <button className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 w-full" onClick={() => setIsScheduling(true)}>
                                     <Calendar size={18} /> Schedule Interview
                                  </button>
@@ -1040,8 +1056,8 @@ export default function ShelterDashboard() {
                                     <CheckCircle size={18} /> Complete Adoption
                                  </button>
                               )}
-                              {['Pending', 'Under Review', 'Interview Scheduled'].includes(selectedApplication.status) && (
-                                 <button className="text-red-400 hover:text-red-300 text-[10px] font-black uppercase tracking-widest mt-2 hover:underline" onClick={() => setIsRejecting(true)}>
+                              {['Pending', 'Interview Scheduled'].includes(selectedApplication.status) && (
+                                 <button className="text-red-400 hover:text-red-300 text-[10px] font-black uppercase tracking-widest mt-2 hover:underline w-full text-center block" onClick={() => setIsRejecting(true)}>
                                     Reject Application
                                  </button>
                               )}

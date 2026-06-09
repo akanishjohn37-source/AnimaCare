@@ -114,6 +114,24 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
                     f"Please confirm whether you would like to accept and take the pet home, or decline the adoption. "
                     f"Visit your Adoption Portal to confirm your decision."
                 )
+                # Mark animal as adopted and remove from public market
+                animal = application.animal
+                animal.is_adopted = True
+                animal.is_available = False
+                animal.save()
+
+                # Auto-create the Pet record in the Citizen's profile
+                from apps.citizens.models import Pet
+                Pet.objects.get_or_create(
+                    owner=application.applicant,
+                    name=animal.name,
+                    species=animal.species,
+                    defaults={
+                        'breed': animal.breed,
+                        'health_status': animal.medical_triage_status,
+                        'media_url': animal.media_url
+                    }
+                )
             elif new_status == 'Rejected':
                 title = "Adoption Application Update"
                 message = f"We regret to inform you that your adoption application for {application.animal.name} was not approved at this time."
@@ -144,6 +162,79 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
                 
             return Response({'status': 'Status updated', 'feedback': application.feedback})
         return Response({'error': 'Invalid status'}, status=400)
+
+    @action(detail=True, methods=['post'])
+    def reply_interview(self, request, pk=None):
+        """Citizen replies to the scheduled interview: 'accept' or 'reject'."""
+        application = self.get_object()
+        if application.applicant != request.user:
+            return Response({'error': 'Unauthorized'}, status=403)
+        if application.status != 'Interview Scheduled':
+            return Response({'error': 'Application must be in Interview Scheduled status to reply.'}, status=400)
+
+        response = request.data.get('response')
+        if response == 'accept':
+            application.status = 'Approved'
+            application.applicant_confirmed = True
+            application.feedback = (application.feedback or '') + ' [Interview Accepted by applicant]'
+            application.save()
+
+            # Mark animal as adopted and remove from public market
+            animal = application.animal
+            animal.is_adopted = True
+            animal.is_available = False
+            animal.save()
+
+            # Auto-create the Pet record in the Citizen's profile
+            from apps.citizens.models import Pet
+            Pet.objects.get_or_create(
+                owner=application.applicant,
+                name=animal.name,
+                species=animal.species,
+                defaults={
+                    'breed': animal.breed,
+                    'health_status': animal.medical_triage_status,
+                    'media_url': animal.media_url
+                }
+            )
+
+            # Notify the Shelter Admin
+            shelter_admin = application.animal.shelter.admin
+            Notification.objects.create(
+                recipient=shelter_admin,
+                title="Interview Accepted & Adoption Completed! 🎉",
+                message=f"Citizen {request.user.username} has accepted the interview for {application.animal.name}. The adoption has been completed."
+            )
+            # Notify the Applicant
+            Notification.objects.create(
+                recipient=application.applicant,
+                title="Welcome to your new best friend! 🐾",
+                message=f"You have accepted the interview for {application.animal.name} and finalized the adoption! The pet has been added to your profile."
+            )
+            return Response({'status': 'Approved', 'message': 'Interview accepted and adoption finalized.'})
+
+        elif response == 'reject':
+            application.status = 'Rejected'
+            application.applicant_confirmed = False
+            application.feedback = (application.feedback or '') + ' [Interview Rejected by applicant]'
+            application.save()
+
+            # Notify the Shelter Admin
+            shelter_admin = application.animal.shelter.admin
+            Notification.objects.create(
+                recipient=shelter_admin,
+                title="Interview Rejected & Application Closed",
+                message=f"Citizen {request.user.username} has rejected the interview for {application.animal.name}. The application has been closed."
+            )
+            # Notify the Applicant
+            Notification.objects.create(
+                recipient=application.applicant,
+                title="Interview Rejected",
+                message=f"You have rejected the interview request for {application.animal.name}. The application has been cancelled."
+            )
+            return Response({'status': 'Rejected', 'message': 'Interview rejected and application closed.'})
+        else:
+            return Response({'error': 'Invalid response type. Must be accept or reject.'}, status=400)
 
     @action(detail=True, methods=['post'])
     def accept_adoption(self, request, pk=None):

@@ -7,7 +7,7 @@ class SOSAlertSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = SOSAlert
-        fields = ['id', 'reporter', 'reporter_name', 'animal_description', 'location', 'timestamp', 'status', 'assigned_shelter', 'assigned_shelter_name', 'is_resolved']
+        fields = ['id', 'reporter', 'reporter_name', 'animal_description', 'location', 'timestamp', 'status', 'assigned_shelter', 'assigned_shelter_name', 'is_resolved', 'alert_type', 'municipality']
 
 class PetSerializer(serializers.ModelSerializer):
     class Meta:

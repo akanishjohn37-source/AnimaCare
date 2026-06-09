@@ -7,6 +7,28 @@ from .models import SOSAlert, Pet, Livestock
 from .serializers import SOSAlertSerializer, PetSerializer, LivestockSerializer
 from apps.shelter.models import Shelter
 
+def get_municipality_from_coords(lat, lng):
+    try:
+        lat = float(lat)
+        lng = float(lng)
+    except (ValueError, TypeError):
+        return None
+    
+    # Division based on latitude thresholds:
+    if 8.15 <= lat < 8.71:
+        return 'Thiruvananthapuram Corporation'
+    elif 8.71 <= lat < 9.41:
+        return 'Kollam Corporation'
+    elif 9.41 <= lat < 10.23:
+        return 'Kochi Municipal Corporation'
+    elif 10.23 <= lat < 10.90:
+        return 'Thrissur Corporation'
+    elif 10.90 <= lat < 11.57:
+        return 'Kozhikode Corporation'
+    elif 11.57 <= lat <= 12.85:
+        return 'Kannur Corporation'
+    return None
+
 class SOSAlertViewSet(viewsets.ModelViewSet):
     queryset = SOSAlert.objects.all()
     serializer_class = SOSAlertSerializer
@@ -14,10 +36,39 @@ class SOSAlertViewSet(viewsets.ModelViewSet):
     filterset_fields = ['status', 'is_resolved']
     ordering_fields = ['timestamp']
 
+    def get_queryset(self):
+        user = self.request.user
+        queryset = SOSAlert.objects.all()
+        if user.is_authenticated:
+            if user.role == 'civic_authority':
+                return queryset.filter(municipality=user.zone)
+            elif user.role == 'shelter_admin':
+                import apps.shelter.models as shelter_models
+                try:
+                    shelter = shelter_models.Shelter.objects.get(admin=user)
+                    from django.db.models import Q
+                    return queryset.filter(Q(municipality=user.zone) | Q(assigned_shelter=shelter)).distinct()
+                except shelter_models.Shelter.DoesNotExist:
+                    return queryset.filter(municipality=user.zone)
+        return queryset
+
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def nearby(self, request):
         # Return all unresolved alerts OR alerts accepted by this specific shelter
-        alerts = SOSAlert.objects.filter(is_resolved=False, alert_type='rescue').order_by('-timestamp')
+        user = request.user
+        if user.role == 'shelter_admin':
+            import apps.shelter.models as shelter_models
+            try:
+                shelter = shelter_models.Shelter.objects.get(admin=user)
+                from django.db.models import Q
+                alerts = SOSAlert.objects.filter(
+                    Q(is_resolved=False, alert_type='rescue', municipality=user.zone) |
+                    Q(assigned_shelter=shelter)
+                ).distinct().order_by('-timestamp')
+            except shelter_models.Shelter.DoesNotExist:
+                alerts = SOSAlert.objects.filter(is_resolved=False, alert_type='rescue', municipality=user.zone).order_by('-timestamp')
+        else:
+            alerts = SOSAlert.objects.filter(is_resolved=False, alert_type='rescue').order_by('-timestamp')
         serializer = self.get_serializer(alerts, many=True)
         return Response(serializer.data)
 
@@ -115,11 +166,13 @@ class SOSAlertViewSet(viewsets.ModelViewSet):
         alert_type = data.get('alert_type', 'rescue')
         if lat and lng:
             location = f"{lat},{lng}"
+            municipality = get_municipality_from_coords(lat, lng) or ""
             sos = SOSAlert.objects.create(
                 reporter_id=data.get('reporter'),
                 animal_description=data.get('animal_description'),
                 location=location,
-                alert_type=alert_type
+                alert_type=alert_type,
+                municipality=municipality
             )
             # Find shelters nearby (dummy mock for non-GIS local dev)
             nearby_shelters = Shelter.objects.filter(is_verified=True)[:5]
@@ -129,9 +182,13 @@ class SOSAlertViewSet(viewsets.ModelViewSet):
             # Send websocket signal to the shelters group
             from asgiref.sync import async_to_sync
             from channels.layers import get_channel_layer
+            import re
+            cleaned_mun = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', municipality) if municipality else 'all'
+            group_name = f"shelters_{cleaned_mun}"
+            
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
-                'shelters_group',
+                group_name,
                 {
                     'type': 'sos_alert',
                     'alert_data': {
@@ -140,7 +197,8 @@ class SOSAlertViewSet(viewsets.ModelViewSet):
                         'location': sos.location,
                         'timestamp': str(sos.timestamp),
                         'status': sos.status,
-                        'alert_type': sos.alert_type
+                        'alert_type': sos.alert_type,
+                        'municipality': sos.municipality
                     }
                 }
             )

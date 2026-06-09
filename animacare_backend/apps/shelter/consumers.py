@@ -3,9 +3,16 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 
 class ShelterDashboardConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        # We can implement specific room grouping based on shelter ID
-        # e.g., self.room_name = f"shelter_{user.shelter.id}"
-        self.room_group_name = 'shelters_group'
+        from urllib.parse import parse_qs
+        import re
+        
+        query_string = self.scope.get('query_string', b'').decode()
+        params = parse_qs(query_string)
+        zone = params.get('zone', [None])[0]
+        
+        cleaned_zone = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', zone) if zone else 'all'
+        self.room_group_name = f"shelters_{cleaned_zone}"
+        
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name

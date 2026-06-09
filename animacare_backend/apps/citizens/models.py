@@ -63,6 +63,7 @@ class SOSAlert(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
     assigned_shelter = models.ForeignKey('shelter.Shelter', on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_missions')
     is_resolved = models.BooleanField(default=False)
+    municipality = models.CharField(max_length=255, blank=True, default='')
     
     def __str__(self):
         return f"SOS by {self.reporter.username} ({self.status}) at {self.timestamp}"
