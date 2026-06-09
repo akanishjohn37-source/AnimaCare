@@ -108,11 +108,10 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
                 else:
                     message = f"Great news! The shelter has scheduled an interview for your adoption application for {application.animal.name}. Please check your dashboard for details."
             elif new_status == 'Approved':
-                title = "Adoption Approved — Please Confirm! 🎉"
+                title = "Adoption Approved & Finalized! 🎉"
                 message = (
-                    f"Congratulations! Your adoption application for {application.animal.name} has been approved. "
-                    f"Please confirm whether you would like to accept and take the pet home, or decline the adoption. "
-                    f"Visit your Adoption Portal to confirm your decision."
+                    f"Congratulations! Your adoption application for {application.animal.name} has been approved and finalized. "
+                    f"The pet has been successfully added to your profile."
                 )
                 # Mark animal as adopted and remove from public market
                 animal = application.animal
@@ -174,44 +173,24 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
 
         response = request.data.get('response')
         if response == 'accept':
-            application.status = 'Approved'
             application.applicant_confirmed = True
             application.feedback = (application.feedback or '') + ' [Interview Accepted by applicant]'
             application.save()
-
-            # Mark animal as adopted and remove from public market
-            animal = application.animal
-            animal.is_adopted = True
-            animal.is_available = False
-            animal.save()
-
-            # Auto-create the Pet record in the Citizen's profile
-            from apps.citizens.models import Pet
-            Pet.objects.get_or_create(
-                owner=application.applicant,
-                name=animal.name,
-                species=animal.species,
-                defaults={
-                    'breed': animal.breed,
-                    'health_status': animal.medical_triage_status,
-                    'media_url': animal.media_url
-                }
-            )
 
             # Notify the Shelter Admin
             shelter_admin = application.animal.shelter.admin
             Notification.objects.create(
                 recipient=shelter_admin,
-                title="Interview Accepted & Adoption Completed! 🎉",
-                message=f"Citizen {request.user.username} has accepted the interview for {application.animal.name}. The adoption has been completed."
+                title="Interview Confirmed! 📅",
+                message=f"Citizen {request.user.username} has confirmed they will attend the interview for {application.animal.name}."
             )
             # Notify the Applicant
             Notification.objects.create(
                 recipient=application.applicant,
-                title="Welcome to your new best friend! 🐾",
-                message=f"You have accepted the interview for {application.animal.name} and finalized the adoption! The pet has been added to your profile."
+                title="Interview Confirmed 📅",
+                message=f"You have confirmed your attendance for the interview of {application.animal.name}. The shelter admin will review and complete the adoption after the interview."
             )
-            return Response({'status': 'Approved', 'message': 'Interview accepted and adoption finalized.'})
+            return Response({'status': 'Interview Scheduled', 'applicant_confirmed': True, 'message': 'Interview schedule accepted. The shelter admin gets confirmation.'})
 
         elif response == 'reject':
             application.status = 'Rejected'

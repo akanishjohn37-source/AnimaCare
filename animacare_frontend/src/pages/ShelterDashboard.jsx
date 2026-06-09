@@ -151,16 +151,6 @@ export default function ShelterDashboard() {
         };
         data.forEach(app => {
           const taskId = `app-${app.id}`;
-          tasks[taskId] = { 
-            ...app, 
-            id: taskId, 
-            dbId: app.id,
-            applicant: app.applicant_name,
-            animal: app.animal_detail?.name || 'Unknown',
-            breed: app.animal_detail?.breed || '',
-            animal_detail: app.animal_detail || {}
-          };
-          
           let mappedStatus = app.status;
           if (app.status === 'Under Review') {
             mappedStatus = 'Pending';
@@ -169,6 +159,17 @@ export default function ShelterDashboard() {
           } else if (app.status === 'Cancelled') {
             mappedStatus = 'Rejected';
           }
+
+          tasks[taskId] = { 
+            ...app, 
+            status: mappedStatus,
+            id: taskId, 
+            dbId: app.id,
+            applicant: app.applicant_name,
+            animal: app.animal_detail?.name || 'Unknown',
+            breed: app.animal_detail?.breed || '',
+            animal_detail: app.animal_detail || {}
+          };
           
           if (columns[mappedStatus]) {
             columns[mappedStatus].taskIds.push(taskId);
@@ -637,6 +638,16 @@ export default function ShelterDashboard() {
                                           </div>
                                           <span className="text-neutral-500 text-[10px] uppercase font-bold tracking-wider truncate max-w-[100px]">{task.breed}</span>
                                         </div>
+                                      {task.status === 'Interview Scheduled' && task.applicant_confirmed && (
+                                        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-wider py-1 px-2 rounded-lg flex items-center gap-1.5 self-start">
+                                          <CheckCircle size={10} /> Interview Confirmed
+                                        </div>
+                                      )}
+                                      {task.status === 'Interview Scheduled' && !task.applicant_confirmed && (
+                                        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-wider py-1 px-2 rounded-lg flex items-center gap-1.5 self-start animate-pulse">
+                                          <Clock size={10} /> Awaiting Confirmation
+                                        </div>
+                                      )}
                                       <div className="text-[10px] text-neutral-600">Applied: {new Date(task.applied_at || task.timestamp).toLocaleDateString()}</div>
                                     </div>
                                   )}
@@ -964,9 +975,26 @@ export default function ShelterDashboard() {
                            </div>
                            <div className="text-right">
                               <span className="text-[10px] text-neutral-500 uppercase font-black block mb-1">Status</span>
-                              <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-xs font-bold uppercase">{selectedApplication.status}</span>
+                              <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-xs font-bold uppercase">
+                                 {selectedApplication.status === 'Interview Scheduled' 
+                                    ? (selectedApplication.applicant_confirmed ? 'Interview Confirmed' : 'Interview Scheduled')
+                                    : selectedApplication.status}
+                              </span>
                            </div>
                         </div>
+                        {selectedApplication.status === 'Interview Scheduled' && (
+                           <div className={`mt-6 p-4 rounded-xl border ${selectedApplication.applicant_confirmed ? 'bg-emerald-900/20 border-emerald-500/30 text-emerald-400' : 'bg-amber-900/20 border-amber-500/30 text-amber-400'}`}>
+                              <h6 className="font-black text-sm mb-2 flex items-center gap-2">
+                                 {selectedApplication.applicant_confirmed ? <CheckCircle size={14} /> : <Clock size={14} className="animate-pulse" />}
+                                 {selectedApplication.applicant_confirmed ? 'INTERVIEW CONFIRMED BY CITIZEN' : 'AWAITING CITIZEN CONFIRMATION'}
+                              </h6>
+                              <p className="text-xs font-bold text-neutral-400">
+                                 {selectedApplication.applicant_confirmed 
+                                   ? 'The citizen has confirmed they will attend the interview at the scheduled date and location.'
+                                   : 'The citizen has been notified. Waiting for them to confirm they will attend.'}
+                              </p>
+                           </div>
+                        )}
                         {selectedApplication.status === 'Approved' && (
                            <div className="mt-6 p-4 bg-emerald-900/20 border border-emerald-500/30 rounded-xl">
                               <h6 className="text-emerald-400 font-black text-sm mb-2 flex items-center gap-2"><CheckCircle size={14} /> ADOPTION FINALIZED</h6>

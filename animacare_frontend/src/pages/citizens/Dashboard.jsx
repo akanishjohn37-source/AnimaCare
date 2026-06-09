@@ -121,14 +121,14 @@ const Dashboard = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        setApplications(applications.map(app => app.id === appId ? { ...app, status: data.status, feedback: data.message } : app));
+        setApplications(applications.map(app => app.id === appId ? { 
+          ...app, 
+          status: data.status, 
+          applicant_confirmed: data.applicant_confirmed || false,
+          feedback: data.message 
+        } : app));
         if (response === 'accept') {
-          alert("Interview accepted and adoption finalized! The pet has been added to your profile.");
-          const petsRes = await authFetch('http://localhost:8000/api/citizens/pets/');
-          if (petsRes.ok) {
-             const d = await petsRes.json();
-             setPets(d.results || (Array.isArray(d) ? d : []));
-          }
+          alert("Interview accepted and confirmed! The shelter admin has been notified.");
         } else {
           alert("Interview rejected and application closed.");
         }
@@ -288,7 +288,9 @@ const Dashboard = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: 'bold' }}>{app.animal_detail?.name || 'Animal'}</span>
                       <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                        <span className={`badge ${app.status === 'Approved' ? 'badge-success' : app.status === 'Rejected' ? 'badge-danger' : app.status === 'Cancelled' ? 'badge-secondary' : app.status === 'Interview Scheduled' ? 'badge-primary' : 'badge-primary'}`} style={{ fontSize: '0.7rem', background: app.status === 'Interview Scheduled' ? '#f59e0b' : undefined, color: app.status === 'Interview Scheduled' ? '#white' : undefined }}>{app.status}</span>
+                        <span className={`badge ${app.status === 'Approved' ? 'badge-success' : app.status === 'Rejected' ? 'badge-danger' : app.status === 'Cancelled' ? 'badge-secondary' : app.status === 'Interview Scheduled' ? 'badge-primary' : 'badge-primary'}`} style={{ fontSize: '0.7rem', background: app.status === 'Interview Scheduled' ? (app.applicant_confirmed ? '#10b981' : '#f59e0b') : undefined, color: app.status === 'Interview Scheduled' ? 'white' : undefined }}>
+                          {app.status === 'Interview Scheduled' ? (app.applicant_confirmed ? 'Interview Confirmed' : 'Interview Scheduled') : app.status}
+                        </span>
                         {(app.status === 'Pending' || app.status === 'Under Review') && (
                           <button onClick={() => handleCancelAdoption(app.id)} className="action-btn" style={{ color: 'rgba(255,255,255,0.3)', padding: '2px' }} title="Cancel Application"><X size={14} /></button>
                         )}
@@ -298,10 +300,17 @@ const Dashboard = () => {
                     {app.status === 'Interview Scheduled' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.75rem', padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
                          <p style={{ fontSize: '0.72rem', color: '#f59e0b', margin: 0, fontWeight: 'bold' }}>Interview Scheduled: {app.feedback || 'At Shelter Facility'}</p>
-                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button onClick={() => handleReplyInterview(app.id, 'accept')} className="btn btn-primary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#10b981', borderColor: '#10b981', borderRadius: '6px' }}>Accept Interview</button>
-                            <button onClick={() => handleReplyInterview(app.id, 'reject')} className="btn btn-secondary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', borderColor: '#ef4444', color: '#ef4444', borderRadius: '6px' }}>Reject Interview</button>
-                         </div>
+                         {app.applicant_confirmed ? (
+                            <p style={{ fontSize: '0.72rem', color: '#10b981', margin: 0, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></span>
+                              Interview Confirmed! The shelter admin has been notified.
+                            </p>
+                         ) : (
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                               <button onClick={() => handleReplyInterview(app.id, 'accept')} className="btn btn-primary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#10b981', borderColor: '#10b981', borderRadius: '6px' }}>Accept Interview</button>
+                               <button onClick={() => handleReplyInterview(app.id, 'reject')} className="btn btn-secondary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', borderColor: '#ef4444', color: '#ef4444', borderRadius: '6px' }}>Reject Interview</button>
+                            </div>
+                         )}
                       </div>
                     )}
                     {app.status === 'Approved' && (

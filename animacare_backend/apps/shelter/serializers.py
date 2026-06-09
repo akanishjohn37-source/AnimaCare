@@ -21,5 +21,5 @@ class AdoptionApplicationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AdoptionApplication
-        fields = ['id', 'applicant', 'applicant_name', 'applicant_email', 'applicant_address', 'animal', 'animal_detail', 'status', 'feedback', 'timestamp']
+        fields = ['id', 'applicant', 'applicant_name', 'applicant_email', 'applicant_address', 'animal', 'animal_detail', 'status', 'applicant_confirmed', 'feedback', 'timestamp']
         read_only_fields = ('applicant',)

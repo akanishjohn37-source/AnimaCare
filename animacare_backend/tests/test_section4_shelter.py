@@ -249,7 +249,7 @@ class Section4_ShelterTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_16_citizen_reply_interview_accept(self):
-        """Citizen accepting scheduled interview completes adoption and creates pet profile."""
+        """Citizen accepting scheduled interview confirms attendance, and shelter admin completes adoption."""
         app = AdoptionApplication.objects.create(
             applicant=self.citizen, animal=self.animal, status='Interview Scheduled'
         )
@@ -259,6 +259,21 @@ class Section4_ShelterTests(TestCase):
             }, format='json', HTTP_AUTHORIZATION=f'Bearer {self.citizen_token}'
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        app.refresh_from_db()
+        self.assertEqual(app.status, 'Interview Scheduled')
+        self.assertTrue(app.applicant_confirmed)
+        self.animal.refresh_from_db()
+        self.assertFalse(self.animal.is_adopted)
+        self.assertTrue(self.animal.is_available)
+
+        # Now shelter admin completes the adoption
+        response_approve = self.client.post(
+            f'/api/shelter/applications/{app.id}/update_status/', {
+                'status': 'Approved',
+                'feedback': 'Interview went great! Adoption finalized.'
+            }, format='json', HTTP_AUTHORIZATION=f'Bearer {self.shelter_token}'
+        )
+        self.assertEqual(response_approve.status_code, status.HTTP_200_OK)
         app.refresh_from_db()
         self.assertEqual(app.status, 'Approved')
         self.animal.refresh_from_db()
