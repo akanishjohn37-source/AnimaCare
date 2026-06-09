@@ -297,3 +297,39 @@ class Section4_ShelterTests(TestCase):
         self.assertEqual(app.status, 'Rejected')
         self.animal.refresh_from_db()
         self.assertFalse(self.animal.is_adopted)
+
+    def test_18_decline_adoption_reverts_animal_status(self):
+        """Declining an approved adoption application reverts the animal to available and deletes citizen pet record."""
+        # 1. Approve the application first (so animal is adopted and Pet is created)
+        app = AdoptionApplication.objects.create(
+            applicant=self.citizen, animal=self.animal, status='Pending'
+        )
+        response_approve = self.client.post(
+            f'/api/shelter/applications/{app.id}/update_status/', {
+                'status': 'Approved',
+                'feedback': 'Approved'
+            }, format='json', HTTP_AUTHORIZATION=f'Bearer {self.shelter_token}'
+        )
+        self.assertEqual(response_approve.status_code, status.HTTP_200_OK)
+        
+        # Verify initial approved state
+        self.animal.refresh_from_db()
+        self.assertTrue(self.animal.is_adopted)
+        self.assertFalse(self.animal.is_available)
+        from apps.citizens.models import Pet
+        self.assertTrue(Pet.objects.filter(owner=self.citizen, name='Charlie').exists())
+
+        # 2. Citizen declines the adoption
+        response_decline = self.client.post(
+            f'/api/shelter/applications/{app.id}/reject_adoption/',
+            format='json', HTTP_AUTHORIZATION=f'Bearer {self.citizen_token}'
+        )
+        self.assertEqual(response_decline.status_code, status.HTTP_200_OK)
+
+        # Verify reverted state
+        app.refresh_from_db()
+        self.assertEqual(app.status, 'Cancelled')
+        self.animal.refresh_from_db()
+        self.assertFalse(self.animal.is_adopted)
+        self.assertTrue(self.animal.is_available)
+        self.assertFalse(Pet.objects.filter(owner=self.citizen, name='Charlie').exists())

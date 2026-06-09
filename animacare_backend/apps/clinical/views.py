@@ -239,7 +239,17 @@ class SelfReportedRecordViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date']
 
     def get_queryset(self):
-        return self.queryset.filter(pet__owner=self.request.user)
+        user = self.request.user
+        return self.queryset.filter(Q(pet__owner=user) | Q(livestock__owner=user))
+
+    def perform_create(self, serializer):
+        pet = serializer.validated_data.get('pet')
+        livestock = serializer.validated_data.get('livestock')
+        if pet and pet.owner != self.request.user:
+            raise ValidationError("You do not own this pet.")
+        if livestock and livestock.owner != self.request.user:
+            raise ValidationError("You do not own this livestock.")
+        serializer.save()
 
 
 # ── Vaccination Scheduler ─────────────────────────────────

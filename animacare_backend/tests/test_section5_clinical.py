@@ -65,12 +65,12 @@ class Section5_ClinicalTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         data = response.json()
         self.assertEqual(data['status'], 'Scheduled')
-        self.assertEqual(data['owner'], self.citizen.id)
+        self.assertEqual(data['owner_name'], self.citizen.username)
 
     def test_02_vet_sees_own_appointments(self):
         """Vet should see appointments assigned to them."""
         Appointment.objects.create(
-            pet=self.pet, vet=self.vet, owner=self.citizen,
+            pet=self.pet, vet=self.vet,
             date=(date.today() + timedelta(days=3)).isoformat() + 'T10:00:00Z',
             reason='Checkup',
         )
@@ -83,7 +83,7 @@ class Section5_ClinicalTests(TestCase):
     def test_03_citizen_sees_own_appointments(self):
         """Citizen should see appointments they've booked."""
         Appointment.objects.create(
-            pet=self.pet, vet=self.vet, owner=self.citizen,
+            pet=self.pet, vet=self.vet,
             date=(date.today() + timedelta(days=3)).isoformat() + 'T10:00:00Z',
             reason='Checkup',
         )
@@ -101,7 +101,7 @@ class Section5_ClinicalTests(TestCase):
     def test_04_vet_complete_appointment(self):
         """Vet can mark an appointment as completed."""
         appt = Appointment.objects.create(
-            pet=self.pet, vet=self.vet, owner=self.citizen,
+            pet=self.pet, vet=self.vet,
             date=(date.today() + timedelta(days=3)).isoformat() + 'T10:00:00Z',
             reason='Checkup',
         )
@@ -122,7 +122,7 @@ class Section5_ClinicalTests(TestCase):
         other_token = generate_tokens(other_vet)['access']
 
         appt = Appointment.objects.create(
-            pet=self.pet, vet=self.vet, owner=self.citizen,
+            pet=self.pet, vet=self.vet,
             date=(date.today() + timedelta(days=3)).isoformat() + 'T10:00:00Z',
             reason='Checkup',
         )

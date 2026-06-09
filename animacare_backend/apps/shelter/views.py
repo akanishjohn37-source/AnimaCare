@@ -136,11 +136,25 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
                 message = f"We regret to inform you that your adoption application for {application.animal.name} was not approved at this time."
                 if feedback:
                     message += f" Feedback: {feedback}"
+                # Revert animal status and delete Pet profile
+                animal = application.animal
+                animal.is_adopted = False
+                animal.is_available = True
+                animal.save()
+                from apps.citizens.models import Pet
+                Pet.objects.filter(owner=application.applicant, name=animal.name, species=animal.species).delete()
             elif new_status == 'Cancelled':
                 title = "Application Cancelled"
                 message = f"Your application for {application.animal.name} has been cancelled."
                 if feedback:
                     message += f" Reason: {feedback}"
+                # Revert animal status and delete Pet profile
+                animal = application.animal
+                animal.is_adopted = False
+                animal.is_available = True
+                animal.save()
+                from apps.citizens.models import Pet
+                Pet.objects.filter(owner=application.applicant, name=animal.name, species=animal.species).delete()
             else:
                 title = "Adoption Update"
                 message = f"The status of your application for {application.animal.name} has been updated to {new_status}."
@@ -277,6 +291,14 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
         application.feedback = (application.feedback or '') + ' [Applicant declined after approval]'
         application.save()
 
+        # Revert animal status and delete Pet profile
+        animal = application.animal
+        animal.is_adopted = False
+        animal.is_available = True
+        animal.save()
+        from apps.citizens.models import Pet
+        Pet.objects.filter(owner=application.applicant, name=animal.name, species=animal.species).delete()
+
         # Notify the Shelter Admin
         shelter_admin = application.animal.shelter.admin
         Notification.objects.create(
@@ -296,6 +318,14 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
         
         application.status = 'Cancelled'
         application.save()
+
+        # Revert animal status and delete Pet profile
+        animal = application.animal
+        animal.is_adopted = False
+        animal.is_available = True
+        animal.save()
+        from apps.citizens.models import Pet
+        Pet.objects.filter(owner=application.applicant, name=animal.name, species=animal.species).delete()
         
         # Notify the Shelter Admin
         shelter_admin = application.animal.shelter.admin

@@ -58,10 +58,11 @@ const MedicalViewer = () => {
     });
   }, [petId, activeTab, authFetch]);
 
-  const fetchMedicalReport = async (id) => {
+  const fetchMedicalReport = async (id, type = activeTab) => {
     setIsLoading(true);
     try {
-      const res = await authFetch(`http://localhost:8000/api/citizens/pets/${id}/medical_report/`);
+      const endpoint = type === 'livestock' ? 'livestocks' : 'pets';
+      const res = await authFetch(`http://localhost:8000/api/citizens/${endpoint}/${id}/medical_report/`);
       if (res.ok) {
         const data = await res.json();
         setSelectedPetData(data);
@@ -82,16 +83,25 @@ const MedicalViewer = () => {
     e.preventDefault();
     if (!selectedPetData) return;
     try {
+      const isLivestock = activeTab === 'livestock';
+      const body = {
+        title: reportForm.title,
+        date: reportForm.date,
+        description: reportForm.description
+      };
+      if (isLivestock) {
+        body.livestock = selectedPetData.pet.id;
+      } else {
+        body.pet = selectedPetData.pet.id;
+      }
+
       const res = await authFetch('http://localhost:8000/api/clinical/self-reports/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pet: selectedPetData.pet.id,
-          ...reportForm
-        })
+        body: JSON.stringify(body)
       });
       if (res.ok) {
-        fetchMedicalReport(selectedPetData.pet.id);
+        fetchMedicalReport(selectedPetData.pet.id, activeTab);
         setShowModal(false);
         setReportForm({ title: '', date: '', description: '' });
       }

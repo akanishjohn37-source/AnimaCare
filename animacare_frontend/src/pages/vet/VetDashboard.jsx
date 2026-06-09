@@ -9,20 +9,21 @@ import { Link } from 'react-router-dom';
 const API_SCHEDULES = 'http://127.0.0.1:8000/api/clinical/vaccination-schedules';
 
 /* ── Inline Injection Checklist Sub-Component ─────────── */
-const InjectionChecklistInline = ({ options, petId, petDetail, age, authFetch }) => {
+const InjectionChecklistInline = ({ options, petId, petDetail, age, authFetch, isLivestock }) => {
   const [checked, setChecked] = React.useState([]);
   const [submitting, setSubmitting] = React.useState(false);
   const [existingSchedules, setExistingSchedules] = React.useState([]);
   const [loadingExisting, setLoadingExisting] = React.useState(true);
   const [justGenerated, setJustGenerated] = React.useState(null);
 
-  // Fetch existing vaccination schedules for this pet from DB
+  // Fetch existing vaccination schedules for this pet/livestock from DB
   React.useEffect(() => {
     if (!petId) return;
     const fetchExisting = async () => {
       setLoadingExisting(true);
       try {
-        const res = await authFetch(`http://127.0.0.1:8000/api/citizens/pets/${petId}/medical_report/`);
+        const endpoint = isLivestock ? 'livestocks' : 'pets';
+        const res = await authFetch(`http://localhost:8000/api/citizens/${endpoint}/${petId}/medical_report/`);
         if (res.ok) {
           const data = await res.json();
           setExistingSchedules(data.vaccination_schedules || []);
@@ -33,7 +34,7 @@ const InjectionChecklistInline = ({ options, petId, petDetail, age, authFetch })
       setLoadingExisting(false);
     };
     fetchExisting();
-  }, [petId, authFetch]);
+  }, [petId, authFetch, isLivestock]);
 
   const toggle = (key) => {
     setChecked(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
@@ -1364,10 +1365,11 @@ const VetDashboard = () => {
                 ) : (
                   <InjectionChecklistInline
                     options={options}
-                    petId={selectedPatient.pet}
-                    petDetail={selectedPatient.pet_detail}
+                    petId={selectedPatient.pet || selectedPatient.livestock}
+                    petDetail={selectedPatient.pet_detail || selectedPatient.livestock_detail}
                     age={age}
                     authFetch={authFetch}
+                    isLivestock={!!selectedPatient.livestock}
                   />
                 )}
               </div>
