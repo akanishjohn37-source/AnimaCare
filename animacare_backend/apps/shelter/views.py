@@ -4,7 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import AnimalInventory, Shelter, AdoptionApplication
 from .serializers import AnimalInventorySerializer, ShelterSerializer, AdoptionApplicationSerializer
-from apps.users.models import Notification
+from ..users.models import Notification
+from ..citizens.models import Pet
 from .tasks import send_adoption_status_email
 
 class ShelterViewSet(viewsets.ModelViewSet):
@@ -120,7 +121,6 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
                 animal.save()
 
                 # Auto-create the Pet record in the Citizen's profile
-                from apps.citizens.models import Pet
                 Pet.objects.get_or_create(
                     owner=application.applicant,
                     name=animal.name,
@@ -141,7 +141,6 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
                 animal.is_adopted = False
                 animal.is_available = True
                 animal.save()
-                from apps.citizens.models import Pet
                 Pet.objects.filter(owner=application.applicant, name=animal.name, species=animal.species).delete()
             elif new_status == 'Cancelled':
                 title = "Application Cancelled"
@@ -153,7 +152,6 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
                 animal.is_adopted = False
                 animal.is_available = True
                 animal.save()
-                from apps.citizens.models import Pet
                 Pet.objects.filter(owner=application.applicant, name=animal.name, species=animal.species).delete()
             else:
                 title = "Adoption Update"
@@ -249,7 +247,6 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
         animal.save()
 
         # Auto-create the Pet record in the Citizen's profile
-        from apps.citizens.models import Pet
         Pet.objects.get_or_create(
             owner=application.applicant,
             name=animal.name,
@@ -296,7 +293,6 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
         animal.is_adopted = False
         animal.is_available = True
         animal.save()
-        from apps.citizens.models import Pet
         Pet.objects.filter(owner=application.applicant, name=animal.name, species=animal.species).delete()
 
         # Notify the Shelter Admin
@@ -324,7 +320,6 @@ class AdoptionApplicationViewSet(viewsets.ModelViewSet):
         animal.is_adopted = False
         animal.is_available = True
         animal.save()
-        from apps.citizens.models import Pet
         Pet.objects.filter(owner=application.applicant, name=animal.name, species=animal.species).delete()
         
         # Notify the Shelter Admin
