@@ -75,19 +75,18 @@ class AppointmentSlotViewSet(viewsets.ModelViewSet):
                         status='Scheduled'
                     ).count()
                     
-                    if booked_count < slot.max_appointments:
-                        results.append({
-                            'id': slot.id,
-                            'vet': slot.vet_id,
-                            'vet_name': slot.vet.username,
-                            'date': target_date.isoformat(),
-                            'start_time': slot.start_time.strftime('%H:%M:%S'),
-                            'end_time': slot.end_time.strftime('%H:%M:%S'),
-                            'max_appointments': slot.max_appointments,
-                            'booked_count': booked_count,
-                            'available_slots': max(0, slot.max_appointments - booked_count),
-                            'is_active': slot.is_active
-                        })
+                    results.append({
+                        'id': slot.id,
+                        'vet': slot.vet_id,
+                        'vet_name': slot.vet.username,
+                        'date': target_date.isoformat(),
+                        'start_time': slot.start_time.strftime('%H:%M:%S'),
+                        'end_time': slot.end_time.strftime('%H:%M:%S'),
+                        'max_appointments': slot.max_appointments,
+                        'booked_count': booked_count,
+                        'available_slots': max(0, slot.max_appointments - booked_count),
+                        'is_active': slot.is_active
+                    })
             return Response(results)
         
         return super().list(request, *args, **kwargs)

@@ -11,6 +11,7 @@ const Appointments = () => {
   const [pets, setPets] = useState([]);
   const [livestock, setLivestock] = useState([]);
   const [slots, setSlots] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedVet, setSelectedVet] = useState(null);
@@ -18,17 +19,18 @@ const Appointments = () => {
   // New slot-based booking states
   const [animalType, setAnimalType] = useState('pet'); // 'pet' or 'livestock'
   const [selectedAnimalId, setSelectedAnimalId] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState('');
   const [bookingReason, setBookingReason] = useState('');
   const [quickVetId, setQuickVetId] = useState('');
-
-
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
 
   const fetchAppointmentsAndSlots = async () => {
     try {
-      const [apptsRes, slotsRes] = await Promise.all([
+      const [apptsRes, slotsRes, holidaysRes] = await Promise.all([
         authFetch('http://localhost:8000/api/clinical/appointments/'),
-        authFetch('http://localhost:8000/api/clinical/slots/')
+        authFetch('http://localhost:8000/api/clinical/slots/'),
+        authFetch('http://localhost:8000/api/clinical/schedule-days/')
       ]);
       if (apptsRes.ok) {
         const d = await apptsRes.json();
@@ -38,20 +40,33 @@ const Appointments = () => {
         const d = await slotsRes.json();
         setSlots(d.results || (Array.isArray(d) ? d : []));
       }
+      if (holidaysRes.ok) {
+        const d = await holidaysRes.json();
+        setHolidays(d.results || (Array.isArray(d) ? d : []));
+      }
     } catch (err) {
       console.error(err);
     }
   };
 
   useEffect(() => {
+    if (animalType === 'pet' && pets.length > 0 && !selectedAnimalId) {
+      setSelectedAnimalId(pets[0].id.toString());
+    } else if (animalType === 'livestock' && livestock.length > 0 && !selectedAnimalId) {
+      setSelectedAnimalId(livestock[0].id.toString());
+    }
+  }, [animalType, pets, livestock, selectedAnimalId]);
+
+  useEffect(() => {
     const fetchData = async () => {
       try {
-        const [apptsRes, vetsRes, petsRes, livestockRes, slotsRes] = await Promise.all([
+        const [apptsRes, vetsRes, petsRes, livestockRes, slotsRes, holidaysRes] = await Promise.all([
           authFetch('http://localhost:8000/api/clinical/appointments/'),
           authFetch('http://localhost:8000/api/auth/vets/'),
           authFetch('http://localhost:8000/api/citizens/pets/'),
           authFetch('http://localhost:8000/api/citizens/livestocks/'),
-          authFetch('http://localhost:8000/api/clinical/slots/')
+          authFetch('http://localhost:8000/api/clinical/slots/'),
+          authFetch('http://localhost:8000/api/clinical/schedule-days/')
         ]);
         
         if (apptsRes.ok) { const d = await apptsRes.json(); setAppointments(d.results || (Array.isArray(d) ? d : [])); }
@@ -59,6 +74,7 @@ const Appointments = () => {
         if (petsRes.ok) { const d = await petsRes.json(); setPets(d.results || (Array.isArray(d) ? d : [])); }
         if (livestockRes.ok) { const d = await livestockRes.json(); setLivestock(d.results || (Array.isArray(d) ? d : [])); }
         if (slotsRes.ok) { const d = await slotsRes.json(); setSlots(d.results || (Array.isArray(d) ? d : [])); }
+        if (holidaysRes.ok) { const d = await holidaysRes.json(); setHolidays(d.results || (Array.isArray(d) ? d : [])); }
       } catch (err) {
         console.error("Fetch data error", err);
       } finally {
@@ -70,12 +86,13 @@ const Appointments = () => {
 
   const handleCreateAppointment = async (e) => {
     e.preventDefault();
-    const vetId = selectedVet?.id || quickVetId;
+    const vetId = selectedVet?.id || (quickVetId ? parseInt(quickVetId) : null);
     if (!selectedAnimalId || !vetId || !selectedSlotId) {
         alert("Please select an animal, veterinarian, and slot.");
         return;
     }
-    const selectedSlot = slots.find(s => s.id === parseInt(selectedSlotId));
+    const [slotIdStr, slotDate] = selectedSlotId.split('_');
+    const selectedSlot = slots.find(s => s.id === parseInt(slotIdStr) && s.date === slotDate);
     if (!selectedSlot) {
         alert("Selected slot is invalid.");
         return;
@@ -90,10 +107,10 @@ const Appointments = () => {
         reason: bookingReason
       };
       if (animalType === 'pet') {
-        payload.pet = selectedAnimalId;
+        payload.pet = parseInt(selectedAnimalId);
         payload.livestock = null;
       } else {
-        payload.livestock = selectedAnimalId;
+        payload.livestock = parseInt(selectedAnimalId);
         payload.pet = null;
       }
 
@@ -165,6 +182,8 @@ const Appointments = () => {
   const openBookingForVet = (vet) => {
     setSelectedVet(vet);
     setQuickVetId(vet.id);
+    setSelectedDate('');
+    setSelectedSlotId('');
     setShowModal(true);
     // Refresh slots to include any newly created slots by the vet
     fetchAppointmentsAndSlots();
@@ -209,7 +228,7 @@ const Appointments = () => {
             </button>
           )}
           <button 
-            onClick={() => { setSelectedVet(null); setShowModal(true); fetchAppointmentsAndSlots(); }}
+            onClick={() => { setSelectedVet(null); setQuickVetId(''); setSelectedDate(''); setSelectedSlotId(''); setShowModal(true); fetchAppointmentsAndSlots(); }}
             className="btn btn-primary" 
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 8px 24px rgba(139,92,246,0.3)' }}
           >
@@ -335,7 +354,7 @@ const Appointments = () => {
             className="glass-panel" 
             style={{ width: '100%', maxWidth: 500, padding: '2.5rem', position: 'relative', border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
           >
-            <button onClick={() => { setShowModal(false); setSelectedVet(null); }} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
+            <button onClick={() => { setShowModal(false); setSelectedVet(null); setSelectedDate(''); setSelectedSlotId(''); }} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
                <X size={24} />
             </button>
             
@@ -400,11 +419,11 @@ const Appointments = () => {
                      <select 
                        required
                        value={quickVetId}
-                       onChange={(e) => {
-                         setQuickVetId(e.target.value);
-                         setSelectedSlotId('');
-                       }}
-                       style={inputStyle}
+                        onChange={(e) => {
+                          setQuickVetId(e.target.value);
+                          setSelectedDate('');
+                          setSelectedSlotId('');
+                        }}
                      >
                        <option value="">-- Choose Veterinarian --</option>
                        {vets.map(v => <option key={v.id} value={v.id}>Dr. {v.first_name || v.username} {v.last_name}</option>)}
@@ -414,35 +433,269 @@ const Appointments = () => {
                  </div>
                )}
  
-               <div style={{ position: 'relative' }}>
-                 <label style={labelStyle}>Available Slots</label>
-                 <div style={{ position: 'relative' }}>
-                   <select 
-                     required
-                     value={selectedSlotId}
-                     onChange={(e) => setSelectedSlotId(e.target.value)}
-                     style={inputStyle}
-                     disabled={!(selectedVet?.id || quickVetId)}
-                   >
-                     <option value="">-- Choose an Available Slot --</option>
-                     {slots
-                       .filter(s => s.vet === (selectedVet?.id || parseInt(quickVetId)))
-                       .map(s => (
-                         <option key={s.id} value={s.id}>
-                           {s.date} @ {s.start_time.substring(0, 5)} - {s.end_time.substring(0, 5)} ({s.max_appointments - s.booked_count} left)
-                         </option>
-                       ))
-                     }
-                   </select>
-                   <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
-                 </div>
-                 {!(selectedVet?.id || quickVetId) && (
-                   <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.75rem', marginTop: '0.3rem' }}>Please select a veterinarian first to see available slots.</p>
-                 )}
-                 {(selectedVet?.id || quickVetId) && slots.filter(s => s.vet === (selectedVet?.id || parseInt(quickVetId))).length === 0 && (
-                   <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.3rem' }}>No available slots found for this veterinarian.</p>
-                 )}
-               </div>
+                {/* Custom Calendar Date & Slot Picker */}
+                {(() => {
+                  const activeVetId = selectedVet?.id || (quickVetId ? parseInt(quickVetId) : null);
+                  if (!activeVetId) {
+                    return (
+                      <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.75rem', marginTop: '0.3rem' }}>
+                        Please select a veterinarian first to see available dates and slots.
+                      </p>
+                    );
+                  }
+
+                  const getLocalDateString = (year, month, day) => {
+                    const y = year;
+                    const m = String(month + 1).padStart(2, '0');
+                    const d = String(day).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                  };
+
+                  // Calculate days in the current calendarMonth
+                  const year = calendarMonth.getFullYear();
+                  const month = calendarMonth.getMonth();
+                  const firstDayIndex = new Date(year, month, 1).getDay(); // 0 is Sunday, 6 is Saturday
+                  const totalDays = new Date(year, month + 1, 0).getDate();
+
+                  // Get bounds for 30-day range
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const maxDate = new Date(today);
+                  maxDate.setDate(today.getDate() + 30);
+
+                  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+                  const handlePrevMonth = () => {
+                    const prev = new Date(year, month - 1, 1);
+                    setCalendarMonth(prev);
+                  };
+
+                  const handleNextMonth = () => {
+                    const next = new Date(year, month + 1, 1);
+                    setCalendarMonth(next);
+                  };
+
+                  // Days grid construction
+                  const dayCells = [];
+                  // Padding cells
+                  for (let i = 0; i < firstDayIndex; i++) {
+                    dayCells.push(<div key={`pad-${i}`} style={{ height: '36px' }} />);
+                  }
+                  // Day cells
+                  for (let d = 1; d <= totalDays; d++) {
+                    const cellDateStr = getLocalDateString(year, month, d);
+                    const cellDateObj = new Date(year, month, d);
+                    
+                    const isSunday = cellDateObj.getDay() === 0;
+                    const holidayObj = holidays.find(h => h.vet === activeVetId && h.date === cellDateStr && h.status === 'holiday');
+                    const isHoliday = !!holidayObj;
+                    const isUnselectable = isSunday || isHoliday;
+                    
+                    const isOutside = cellDateObj < today || cellDateObj > maxDate;
+                    const isSelected = selectedDate === cellDateStr;
+
+                    dayCells.push(
+                      <div
+                        key={`day-${d}`}
+                        onClick={() => {
+                          if (!isOutside && !isUnselectable) {
+                            setSelectedDate(cellDateStr);
+                            setSelectedSlotId('');
+                          }
+                        }}
+                        style={{
+                          height: '36px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '6px',
+                          cursor: isOutside ? 'default' : isUnselectable ? 'not-allowed' : 'pointer',
+                          fontSize: '0.8rem',
+                          fontWeight: isSelected ? 700 : 500,
+                          transition: 'all 0.2s ease',
+                          opacity: isOutside ? 0.25 : 1,
+                          border: isSelected 
+                            ? '1px solid #22d3ee' 
+                            : isUnselectable && !isOutside
+                              ? '1px solid rgba(239, 68, 68, 0.3)' 
+                              : '1px solid transparent',
+                          background: isSelected 
+                            ? 'rgba(34, 211, 238, 0.2)' 
+                            : isUnselectable && !isOutside
+                              ? 'rgba(239, 68, 68, 0.05)' 
+                              : 'rgba(255, 255, 255, 0.02)',
+                          color: isOutside 
+                            ? 'rgba(255,255,255,0.3)' 
+                            : isUnselectable 
+                              ? '#ef4444' 
+                              : isSelected 
+                                ? '#22d3ee' 
+                                : '#fff',
+                        }}
+                        title={isHoliday ? (holidayObj.description || 'Holiday') : isSunday ? 'Sunday' : ''}
+                      >
+                        <span>{d}</span>
+                        {isHoliday && (
+                          <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#ef4444', marginTop: '1px' }} />
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                      {/* Date Section (Calendar Picker) */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                          <label style={{ ...labelStyle, margin: 0 }}>Select Date</label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <button
+                              type="button"
+                              onClick={handlePrevMonth}
+                              style={{
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '4px',
+                                color: '#fff',
+                                padding: '2px 6px',
+                                cursor: 'pointer',
+                                fontSize: '0.75rem'
+                              }}
+                            >
+                              &lt;
+                            </button>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff', minWidth: '85px', textAlign: 'center' }}>
+                              {monthNames[month]} {year}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleNextMonth}
+                              style={{
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '4px',
+                                color: '#fff',
+                                padding: '2px 6px',
+                                cursor: 'pointer',
+                                fontSize: '0.75rem'
+                              }}
+                            >
+                              &gt;
+                            </button>
+                          </div>
+                        </div>
+
+                        <div style={{
+                          background: 'rgba(0, 0, 0, 0.2)',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                          padding: '0.75rem'
+                        }}>
+                          {/* Weekday headers */}
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(7, 1fr)',
+                            textAlign: 'center',
+                            fontWeight: 600,
+                            fontSize: '0.7rem',
+                            color: 'rgba(255,255,255,0.4)',
+                            marginBottom: '0.5rem'
+                          }}>
+                            <span>Sun</span>
+                            <span>Mon</span>
+                            <span>Tue</span>
+                            <span>Wed</span>
+                            <span>Thu</span>
+                            <span>Fri</span>
+                            <span>Sat</span>
+                          </div>
+
+                          {/* Days grid */}
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(7, 1fr)',
+                            gap: '4px'
+                          }}>
+                            {dayCells}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Slots Section */}
+                      {selectedDate && (
+                        <div>
+                          <label style={labelStyle}>Select Consultation Slot</label>
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(3, 1fr)',
+                            gap: '0.75rem'
+                          }}>
+                            {(() => {
+                              const daySlots = slots.filter(s => s.vet === activeVetId && s.date === selectedDate);
+                              if (daySlots.length === 0) {
+                                return (
+                                  <div style={{ gridColumn: 'span 3', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
+                                    No slots scheduled for this day.
+                                  </div>
+                                );
+                              }
+                              return daySlots.map(s => {
+                                const remaining = s.max_appointments - s.booked_count;
+                                const isFull = remaining <= 0;
+                                const uniqueSlotVal = s.id.toString() + '_' + s.date;
+                                const isSelected = selectedSlotId === uniqueSlotVal;
+
+                                return (
+                                  <div
+                                    key={s.id}
+                                    onClick={() => {
+                                      if (!isFull) {
+                                        setSelectedSlotId(uniqueSlotVal);
+                                      }
+                                    }}
+                                    style={{
+                                      padding: '0.75rem 0.5rem',
+                                      borderRadius: '8px',
+                                      textAlign: 'center',
+                                      border: isSelected 
+                                        ? '1px solid #4ade80' 
+                                        : isFull 
+                                          ? '1px solid rgba(255,255,255,0.05)' 
+                                          : '1px solid rgba(255,255,255,0.15)',
+                                      background: isSelected 
+                                        ? 'rgba(74, 222, 128, 0.15)' 
+                                        : isFull 
+                                          ? 'rgba(255, 255, 255, 0.01)' 
+                                          : 'rgba(255, 255, 255, 0.03)',
+                                      cursor: isFull ? 'not-allowed' : 'pointer',
+                                      opacity: isFull ? 0.35 : 1,
+                                      color: isFull ? 'rgba(255,255,255,0.3)' : isSelected ? '#4ade80' : '#fff',
+                                      transition: 'all 0.2s ease',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '4px'
+                                    }}
+                                  >
+                                    <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>
+                                      {s.start_time.substring(0, 5)} - {s.end_time.substring(0, 5)}
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: isFull ? '#ef4444' : '#4ade80', fontWeight: 600 }}>
+                                      {isFull ? '0 left' : `${remaining} left`}
+                                    </div>
+                                    <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)' }}>
+                                      Total: {s.max_appointments}
+                                    </div>
+                                  </div>
+                                );
+                              });
+                            })()}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
  
                <div>
                  <label style={labelStyle}>Reason for Examination</label>

@@ -363,6 +363,45 @@ const VetDashboard = () => {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadDate, setDownloadDate] = useState('');
 
+  const formatTimeStr = (timeStr) => {
+    if (!timeStr) return '';
+    const [h, m] = timeStr.split(':');
+    const hr = parseInt(h);
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    const displayHr = hr % 12 || 12;
+    return `${String(displayHr).padStart(2, '0')}:${m} ${ampm}`;
+  };
+
+  const getSlotAndQueueInfo = (appt, activeList) => {
+    if (!appt) return '';
+    const sortedSlots = [...slots].sort((a, b) => a.start_time.localeCompare(b.start_time));
+    const slotIdx = sortedSlots.findIndex(s => s.id === appt.slot);
+    const slotNum = slotIdx !== -1 ? slotIdx + 1 : 1;
+    
+    // Find all appointments in the active list that belong to this slot
+    const slotAppts = activeList.filter(a => a.slot === appt.slot);
+    // Find the index of the current appointment in this slot's sub-list
+    const queuePos = slotAppts.findIndex(a => a.id === appt.id) + 1;
+    
+    const timeStr = appt.slot_detail
+      ? ` (${formatTimeStr(appt.slot_detail.start_time)} - ${formatTimeStr(appt.slot_detail.end_time)})`
+      : '';
+    
+    return `Slot ${slotNum} - Queue #${queuePos}${timeStr}`;
+  };
+
+  const formatApptTime = (appt) => {
+    if (appt?.slot_detail) {
+      const start = formatTimeStr(appt.slot_detail.start_time);
+      const end = formatTimeStr(appt.slot_detail.end_time);
+      const sortedSlots = [...slots].sort((a, b) => a.start_time.localeCompare(b.start_time));
+      const idx = sortedSlots.findIndex(s => s.id === appt.slot);
+      const slotNum = idx !== -1 ? `Slot ${idx + 1}` : 'Slot';
+      return `${slotNum} (${start} - ${end})`;
+    }
+    return new Date(appt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   const [slots, setSlots] = useState([]);
   const [scheduleDays, setScheduleDays] = useState([]);
   const [editingSlotId, setEditingSlotId] = useState(null);
@@ -507,7 +546,11 @@ const VetDashboard = () => {
           const todayStr = new Date().toDateString();
           const todaysActive = allAppts
             .filter(appt => appt.status === 'Scheduled' && new Date(appt.date).toDateString() === todayStr)
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
+            .sort((a, b) => {
+              const diff = new Date(a.date) - new Date(b.date);
+              if (diff !== 0) return diff;
+              return a.id - b.id; // queue FIFO order within slot
+            });
           setQueueData(todaysActive);
         }
         await fetchSlotsAndDays();
@@ -727,7 +770,7 @@ const VetDashboard = () => {
                                   Owner: {currentAppt.owner_name}
                                 </p>
                                 <span style={{ fontSize: '0.8rem', color: '#4ade80', fontWeight: '600' }}>
-                                  {new Date(currentAppt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  {getSlotAndQueueInfo(currentAppt, queueData)}
                                 </span>
                               </div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
@@ -815,7 +858,7 @@ const VetDashboard = () => {
                                 </p>
                               </div>
                               <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>
-                                {new Date(appt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {getSlotAndQueueInfo(appt, queueData)}
                               </span>
                             </div>
                           ))}
@@ -1599,7 +1642,7 @@ const VetDashboard = () => {
                    appointments.filter(a => a.status === 'Completed' && new Date(a.date).toISOString().split('T')[0] === downloadDate).map(appt => (
                      <div key={appt.id} style={{ background: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: 8, marginBottom: '0.5rem' }}>
                        <div style={{ color: '#fff', fontWeight: 600 }}>{appt.pet_detail?.name} {appt.pet_detail?.species ? `(${appt.pet_detail.species})` : ''}</div>
-                       <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', marginTop: '0.25rem' }}>Owner: {appt.owner_name} | Time: {new Date(appt.date).toLocaleTimeString()}</div>
+                       <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', marginTop: '0.25rem' }}>Owner: {appt.owner_name} | Time: {formatApptTime(appt)}</div>
                      </div>
                    ))
                  ) : (
