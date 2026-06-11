@@ -74,24 +74,37 @@ class AppointmentSerializer(serializers.ModelSerializer):
         if slot:
             if attrs.get('vet') and attrs.get('vet') != slot.vet:
                 raise serializers.ValidationError("Selected veterinarian does not match the slot's veterinarian.")
-            if slot.booked_count >= slot.max_appointments:
-                raise serializers.ValidationError("This appointment slot is already fully booked.")
             if not slot.is_active:
                 raise serializers.ValidationError("This slot is inactive.")
 
+            appt_datetime = attrs.get('date')
+            if not appt_datetime:
+                raise serializers.ValidationError("Appointment date is required.")
+
             from django.utils import timezone
-            from datetime import datetime
-            slot_datetime = timezone.make_aware(datetime.combine(slot.date, slot.start_time))
-            if slot_datetime < timezone.localtime(timezone.now()):
+            if timezone.is_naive(appt_datetime):
+                appt_datetime = timezone.make_aware(appt_datetime)
+
+            if appt_datetime < timezone.localtime(timezone.now()):
                 raise serializers.ValidationError("This slot has already expired.")
 
-            if VetScheduleDay.objects.filter(vet=slot.vet, date=slot.date, status='absent').exists():
-                raise serializers.ValidationError("The veterinarian is absent on this day.")
+            if VetScheduleDay.objects.filter(vet=slot.vet, date=appt_datetime.date(), status='holiday').exists():
+                raise serializers.ValidationError("The veterinarian has a holiday on this day.")
+
+            # Calculate dynamic booked count for recurring slots
+            booked_count = Appointment.objects.filter(
+                slot=slot,
+                date__date=appt_datetime.date(),
+                status='Scheduled'
+            ).count()
+            if booked_count >= slot.max_appointments:
+                raise serializers.ValidationError("This appointment slot is already fully booked.")
 
             attrs['vet'] = slot.vet
-            attrs['date'] = slot_datetime
+            attrs['date'] = appt_datetime
 
         return attrs
+
 
 class SelfReportedRecordSerializer(serializers.ModelSerializer):
     class Meta:

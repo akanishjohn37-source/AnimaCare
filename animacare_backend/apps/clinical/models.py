@@ -86,26 +86,30 @@ class DiagnosticMedia(models.Model):
 
 class AppointmentSlot(models.Model):
     vet = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='slots', limit_choices_to={'role': 'veterinarian'})
-    date = models.DateField()
+    date = models.DateField(null=True, blank=True)
     start_time = models.TimeField()
     end_time = models.TimeField()
-    max_appointments = models.PositiveIntegerField(default=5)
+    max_appointments = models.PositiveIntegerField(default=10)
     booked_count = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"Dr. {self.vet.username} - {self.date} ({self.start_time} - {self.end_time})"
+        date_str = str(self.date) if self.date else "Recurring Slot"
+        return f"Dr. {self.vet.username} - {date_str} ({self.start_time} - {self.end_time})"
+
 
 class VetScheduleDay(models.Model):
     vet = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='schedule_days', limit_choices_to={'role': 'veterinarian'})
     date = models.DateField()
-    status = models.CharField(max_length=10, choices=[('present', 'Present'), ('absent', 'Absent')], default='present')
+    status = models.CharField(max_length=10, choices=[('holiday', 'Holiday')], default='holiday')
+    description = models.CharField(max_length=255, blank=True, default='')
 
     class Meta:
         unique_together = ('vet', 'date')
 
     def __str__(self):
-        return f"Dr. {self.vet.username} - {self.date} is {self.status}"
+        return f"Dr. {self.vet.username} - {self.date} is Holiday ({self.description})"
+
 
 class Appointment(models.Model):
     STATUS_CHOICES = (

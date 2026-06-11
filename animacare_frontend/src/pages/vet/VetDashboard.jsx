@@ -365,8 +365,11 @@ const VetDashboard = () => {
 
   const [slots, setSlots] = useState([]);
   const [scheduleDays, setScheduleDays] = useState([]);
-  const [newSlot, setNewSlot] = useState({ date: '', start_time: '', end_time: '' });
-  const [newDayStatus, setNewDayStatus] = useState({ date: '', status: 'present' });
+  const [editingSlotId, setEditingSlotId] = useState(null);
+  const [editingSlotData, setEditingSlotData] = useState({ start_time: '', end_time: '', max_appointments: 10 });
+  const [newHoliday, setNewHoliday] = useState({ date: '', description: '' });
+  const [editingHolidayId, setEditingHolidayId] = useState(null);
+  const [editingHolidayData, setEditingHolidayData] = useState({ date: '', description: '' });
 
   const fetchSlotsAndDays = async () => {
     try {
@@ -387,87 +390,110 @@ const VetDashboard = () => {
     }
   };
 
-  const handleCreateSlot = async (e) => {
-    e.preventDefault();
-    if (!newSlot.date || !newSlot.start_time || !newSlot.end_time) {
-      alert("Please fill in all slot details.");
-      return;
-    }
+  const handleStartEditSlot = (slot) => {
+    setEditingSlotId(slot.id);
+    setEditingSlotData({
+      start_time: slot.start_time.substring(0, 5),
+      end_time: slot.end_time.substring(0, 5),
+      max_appointments: slot.max_appointments
+    });
+  };
+
+  const handleSaveSlot = async (slotId) => {
     try {
-      const res = await authFetch('http://localhost:8000/api/clinical/slots/', {
-        method: 'POST',
+      const res = await authFetch(`http://localhost:8000/api/clinical/slots/${slotId}/`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSlot)
+        body: JSON.stringify(editingSlotData)
       });
       if (res.ok) {
-        alert("Slot created successfully!");
-        setNewSlot({ date: '', start_time: '', end_time: '' });
+        setEditingSlotId(null);
         await fetchSlotsAndDays();
       } else {
         const err = await res.json();
-        alert("Failed to create slot: " + JSON.stringify(err));
+        alert("Failed to update slot: " + JSON.stringify(err));
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleUpdateDayStatus = async (e) => {
+  const handleCreateHoliday = async (e) => {
     e.preventDefault();
-    if (!newDayStatus.date || !newDayStatus.status) {
-      alert("Please choose a date and status.");
+    if (!newHoliday.date) {
+      alert("Please choose a date.");
       return;
     }
     try {
       const res = await authFetch('http://localhost:8000/api/clinical/schedule-days/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newDayStatus)
+        body: JSON.stringify({
+          date: newHoliday.date,
+          status: 'holiday',
+          description: newHoliday.description
+        })
       });
       if (res.ok) {
-        alert("Day status updated successfully!");
-        setNewDayStatus({ date: '', status: 'present' });
+        alert("Holiday marked successfully!");
+        setNewHoliday({ date: '', description: '' });
         await fetchSlotsAndDays();
       } else {
         const err = await res.json();
-        alert("Failed to update status: " + JSON.stringify(err));
+        alert("Failed to mark holiday: " + JSON.stringify(err));
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleDeleteSlot = async (slotId) => {
-    if (!window.confirm("Are you sure you want to delete this slot?")) return;
+  const handleStartEditHoliday = (hd) => {
+    setEditingHolidayId(hd.id);
+    setEditingHolidayData({
+      date: hd.date,
+      description: hd.description
+    });
+  };
+
+  const handleUpdateHoliday = async (holidayId) => {
     try {
-      const res = await authFetch(`http://localhost:8000/api/clinical/slots/${slotId}/`, {
-        method: 'DELETE'
+      const res = await authFetch(`http://localhost:8000/api/clinical/schedule-days/${holidayId}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: editingHolidayData.date,
+          status: 'holiday',
+          description: editingHolidayData.description
+        })
       });
       if (res.ok) {
-        setSlots(slots.filter(s => s.id !== slotId));
+        setEditingHolidayId(null);
+        await fetchSlotsAndDays();
       } else {
-        alert("Failed to delete slot.");
+        const err = await res.json();
+        alert("Failed to update holiday: " + JSON.stringify(err));
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleDeleteDay = async (dayId) => {
-    if (!window.confirm("Are you sure you want to remove this schedule status?")) return;
+  const handleDeleteHoliday = async (holidayId) => {
+    if (!window.confirm("Are you sure you want to remove this holiday?")) return;
     try {
-      const res = await authFetch(`http://localhost:8000/api/clinical/schedule-days/${dayId}/`, {
+      const res = await authFetch(`http://localhost:8000/api/clinical/schedule-days/${holidayId}/`, {
         method: 'DELETE'
       });
       if (res.ok) {
-        setScheduleDays(scheduleDays.filter(d => d.id !== dayId));
+        setScheduleDays(scheduleDays.filter(d => d.id !== holidayId));
       } else {
-        alert("Failed to delete schedule status.");
+        alert("Failed to delete holiday.");
       }
     } catch (err) {
       console.error(err);
     }
   };
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -866,147 +892,260 @@ const VetDashboard = () => {
             </div>
           )}
 
-          {activeTab === 'slots' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-              {/* Left Column - Slots */}
-              <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                <h3 style={{ color: '#fff', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Calendar size={18} color="#4ade80" /> Create Consultation Slot
-                </h3>
-                <form onSubmit={handleCreateSlot} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
-                  <div>
-                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: '0.3rem' }}>Select Day</label>
-                    <input 
-                      type="date" 
-                      required 
-                      min={new Date().toISOString().split('T')[0]}
-                      value={newSlot.date} 
-                      onChange={e => setNewSlot({ ...newSlot, date: e.target.value })}
-                      style={{ width: '100%', padding: '0.6rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', gap: '1rem' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: '0.3rem' }}>Start Time</label>
-                      <input 
-                        type="time" 
-                        required 
-                        value={newSlot.start_time} 
-                        onChange={e => setNewSlot({ ...newSlot, start_time: e.target.value })}
-                        style={{ width: '100%', padding: '0.6rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: '0.3rem' }}>End Time</label>
-                      <input 
-                        type="time" 
-                        required 
-                        value={newSlot.end_time} 
-                        onChange={e => setNewSlot({ ...newSlot, end_time: e.target.value })}
-                        style={{ width: '100%', padding: '0.6rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
-                      />
-                    </div>
-                  </div>
-                  <button 
-                    type="submit" 
-                    style={{ padding: '0.75rem', borderRadius: 8, background: '#4ade80', color: '#000', fontWeight: 'bold', border: 'none', cursor: 'pointer', marginTop: '0.5rem' }}
-                  >
-                    Create Slot
-                  </button>
-                </form>
+          {activeTab === 'slots' && (() => {
+            const getGroupedHolidays = () => {
+              const groups = {};
+              scheduleDays.forEach(sd => {
+                if (!sd.date) return;
+                const dateObj = new Date(sd.date + 'T00:00:00');
+                const monthYear = dateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                if (!groups[monthYear]) {
+                  groups[monthYear] = [];
+                }
+                groups[monthYear].push({
+                  ...sd,
+                  dateObj
+                });
+              });
+              const sortedMonths = Object.keys(groups).sort((a, b) => new Date(a) - new Date(b));
+              sortedMonths.forEach(m => {
+                groups[m].sort((a, b) => a.dateObj - b.dateObj);
+              });
+              return { groups, sortedMonths };
+            };
+            const { groups: groupedHolidays, sortedMonths } = getGroupedHolidays();
 
-                <h3 style={{ color: '#fff', marginBottom: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem' }}>Active Slots</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '300px', overflowY: 'auto' }}>
-                  {slots.length === 0 ? (
-                    <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem' }}>No slots scheduled.</p>
-                  ) : (
-                    slots.map(s => (
-                      <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8 }}>
-                        <div>
-                          <p style={{ color: '#fff', margin: 0, fontWeight: 600 }}>{s.date}</p>
-                          <p style={{ color: '#22d3ee', margin: 0, fontSize: '0.8rem' }}>{s.start_time.substring(0, 5)} - {s.end_time.substring(0, 5)}</p>
-                          <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0, fontSize: '0.75rem' }}>Booked: {s.booked_count} / {s.max_appointments}</p>
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                {/* Left Column - Slots */}
+                <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                  <h3 style={{ color: '#fff', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Calendar size={18} color="#4ade80" /> Fixed Consultation Slots
+                  </h3>
+                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', marginBottom: '1.5rem' }}>
+                    You have 3 daily fixed consultation slots. Citizens can book appointments up to the set capacity. These slots automatically apply to future days and are suspended on marked holidays.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {slots.slice(0, 3).map((s, idx) => {
+                      const isEditing = editingSlotId === s.id;
+                      return (
+                        <div key={s.id} style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <span style={{ color: '#4ade80', fontWeight: 'bold', fontSize: '0.9rem' }}>Slot {idx + 1}</span>
+                            {!isEditing && (
+                              <button
+                                onClick={() => handleStartEditSlot(s)}
+                                style={{ padding: '0.35rem 0.75rem', borderRadius: 6, background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.3)', color: '#22d3ee', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                              >
+                                Edit Slot
+                              </button>
+                            )}
+                          </div>
+
+                          {isEditing ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                <div style={{ flex: 1 }}>
+                                  <label style={{ display: 'block', color: 'rgba(255,255,255,0.5)', fontSize: '0.7rem', marginBottom: '0.2rem' }}>Start Time</label>
+                                  <input
+                                    type="time"
+                                    value={editingSlotData.start_time}
+                                    onChange={e => setEditingSlotData({ ...editingSlotData, start_time: e.target.value })}
+                                    style={{ width: '100%', padding: '0.5rem', borderRadius: 6, background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                                  />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <label style={{ display: 'block', color: 'rgba(255,255,255,0.5)', fontSize: '0.7rem', marginBottom: '0.2rem' }}>End Time</label>
+                                  <input
+                                    type="time"
+                                    value={editingSlotData.end_time}
+                                    onChange={e => setEditingSlotData({ ...editingSlotData, end_time: e.target.value })}
+                                    style={{ width: '100%', padding: '0.5rem', borderRadius: 6, background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', color: 'rgba(255,255,255,0.5)', fontSize: '0.7rem', marginBottom: '0.2rem' }}>Max Patients Count</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={editingSlotData.max_appointments}
+                                  onChange={e => setEditingSlotData({ ...editingSlotData, max_appointments: parseInt(e.target.value) || 10 })}
+                                  style={{ width: '100%', padding: '0.5rem', borderRadius: 6, background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                                />
+                              </div>
+                              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                <button
+                                  onClick={() => handleSaveSlot(s.id)}
+                                  style={{ flex: 1, padding: '0.5rem', borderRadius: 6, background: '#4ade80', color: '#000', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => setEditingSlotId(null)}
+                                  style={{ flex: 1, padding: '0.5rem', borderRadius: 6, background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <p style={{ color: '#fff', margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>
+                                  {s.start_time.substring(0, 5)} - {s.end_time.substring(0, 5)}
+                                </p>
+                                <p style={{ color: 'rgba(255,255,255,0.4)', margin: '0.2rem 0 0 0', fontSize: '0.8rem' }}>
+                                  Patients Capacity: <strong style={{ color: '#22d3ee' }}>{s.max_appointments}</strong>
+                                </p>
+                              </div>
+                              <div style={{ padding: '0.5rem 0.85rem', borderRadius: 8, background: s.is_active ? 'rgba(74,222,128,0.1)' : 'rgba(255,255,255,0.05)', border: s.is_active ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(255,255,255,0.1)' }}>
+                                <span style={{ fontSize: '0.75rem', color: s.is_active ? '#4ade80' : 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                                  {s.is_active ? 'ACTIVE' : 'INACTIVE'}
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <button 
-                          onClick={() => handleDeleteSlot(s.id)}
-                          style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', padding: '0.4rem', borderRadius: 6, cursor: 'pointer' }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Right Column - Present/Absent Schedule Days */}
-              <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                <h3 style={{ color: '#fff', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Calendar size={18} color="#4ade80" /> Mark Present / Absent Days
-                </h3>
-                <form onSubmit={handleUpdateDayStatus} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
-                  <div>
-                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: '0.3rem' }}>Select Date</label>
-                    <input 
-                      type="date" 
-                      required 
-                      value={newDayStatus.date} 
-                      onChange={e => setNewDayStatus({ ...newDayStatus, date: e.target.value })}
-                      style={{ width: '100%', padding: '0.6rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
-                    />
+                      );
+                    })}
                   </div>
-                  <div>
-                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: '0.3rem' }}>Status</label>
-                    <select 
-                      value={newDayStatus.status}
-                      onChange={e => setNewDayStatus({ ...newDayStatus, status: e.target.value })}
-                      style={{ width: '100%', padding: '0.6rem', borderRadius: 8, background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+                </div>
+
+                {/* Right Column - Manage Holidays */}
+                <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                  <h3 style={{ color: '#fff', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Calendar size={18} color="#ef4444" /> Mark Holidays / Leaves
+                  </h3>
+                  <form onSubmit={handleCreateHoliday} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+                    <div>
+                      <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: '0.3rem' }}>Select Date</label>
+                      <input 
+                        type="date" 
+                        required 
+                        value={newHoliday.date} 
+                        onChange={e => setNewHoliday({ ...newHoliday, date: e.target.value })}
+                        style={{ width: '100%', padding: '0.6rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: '0.3rem' }}>Holiday Details / Reason</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Annual Leave, Conference, Sick Day..."
+                        value={newHoliday.description} 
+                        onChange={e => setNewHoliday({ ...newHoliday, description: e.target.value })}
+                        style={{ width: '100%', padding: '0.6rem', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+                      />
+                    </div>
+                    <button 
+                      type="submit" 
+                      style={{ padding: '0.75rem', borderRadius: 8, background: '#ef4444', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer', marginTop: '0.5rem' }}
                     >
-                      <option value="present">Present</option>
-                      <option value="absent">Absent</option>
-                    </select>
-                  </div>
-                  <button 
-                    type="submit" 
-                    style={{ padding: '0.75rem', borderRadius: 8, background: '#22d3ee', color: '#000', fontWeight: 'bold', border: 'none', cursor: 'pointer', marginTop: '0.5rem' }}
-                  >
-                    Save Status
-                  </button>
-                </form>
+                      Mark Holiday
+                    </button>
+                  </form>
 
-                <h3 style={{ color: '#fff', marginBottom: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem' }}>Overridden Days Status</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '300px', overflowY: 'auto' }}>
-                  {scheduleDays.length === 0 ? (
-                    <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem' }}>No status overrides set.</p>
-                  ) : (
-                    scheduleDays.map(sd => (
-                      <div key={sd.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8 }}>
-                        <div>
-                          <p style={{ color: '#fff', margin: 0, fontWeight: 600 }}>{sd.date}</p>
-                          <span style={{ 
-                            fontSize: '0.75rem', 
-                            fontWeight: 700, 
-                            padding: '0.15rem 0.5rem', 
-                            borderRadius: 4, 
-                            background: sd.status === 'present' ? 'rgba(74,222,128,0.15)' : 'rgba(239,68,68,0.15)',
-                            color: sd.status === 'present' ? '#4ade80' : '#ef4444'
-                          }}>
-                            {sd.status.toUpperCase()}
-                          </span>
+                  <h3 style={{ color: '#fff', marginBottom: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem' }}>Holidays Schedule</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '400px', overflowY: 'auto' }}>
+                    {sortedMonths.length === 0 ? (
+                      <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem' }}>No holidays marked.</p>
+                    ) : (
+                      sortedMonths.map(monthYear => (
+                        <div key={monthYear}>
+                          <h4 style={{ color: '#22d3ee', fontSize: '0.9rem', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {monthYear}
+                          </h4>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {groupedHolidays[monthYear].map(hd => {
+                              const isEditing = editingHolidayId === hd.id;
+                              const dayNum = hd.dateObj.getDate();
+                              const dayOfWeek = hd.dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+
+                              return (
+                                <div key={hd.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8 }}>
+                                  {isEditing ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                      <input
+                                        type="date"
+                                        value={editingHolidayData.date}
+                                        onChange={e => setEditingHolidayData({ ...editingHolidayData, date: e.target.value })}
+                                        style={{ width: '100%', padding: '0.4rem', borderRadius: 6, background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                                      />
+                                      <input
+                                        type="text"
+                                        value={editingHolidayData.description}
+                                        onChange={e => setEditingHolidayData({ ...editingHolidayData, description: e.target.value })}
+                                        style={{ width: '100%', padding: '0.4rem', borderRadius: 6, background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                                      />
+                                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                                        <button
+                                          onClick={() => handleUpdateHoliday(hd.id)}
+                                          style={{ flex: 1, padding: '0.4rem', borderRadius: 6, background: '#4ade80', color: '#000', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          onClick={() => setEditingHolidayId(null)}
+                                          style={{ flex: 1, padding: '0.4rem', borderRadius: 6, background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <span style={{ 
+                                          color: '#ef4444', 
+                                          fontWeight: '800', 
+                                          fontSize: '1.1rem',
+                                          background: 'rgba(239, 68, 68, 0.1)',
+                                          padding: '0.25rem 0.5rem',
+                                          borderRadius: '6px',
+                                          minWidth: '2.5rem',
+                                          textAlign: 'center'
+                                        }}>
+                                          {dayNum} <span style={{ fontSize: '0.75rem', fontWeight: 'normal' }}>({dayOfWeek})</span>
+                                        </span>
+                                        <div>
+                                          <p style={{ color: '#fff', margin: 0, fontSize: '0.85rem', fontWeight: 600 }}>
+                                            {hd.description || 'Holiday / Leave'}
+                                          </p>
+                                          <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0, fontSize: '0.75rem' }}>
+                                            {hd.date}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <button 
+                                          onClick={() => handleStartEditHoliday(hd)}
+                                          style={{ background: 'rgba(34, 211, 238, 0.1)', border: 'none', color: '#22d3ee', padding: '0.4rem 0.6rem', borderRadius: 6, cursor: 'pointer', fontSize: '0.75rem' }}
+                                        >
+                                          Edit
+                                        </button>
+                                        <button 
+                                          onClick={() => handleDeleteHoliday(hd.id)}
+                                          style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', padding: '0.4rem 0.6rem', borderRadius: 6, cursor: 'pointer', fontSize: '0.75rem' }}
+                                        >
+                                          Remove
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <button 
-                          onClick={() => handleDeleteDay(sd.id)}
-                          style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', padding: '0.4rem', borderRadius: 6, cursor: 'pointer' }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </>
       )}
 

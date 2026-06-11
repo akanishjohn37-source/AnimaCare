@@ -27,42 +27,80 @@ class AppointmentSlotViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        if user.role == 'veterinarian':
+            # Seed default 3 slots if they don't exist
+            if not self.queryset.filter(vet=user).exists():
+                AppointmentSlot.objects.create(vet=user, start_time='09:00:00', end_time='12:00:00', max_appointments=10)
+                AppointmentSlot.objects.create(vet=user, start_time='13:00:00', end_time='16:00:00', max_appointments=10)
+                AppointmentSlot.objects.create(vet=user, start_time='17:00:00', end_time='20:00:00', max_appointments=10)
+            return self.queryset.filter(vet=user)
+        return self.queryset.all()
+
+    def list(self, request, *args, **kwargs):
+        user = request.user
         if user.role == 'citizen':
+            # Dynamic slot generation
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            vets = User.objects.filter(role='veterinarian')
+            for vet in vets:
+                if not AppointmentSlot.objects.filter(vet=vet).exists():
+                    AppointmentSlot.objects.create(vet=vet, start_time='09:00:00', end_time='12:00:00', max_appointments=10)
+                    AppointmentSlot.objects.create(vet=vet, start_time='13:00:00', end_time='16:00:00', max_appointments=10)
+                    AppointmentSlot.objects.create(vet=vet, start_time='17:00:00', end_time='20:00:00', max_appointments=10)
+            
             from django.utils import timezone
-            from django.db.models import OuterRef, Exists
+            from datetime import timedelta
+            
             now = timezone.localtime(timezone.now())
             current_date = now.date()
             current_time = now.time()
 
-            active_slots = self.queryset.filter(
-                is_active=True,
-                booked_count__lt=F('max_appointments')
-            )
-            active_slots = active_slots.filter(
-                Q(date__gt=current_date) | Q(date=current_date, start_time__gt=current_time)
-            )
+            active_slots = AppointmentSlot.objects.filter(is_active=True)
+            holidays = VetScheduleDay.objects.filter(status='holiday')
+            holiday_set = set((h.vet_id, h.date) for h in holidays)
 
-            # Exclude slots where vet is marked as absent on that specific date
-            absent_exists = VetScheduleDay.objects.filter(
-                vet=OuterRef('vet'),
-                date=OuterRef('date'),
-                status='absent'
-            )
-            active_slots = active_slots.annotate(
-                is_absent=Exists(absent_exists)
-            ).filter(is_absent=False)
-
-            return active_slots.distinct()
+            results = []
+            for i in range(30):
+                target_date = current_date + timedelta(days=i)
+                for slot in active_slots:
+                    if (slot.vet_id, target_date) in holiday_set:
+                        continue
+                    if target_date == current_date and slot.start_time <= current_time:
+                        continue
+                    
+                    booked_count = Appointment.objects.filter(
+                        slot=slot,
+                        date__date=target_date,
+                        status='Scheduled'
+                    ).count()
+                    
+                    if booked_count < slot.max_appointments:
+                        results.append({
+                            'id': slot.id,
+                            'vet': slot.vet_id,
+                            'vet_name': slot.vet.username,
+                            'date': target_date.isoformat(),
+                            'start_time': slot.start_time.strftime('%H:%M:%S'),
+                            'end_time': slot.end_time.strftime('%H:%M:%S'),
+                            'max_appointments': slot.max_appointments,
+                            'booked_count': booked_count,
+                            'available_slots': max(0, slot.max_appointments - booked_count),
+                            'is_active': slot.is_active
+                        })
+            return Response(results)
         
-        elif user.role == 'veterinarian':
-            return self.queryset.filter(vet=user)
-
-        return self.queryset.all()
+        return super().list(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         if self.request.user.role != 'veterinarian':
             raise ValidationError("Only veterinarians can create appointment slots.")
+        if AppointmentSlot.objects.filter(vet=self.request.user).count() >= 3:
+            raise ValidationError("You already have 3 consultation slots. You can edit them but cannot create more.")
         serializer.save(vet=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        raise ValidationError("Recurrent slots cannot be deleted. You can edit them or mark them inactive.")
 
 
 class VetScheduleDayViewSet(viewsets.ModelViewSet):
@@ -80,11 +118,12 @@ class VetScheduleDayViewSet(viewsets.ModelViewSet):
         if self.request.user.role != 'veterinarian':
             raise ValidationError("Only veterinarians can mark schedule days.")
         date_val = serializer.validated_data.get('date')
-        status_val = serializer.validated_data.get('status', 'present')
+        status_val = 'holiday'
+        description_val = serializer.validated_data.get('description', '')
         obj, created = VetScheduleDay.objects.update_or_create(
             vet=self.request.user,
             date=date_val,
-            defaults={'status': status_val}
+            defaults={'status': status_val, 'description': description_val}
         )
         serializer.instance = obj
 
@@ -110,9 +149,6 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         appointment = serializer.save()
-        if appointment.slot:
-            appointment.slot.booked_count += 1
-            appointment.slot.save()
 
         name = appointment.pet.name if appointment.pet else appointment.livestock.name
         species = appointment.pet.species if appointment.pet else appointment.livestock.species
@@ -124,24 +160,11 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         )
 
     def perform_update(self, serializer):
-        old_status = serializer.instance.status
-        appointment = serializer.save()
-        new_status = appointment.status
-        
-        if old_status == 'Scheduled' and new_status == 'Cancelled' and appointment.slot:
-            appointment.slot.booked_count = max(0, appointment.slot.booked_count - 1)
-            appointment.slot.save()
-        elif old_status == 'Cancelled' and new_status == 'Scheduled' and appointment.slot:
-            if appointment.slot.booked_count >= appointment.slot.max_appointments:
-                raise ValidationError("This appointment slot is already fully booked.")
-            appointment.slot.booked_count += 1
-            appointment.slot.save()
+        serializer.save()
 
     def perform_destroy(self, instance):
-        if instance.slot and instance.status == 'Scheduled':
-            instance.slot.booked_count = max(0, instance.slot.booked_count - 1)
-            instance.slot.save()
         instance.delete()
+
 
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
