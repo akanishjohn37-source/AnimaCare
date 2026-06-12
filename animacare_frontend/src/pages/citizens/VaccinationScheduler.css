@@ -15,7 +15,7 @@
 }
 
 .vacc-scheduler .subtitle {
-  color: rgba(255,255,255,0.45);
+  color: var(--md-on-surface-variant);
   font-size: 0.9rem;
   margin-bottom: 2rem;
 }
@@ -35,23 +35,23 @@
   gap: 0.5rem;
   padding: 1.25rem 0.75rem;
   border-radius: 16px;
-  border: 2px solid rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.03);
+  border: 2px solid var(--md-outline-variant);
+  background: var(--md-surface-container);
   cursor: pointer;
   transition: all 0.25s ease;
   user-select: none;
 }
 
 .animal-type-card:hover {
-  border-color: rgba(129, 140, 248, 0.3);
-  background: rgba(129, 140, 248, 0.06);
+  border-color: var(--md-primary);
+  background: rgba(208, 188, 255, 0.05); /* md-primary */
   transform: translateY(-3px);
 }
 
 .animal-type-card.selected {
-  border-color: rgba(129, 140, 248, 0.6);
-  background: rgba(129, 140, 248, 0.12);
-  box-shadow: 0 0 20px rgba(129, 140, 248, 0.15);
+  border-color: var(--md-primary);
+  background: rgba(208, 188, 255, 0.12);
+  box-shadow: 0 0 20px rgba(208, 188, 255, 0.15);
 }
 
 .animal-type-card .emoji {
@@ -67,13 +67,13 @@
 }
 
 .animal-type-card.selected .label {
-  color: #818cf8;
+  color: var(--md-primary);
 }
 
 /* ── Form Section ── */
 .vacc-form-section {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--md-surface-container);
+  border: 1px solid var(--md-outline-variant);
   border-radius: 18px;
   padding: 2rem;
   margin-bottom: 2rem;
@@ -116,9 +116,9 @@
   width: 100%;
   padding: 0.7rem 1rem;
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.05);
-  color: #fff;
+  border: 1px solid var(--md-outline-variant);
+  background: var(--md-surface-container-high);
+  color: var(--md-on-surface);
   font-size: 0.9rem;
   transition: border-color 0.2s;
   box-sizing: border-box;
@@ -127,8 +127,8 @@
 .vacc-field input:focus,
 .vacc-field select:focus {
   outline: none;
-  border-color: rgba(129, 140, 248, 0.5);
-  background: rgba(129, 140, 248, 0.05);
+  border-color: var(--md-primary);
+  background: rgba(208, 188, 255, 0.05);
 }
 
 .vacc-btn-generate {
@@ -167,8 +167,8 @@
 }
 
 .vacc-schedule-card {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--md-surface-container);
+  border: 1px solid var(--md-outline-variant);
   border-radius: 18px;
   overflow: hidden;
   animation: fadeSlideUp 0.3s ease;
@@ -179,7 +179,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--md-outline-variant);
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -256,7 +256,7 @@
   align-items: flex-start;
   gap: 1rem;
   padding: 0.85rem 0;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--md-outline-variant);
   position: relative;
   transition: background 0.2s;
 }

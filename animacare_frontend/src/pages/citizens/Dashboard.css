@@ -30,8 +30,13 @@
   font-size: 1.25rem;
 }
 
-.icon-accent { color: var(--accent-primary); }
-.icon-danger { color: var(--danger); }
+.icon-accent {
+  color: var(--md-primary);
+}
+
+.icon-danger {
+  color: var(--md-error);
+}
 
 .pet-list {
   display: flex;
@@ -44,15 +49,18 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--md-surface-container);
   border-radius: var(--radius-md);
-  border: 1px solid var(--glass-border);
-  transition: all 0.2s ease;
+  border: 1px solid var(--md-outline-variant);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.2);
 }
 
 .pet-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  transform: translateX(4px);
+  background: var(--md-surface-container-high);
+  border-color: var(--md-primary);
+  transform: translateX(6px);
+  box-shadow: 0 8px 24px 0 rgba(139, 92, 246, 0.15);
 }
 
 .pet-avatar {
@@ -60,7 +68,7 @@
   height: 64px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid var(--accent-primary);
+  border: 2px solid var(--md-primary);
 }
 
 .pet-info {
@@ -91,11 +99,30 @@
   text-transform: uppercase;
 }
 
-.badge-success { background: rgba(16, 185, 129, 0.2); color: var(--success); }
-.badge-primary { background: rgba(139, 92, 246, 0.2); color: var(--accent-primary); }
-.badge-warning { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
-.badge-secondary { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.6); }
-.badge-danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+.badge-success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.badge-primary {
+  background: rgba(208, 188, 255, 0.2); /* md-primary with opacity */
+  color: var(--md-primary);
+}
+
+.badge-warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.badge-secondary {
+  background: var(--md-surface-variant);
+  color: var(--md-on-surface-variant);
+}
+
+.badge-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
 
 .pet-actions {
   display: flex;
@@ -103,15 +130,22 @@
 }
 
 .action-btn {
-  padding: 0.5rem;
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem;
+  border-radius: var(--radius-md);
+  background: var(--md-surface-variant);
+  border: 1px solid var(--md-outline-variant);
+  color: var(--md-on-surface-variant);
+  transition: all 0.2s ease;
 }
 
 .action-btn:hover {
-  background: var(--accent-primary);
-  color: white;
+  background: var(--md-primary);
+  border-color: var(--md-primary);
+  color: var(--md-on-primary);
+  transform: scale(1.05);
 }
 
 .dashboard-sidebar {
@@ -124,7 +158,7 @@
   display: flex;
   gap: 1rem;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--md-surface-container);
   border-radius: var(--radius-md);
 }
 
@@ -137,9 +171,26 @@
   justify-content: center;
 }
 
-.status-icon.pending { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
-.status-icon.danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+.status-icon.pending {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
 
-.status-content h4 { font-size: 0.9rem; }
-.status-content p { font-size: 0.9rem; color: var(--text-secondary); }
-.time-text { font-size: 0.75rem; color: var(--text-tertiary); }
+.status-icon.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.status-content h4 {
+  font-size: 0.9rem;
+}
+
+.status-content p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.time-text {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}

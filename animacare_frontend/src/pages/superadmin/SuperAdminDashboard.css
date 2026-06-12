@@ -1,13 +1,13 @@
 :root {
-  --sa-bg: #0b0f19;
-  --sa-panel: rgba(22, 28, 45, 0.7);
-  --sa-border: rgba(65, 105, 225, 0.2);
-  --sa-primary: #3b82f6;
-  --sa-primary-hover: #2563eb;
-  --sa-text: #e2e8f0;
-  --sa-text-muted: #94a3b8;
-  --sa-approve: #10b981;
-  --sa-reject: #ef4444;
+  --sa-bg: var(--md-surface-container-lowest);
+  --sa-panel: var(--md-surface-container);
+  --sa-border: var(--md-outline-variant);
+  --sa-primary: var(--md-primary);
+  --sa-primary-hover: var(--md-primary);
+  --sa-text: var(--md-on-surface);
+  --sa-text-muted: var(--md-on-surface-variant);
+  --sa-approve: var(--success);
+  --sa-reject: var(--md-error);
   --sa-font: 'Inter', system-ui, sans-serif;
 }
 
@@ -18,7 +18,7 @@ body {
 
 .superadmin-container {
   min-height: 100vh;
-  background: radial-gradient(circle at 10% 20%, #0d1326 0%, #04060d 100%);
+  background: var(--sa-bg);
   color: var(--sa-text);
   font-family: var(--sa-font);
   padding: 2rem 4rem;
@@ -41,7 +41,7 @@ body {
   font-size: 2.2rem;
   font-weight: 700;
   margin: 0;
-  background: linear-gradient(90deg, #60a5fa, #a78bfa);
+  background: linear-gradient(90deg, var(--md-primary), var(--md-tertiary));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -80,9 +80,9 @@ body {
 }
 
 .superadmin-nav button.active {
-  background: var(--sa-primary);
-  color: white;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+  background: var(--md-surface-variant);
+  color: var(--md-on-surface);
+  border: 1px solid var(--md-outline-variant);
 }
 
 .fade-in {
@@ -108,11 +108,11 @@ body {
 /* Glass Cards */
 .glass {
   background: var(--sa-panel);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
   border: 1px solid var(--sa-border);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   padding: 1.5rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   transition: transform 0.3s ease, border-color 0.3s ease;
 }
 
@@ -122,9 +122,9 @@ body {
 }
 
 .glass-dark {
-  background: rgba(10, 15, 28, 0.8);
+  background: var(--md-surface-container-high);
   border: 1px solid var(--sa-border);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   padding: 1px;
 }
 

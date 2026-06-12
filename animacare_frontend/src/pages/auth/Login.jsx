@@ -8,26 +8,26 @@ import {
 import './Auth.css';
 
 const ROLES_INFO = {
-  citizen:       { icon: User,       label: 'Citizen / Pet Owner',     color: '#22d3ee'  },
-  veterinarian:  { icon: Stethoscope,label: 'Veterinary Doctor',       color: '#4ade80'  },
-  shelter_admin: { icon: Building2,  label: 'Shelter Administrator',   color: '#f59e0b'  },
-  civic_authority:{ icon: Map,       label: 'Civic Authority',         color: '#a78bfa'  },
-  admin:         { icon: Shield,     label: 'System Administrator',    color: '#f43f5e'  },
+  citizen: { icon: User, label: 'Citizen / Pet Owner', color: '#22d3ee' },
+  veterinarian: { icon: Stethoscope, label: 'Veterinary Doctor', color: '#4ade80' },
+  shelter_admin: { icon: Building2, label: 'Shelter Administrator', color: '#f59e0b' },
+  civic_authority: { icon: Map, label: 'Civic Authority', color: '#a78bfa' },
+  admin: { icon: Shield, label: 'System Administrator', color: '#f43f5e' },
 };
 
 const Login = () => {
   const { login } = useAuth();
-  const navigate   = useNavigate();
-  const location   = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const from = location.state?.from?.pathname || null;
 
-  const [form, setForm]         = useState({ username: '', password: '' });
+  const [form, setForm] = useState({ username: '', password: '' });
   const [showPass, setShowPass] = useState(false);
-  const [error, setError]       = useState('');
-  const [loading, setLoading]   = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const [isForgotMode, setIsForgotMode] = useState(false);
-  const [forgotMsg, setForgotMsg]       = useState('');
+  const [forgotMsg, setForgotMsg] = useState('');
 
   const change = (e) => {
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
@@ -85,18 +85,18 @@ const Login = () => {
 
   const getRoleHome = (role) => {
     const map = {
-      citizen:        '/dashboard',
-      veterinarian:   '/vet-dashboard',
-      shelter_admin:  '/shelter-dashboard',
-      civic_authority:'/civic-dashboard',
-      admin:          '/superadmin',
+      citizen: '/dashboard',
+      veterinarian: '/vet-dashboard',
+      shelter_admin: '/shelter-dashboard',
+      civic_authority: '/civic-dashboard',
+      admin: '/superadmin',
     };
     return map[role] || '/dashboard';
   };
 
   // Demo credentials
   const demos = [
-    { label: 'Admin',    username: 'superadmin', password: 'Admin@1234', role: 'admin'    },
+    { label: 'Admin', username: 'superadmin', password: 'Admin@1234', role: 'admin' },
   ];
 
   return (
@@ -194,7 +194,7 @@ const Login = () => {
                 {error}
               </div>
             )}
-            
+
             {forgotMsg && (
               <div className="auth-alert auth-alert--info">
                 <CheckCircle size={16} />
@@ -205,8 +205,8 @@ const Login = () => {
             {!isForgotMode ? (
               <>
                 <div style={{ textAlign: 'right', marginTop: '-0.5rem', marginBottom: '0.5rem' }}>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => { setError(''); setForm({ username: '', password: '' }); setIsForgotMode(true); }}
                     style={{ background: 'none', border: 'none', color: '#a78bfa', fontSize: '0.8rem', cursor: 'pointer' }}
                   >
@@ -228,9 +228,9 @@ const Login = () => {
               </>
             ) : (
               <div className="auth-nav-btns">
-                <button 
-                  type="button" 
-                  className="auth-back-btn" 
+                <button
+                  type="button"
+                  className="auth-back-btn"
                   onClick={() => { setError(''); setIsForgotMode(false); }}
                 >
                   <ArrowLeft size={16} /> Back

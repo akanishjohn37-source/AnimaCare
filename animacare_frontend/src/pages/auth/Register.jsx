@@ -58,12 +58,12 @@ const Register = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const [step, setStep]             = useState(0);
-  const [selectedRole, setRole]     = useState('');
-  const [showPass, setShowPass]     = useState(false);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState('');
-  const [success, setSuccess]       = useState('');
+  const [step, setStep] = useState(0);
+  const [selectedRole, setRole] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [darpanStatus, setDarpanStatus] = useState('idle'); // idle, verifying, verified, invalid
   const [darpanDetails, setDarpanDetails] = useState(null);
   const [vetLicenseStatus, setVetLicenseStatus] = useState('idle'); // idle, verifying, verified, invalid
@@ -200,7 +200,7 @@ const Register = () => {
 
   const change = (e, section = null) => {
     let val = e.target.value;
-    
+
     // Strict mobile number validation: only digits, max 10
     const phoneFields = ['phone_number', 'professional_contact_number', 'shelter_contact_number', 'official_contact', 'contact_number'];
     if (phoneFields.includes(e.target.name)) {
@@ -224,8 +224,8 @@ const Register = () => {
     if (step === 0) return !!selectedRole;
     if (step === 1) {
       return !!(form.username && form.email && form.first_name &&
-             form.last_name && form.password && form.confirm_password &&
-             form.phone_number.length === 10 && (selectedRole === 'civic_authority' || form.zone));
+        form.last_name && form.password && form.confirm_password &&
+        form.phone_number.length === 10 && (selectedRole === 'civic_authority' || form.zone));
     }
     if (step === 2) {
       if (selectedRole === 'veterinarian') {
@@ -240,9 +240,9 @@ const Register = () => {
         return baseOk;
       }
       if (selectedRole === 'civic_authority') {
-        return Object.values(form.civic_profile).every(v => v.trim() !== '') && 
-               form.civic_profile.official_contact.length === 10 && 
-               municipalStatus === 'verified';
+        return Object.values(form.civic_profile).every(v => v.trim() !== '') &&
+          form.civic_profile.official_contact.length === 10 &&
+          municipalStatus === 'verified';
       }
     }
     return true;
@@ -381,10 +381,10 @@ const Register = () => {
           <label htmlFor="reg-zone">Local Body Jurisdiction (Corporation / Zone)</label>
           <div className="auth-input-wrap">
             <MapPin size={15} className="auth-input-icon" />
-            <select 
-              id="reg-zone" 
-              name="zone" 
-              value={form.zone} 
+            <select
+              id="reg-zone"
+              name="zone"
+              value={form.zone}
               onChange={change}
               style={{
                 width: '100%',
@@ -657,7 +657,7 @@ const Register = () => {
                   onChange={(e) => { ch(e); setDarpanStatus('idle'); setDarpanDetails(null); }}
                   placeholder="e.g. KL/2026/0123456" />
               </div>
-              <button 
+              <button
                 type="button"
                 disabled={darpanStatus === 'verifying' || !sp.shelter_registration_number.trim()}
                 style={{
@@ -698,9 +698,9 @@ const Register = () => {
             <label>Shelter Type</label>
             <div className="auth-input-wrap">
               <Building2 size={15} className="auth-input-icon" />
-              <select 
-                name="shelter_type" 
-                value={sp.shelter_type} 
+              <select
+                name="shelter_type"
+                value={sp.shelter_type}
                 onChange={ch}
                 style={{
                   width: '100%',
@@ -768,10 +768,10 @@ const Register = () => {
             <label htmlFor="civic-jurisdiction">Jurisdiction Area (Corporation)</label>
             <div className="auth-input-wrap">
               <Map size={15} className="auth-input-icon" />
-              <select 
-                id="civic-jurisdiction" 
-                name="jurisdiction_area" 
-                value={cp.jurisdiction_area} 
+              <select
+                id="civic-jurisdiction"
+                name="jurisdiction_area"
+                value={cp.jurisdiction_area}
                 onChange={(e) => {
                   ch(e);
                   setForm(p => ({ ...p, zone: e.target.value }));
@@ -793,11 +793,11 @@ const Register = () => {
                 {KERALA_LOCAL_BODIES.map(lb => {
                   const isOccupied = occupiedZones.includes(lb);
                   return (
-                    <option 
-                      key={lb} 
-                      value={lb} 
-                      disabled={isOccupied} 
-                      style={{ 
+                    <option
+                      key={lb}
+                      value={lb}
+                      disabled={isOccupied}
+                      style={{
                         background: '#0f172a',
                         color: isOccupied ? '#64748b' : '#fff'
                       }}
@@ -827,9 +827,9 @@ const Register = () => {
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <div className="auth-input-wrap" style={{ flex: 1 }}>
                 <Award size={15} className="auth-input-icon" />
-                <input 
-                  type="text" 
-                  placeholder="e.g. COCHIN-CORP-2026-04192" 
+                <input
+                  type="text"
+                  placeholder="e.g. COCHIN-CORP-2026-04192"
                   value={municipalId}
                   onChange={(e) => { setMunicipalId(e.target.value); setMunicipalStatus('idle'); setMunicipalDetails(null); }}
                 />

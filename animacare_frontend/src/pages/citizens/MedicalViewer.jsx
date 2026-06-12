@@ -11,9 +11,9 @@ const MedicalViewer = () => {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const initialType = queryParams.get('type') || 'pet';
-  
+
   const { authFetch, user } = useAuth();
-  
+
   const [pets, setPets] = useState([]);
   const [livestocks, setLivestocks] = useState([]);
   const [activeTab, setActiveTab] = useState(initialType);
@@ -31,31 +31,31 @@ const MedicalViewer = () => {
       authFetch('http://localhost:8000/api/citizens/pets/'),
       authFetch('http://localhost:8000/api/citizens/livestocks/')
     ])
-    .then(async ([petsRes, lsRes]) => {
-      let pData = [];
-      let lData = [];
-      if (petsRes.ok) { const d = await petsRes.json(); pData = d.results || (Array.isArray(d) ? d : []); }
-      if (lsRes.ok) { const d = await lsRes.json(); lData = d.results || (Array.isArray(d) ? d : []); }
-      
-      const livestockIds = new Set(lData.map(l => l.id));
-      const justPets = pData.filter(p => !livestockIds.has(p.id));
-      
-      setPets(justPets);
-      setLivestocks(lData);
-      
-      const allAnimals = activeTab === 'livestock' ? lData : justPets;
-      
-      if (allAnimals.length > 0) {
-        const activePetId = (petId && petId !== 'all') ? petId : allAnimals[0].id;
-        fetchMedicalReport(activePetId);
-      } else {
+      .then(async ([petsRes, lsRes]) => {
+        let pData = [];
+        let lData = [];
+        if (petsRes.ok) { const d = await petsRes.json(); pData = d.results || (Array.isArray(d) ? d : []); }
+        if (lsRes.ok) { const d = await lsRes.json(); lData = d.results || (Array.isArray(d) ? d : []); }
+
+        const livestockIds = new Set(lData.map(l => l.id));
+        const justPets = pData.filter(p => !livestockIds.has(p.id));
+
+        setPets(justPets);
+        setLivestocks(lData);
+
+        const allAnimals = activeTab === 'livestock' ? lData : justPets;
+
+        if (allAnimals.length > 0) {
+          const activePetId = (petId && petId !== 'all') ? petId : allAnimals[0].id;
+          fetchMedicalReport(activePetId);
+        } else {
+          setIsLoading(false);
+        }
+      })
+      .catch(err => {
+        console.error(err);
         setIsLoading(false);
-      }
-    })
-    .catch(err => {
-      console.error(err);
-      setIsLoading(false);
-    });
+      });
   }, [petId, activeTab, authFetch]);
 
   const fetchMedicalReport = async (id, type = activeTab) => {
@@ -67,9 +67,9 @@ const MedicalViewer = () => {
         const data = await res.json();
         setSelectedPetData(data);
         if (data.medical_history && data.medical_history.length > 0) {
-            setActiveConsultation(data.medical_history[0]);
+          setActiveConsultation(data.medical_history[0]);
         } else {
-            setActiveConsultation(null);
+          setActiveConsultation(null);
         }
       }
     } catch (err) {
@@ -171,7 +171,7 @@ const MedicalViewer = () => {
   const activeList = activeTab === 'livestock' ? livestocks : pets;
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="medical-container"
@@ -189,9 +189,9 @@ const MedicalViewer = () => {
 
       {/* Tabs */}
       <div className="no-print" style={{ display: 'flex', gap: '2rem', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '1.5rem' }}>
-        <h2 
-          onClick={() => { setActiveTab('pet'); navigate('/medical/all?type=pet', { replace: true }); }} 
-          style={{ 
+        <h2
+          onClick={() => { setActiveTab('pet'); navigate('/medical/all?type=pet', { replace: true }); }}
+          style={{
             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
             paddingBottom: '0.5rem', borderBottom: activeTab === 'pet' ? '2px solid #8b5cf6' : '2px solid transparent',
             opacity: activeTab === 'pet' ? 1 : 0.4, transition: 'all 0.3s ease'
@@ -199,9 +199,9 @@ const MedicalViewer = () => {
         >
           <Heart size={20} className={activeTab === 'pet' ? "icon-accent" : ""} /> Pets Record
         </h2>
-        <h2 
-          onClick={() => { setActiveTab('livestock'); navigate('/medical/all?type=livestock', { replace: true }); }} 
-          style={{ 
+        <h2
+          onClick={() => { setActiveTab('livestock'); navigate('/medical/all?type=livestock', { replace: true }); }}
+          style={{
             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
             paddingBottom: '0.5rem', borderBottom: activeTab === 'livestock' ? '2px solid #10b981' : '2px solid transparent',
             opacity: activeTab === 'livestock' ? 1 : 0.4, transition: 'all 0.3s ease'
@@ -214,10 +214,10 @@ const MedicalViewer = () => {
       {/* Animal Selector */}
       <div className="no-print" style={{ display: 'flex', gap: '1rem', overflowX: 'auto', marginBottom: '2rem', paddingBottom: '1rem' }}>
         {activeList.map(p => (
-          <div 
-            key={p.id} 
+          <div
+            key={p.id}
             onClick={() => navigate(`/medical/${p.id}?type=${activeTab}`)}
-            style={{ 
+            style={{
               padding: '0.5rem 1.5rem', borderRadius: '20px', cursor: 'pointer',
               background: currentPet?.id === p.id ? (activeTab === 'livestock' ? '#10b981' : '#8b5cf6') : 'rgba(255,255,255,0.05)',
               color: 'white', whiteSpace: 'nowrap', fontWeight: currentPet?.id === p.id ? 'bold' : 'normal'
@@ -255,17 +255,17 @@ const MedicalViewer = () => {
               <h2 className="section-title"><Activity size={20} className="icon-accent" /> Clinical Encounters (Veterinarian)</h2>
               {selectedPetData.medical_history.length === 0 ? (
                 <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.3)', marginBottom: '2rem' }}>
-                   No clinical encounters recorded yet.
+                  No clinical encounters recorded yet.
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '2rem' }}>
                   {selectedPetData.medical_history.map((log, index) => (
-                    <div 
-                      key={log.id} 
-                      className="glass-panel log-card" 
+                    <div
+                      key={log.id}
+                      className="glass-panel log-card"
                       onClick={() => setActiveConsultation(log)}
-                      style={{ 
-                        borderLeft: activeConsultation?.id === log.id ? '4px solid #22d3ee' : '4px solid #4ade80', 
+                      style={{
+                        borderLeft: activeConsultation?.id === log.id ? '4px solid #22d3ee' : '4px solid #4ade80',
                         position: 'relative',
                         cursor: 'pointer',
                         background: activeConsultation?.id === log.id ? 'rgba(34, 211, 238, 0.05)' : 'rgba(255,255,255,0.02)'
@@ -276,10 +276,10 @@ const MedicalViewer = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                           <span className="log-date">{new Date(log.date).toLocaleDateString()}</span>
                           {index !== 0 && (
-                            <button 
+                            <button
                               onClick={() => deleteConsultation(log.id)}
                               disabled={isDeleting}
-                              className="btn btn-secondary no-print" 
+                              className="btn btn-secondary no-print"
                               style={{ padding: '0.2rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}
                               title="Delete old record"
                             >
@@ -307,7 +307,7 @@ const MedicalViewer = () => {
                   </button>
                 )}
               </div>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {selectedPetData.self_reports.map(report => (
                   <div key={report.id} className="glass-panel log-card" style={{ borderLeft: '4px solid #8b5cf6', position: 'relative' }}>
@@ -316,9 +316,9 @@ const MedicalViewer = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <span className="log-date">{new Date(report.date).toLocaleDateString()}</span>
                         {user.role === 'citizen' && (
-                          <button 
+                          <button
                             onClick={() => deleteSelfReport(report.id)}
-                            className="btn btn-secondary no-print" 
+                            className="btn btn-secondary no-print"
                             style={{ padding: '0.2rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}
                             title="Delete self-report"
                           >
@@ -333,7 +333,7 @@ const MedicalViewer = () => {
                   </div>
                 ))}
                 {selectedPetData.self_reports.length === 0 && (
-                   <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.85rem' }}>No self-reported medical details.</p>
+                  <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.85rem' }}>No self-reported medical details.</p>
                 )}
               </div>
 
@@ -445,7 +445,7 @@ const MedicalViewer = () => {
                                   const isPast = item.scheduled_date < todayStr;
                                   const monthReached = (now.getFullYear() > schedDate.getFullYear()) ||
                                     (now.getFullYear() === schedDate.getFullYear() && now.getMonth() >= schedDate.getMonth());
-                                  const daysUntil = Math.ceil((schedDate - now) / (1000*60*60*24));
+                                  const daysUntil = Math.ceil((schedDate - now) / (1000 * 60 * 60 * 24));
 
                                   return (
                                     <div key={item.id} style={{
@@ -516,31 +516,31 @@ const MedicalViewer = () => {
             <div className="media-section">
               <h2 className="section-title"><ImageIcon size={20} className="icon-accent" /> Diagnostic Media</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                 {!activeConsultation ? (
-                    <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>
-                      <p>Select a clinical encounter to view associated media.</p>
-                    </div>
-                 ) : activeConsultation.media && activeConsultation.media.length > 0 ? (
-                    activeConsultation.media.map(m => (
-                      <div key={m.id} className="glass-panel media-card">
-                        <div className="media-image-container">
-                          <img src={m.media_url} alt="Diagnostic" />
-                          <div className="media-overlay">
-                            <button className="btn btn-primary" onClick={() => window.open(m.media_url, '_blank')}><Download size={16} /> View Full Size</button>
-                          </div>
-                        </div>
-                        <div className="media-info">
-                          <h4>{m.diagnostic_tags ? m.diagnostic_tags[0] : 'Diagnostic Scan'}</h4>
-                          <p>{new Date(activeConsultation.date).toLocaleDateString()}</p>
+                {!activeConsultation ? (
+                  <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>
+                    <p>Select a clinical encounter to view associated media.</p>
+                  </div>
+                ) : activeConsultation.media && activeConsultation.media.length > 0 ? (
+                  activeConsultation.media.map(m => (
+                    <div key={m.id} className="glass-panel media-card">
+                      <div className="media-image-container">
+                        <img src={m.media_url} alt="Diagnostic" />
+                        <div className="media-overlay">
+                          <button className="btn btn-primary" onClick={() => window.open(m.media_url, '_blank')}><Download size={16} /> View Full Size</button>
                         </div>
                       </div>
-                    ))
-                 ) : (
-                    <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', opacity: 0.3 }}>
-                       <ImageIcon size={32} style={{ margin: '0 auto 1rem' }} />
-                       <p>No diagnostic images uploaded for this consultation.</p>
+                      <div className="media-info">
+                        <h4>{m.diagnostic_tags ? m.diagnostic_tags[0] : 'Diagnostic Scan'}</h4>
+                        <p>{new Date(activeConsultation.date).toLocaleDateString()}</p>
+                      </div>
                     </div>
-                 )}
+                  ))
+                ) : (
+                  <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', opacity: 0.3 }}>
+                    <ImageIcon size={32} style={{ margin: '0 auto 1rem' }} />
+                    <p>No diagnostic images uploaded for this consultation.</p>
+                  </div>
+                )}
               </div>
 
               <div className="readonly-notice glass-panel no-print" style={{ marginTop: '2rem' }}>
@@ -561,15 +561,15 @@ const MedicalViewer = () => {
             <form onSubmit={handleAddSelfReport} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)' }}>Title (e.g. Vaccination, Deworming)</label>
-                <input required type="text" className="form-control" value={reportForm.title} onChange={e => setReportForm({...reportForm, title: e.target.value})} style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.75rem', borderRadius: '8px' }} />
+                <input required type="text" className="form-control" value={reportForm.title} onChange={e => setReportForm({ ...reportForm, title: e.target.value })} style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.75rem', borderRadius: '8px' }} />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)' }}>Event Date</label>
-                <input required type="date" className="form-control" value={reportForm.date} onChange={e => setReportForm({...reportForm, date: e.target.value})} style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.75rem', borderRadius: '8px', colorScheme: 'dark' }} />
+                <input required type="date" className="form-control" value={reportForm.date} onChange={e => setReportForm({ ...reportForm, date: e.target.value })} style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.75rem', borderRadius: '8px', colorScheme: 'dark' }} />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)' }}>Description / Notes</label>
-                <textarea rows="3" className="form-control" value={reportForm.description} onChange={e => setReportForm({...reportForm, description: e.target.value})} style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.75rem', borderRadius: '8px', resize: 'none' }} />
+                <textarea rows="3" className="form-control" value={reportForm.description} onChange={e => setReportForm({ ...reportForm, description: e.target.value })} style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.75rem', borderRadius: '8px', resize: 'none' }} />
               </div>
               <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem', padding: '0.8rem' }}>Save Report</button>
             </form>

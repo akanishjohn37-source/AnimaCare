@@ -40,7 +40,7 @@ const compressImage = (file) => {
 
 const PetPassportForm = () => {
   const [avatarPreview, setAvatarPreview] = useState(null);
-  const [initialData, setInitialData] = useState({ 
+  const [initialData, setInitialData] = useState({
     name: '', species: '', breed: '', gender: '', dob: '',
     livestock_type: '', farm_location: ''
   });
@@ -56,10 +56,10 @@ const PetPassportForm = () => {
   useEffect(() => {
     if (id) {
       setIsFetching(true);
-      const url = isLivestock 
-        ? `http://localhost:8000/api/citizens/livestocks/${id}/` 
+      const url = isLivestock
+        ? `http://localhost:8000/api/citizens/livestocks/${id}/`
         : `http://localhost:8000/api/citizens/pets/${id}/`;
-      
+
       authFetch(url)
         .then(res => { if (res.ok) return res.json(); throw new Error("Failed to load data"); })
         .then(data => {
@@ -110,10 +110,10 @@ const PetPassportForm = () => {
             }
             if (values.avatar) data.media_url = values.avatar;
             // Municipal registration data moved to Civic Authority verification page
-            
+
             const baseUrl = isLivestock ? 'http://localhost:8000/api/citizens/livestocks/' : 'http://localhost:8000/api/citizens/pets/';
             const url = id ? `${baseUrl}${id}/` : baseUrl;
-            
+
             const response = await authFetch(url, { method: id ? 'PATCH' : 'POST', body: JSON.stringify(data) });
 
             if (!response.ok) {
@@ -121,15 +121,15 @@ const PetPassportForm = () => {
               let errorMsg = `Failed to ${id ? 'update' : 'create'} record.`;
               if (errData.detail) errorMsg = errData.detail;
               else if (typeof errData === 'object' && Object.keys(errData).length > 0) {
-                  const firstKey = Object.keys(errData)[0];
-                  errorMsg = Array.isArray(errData[firstKey]) ? `${firstKey.replace('_', ' ').toUpperCase()}: ${errData[firstKey][0]}` : errData[firstKey];
+                const firstKey = Object.keys(errData)[0];
+                errorMsg = Array.isArray(errData[firstKey]) ? `${firstKey.replace('_', ' ').toUpperCase()}: ${errData[firstKey][0]}` : errData[firstKey];
               }
               throw new Error(errorMsg);
             }
-            
+
             setSubmitting(false);
             navigate('/dashboard');
-          } catch(err) {
+          } catch (err) {
             setStatus({ error: err.message });
             setSubmitting(false);
           }
@@ -138,7 +138,7 @@ const PetPassportForm = () => {
         {({ isSubmitting, setFieldValue, status }) => (
           <Form className="passport-form">
             {status && status.error && <div style={{ color: '#ef4444', textAlign: 'center', marginBottom: '1rem', background: 'rgba(239,68,68,0.1)', padding: '0.5rem', borderRadius: '8px' }}>{status.error}</div>}
-            
+
             <div className="avatar-upload">
               <label htmlFor="pet-avatar" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div className="avatar-preview" style={{ overflow: 'hidden' }}>

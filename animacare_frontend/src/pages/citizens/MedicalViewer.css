@@ -21,7 +21,7 @@
   width: 90px;
   height: 90px;
   border-radius: 50%;
-  border: 3px solid var(--accent-primary);
+  border: 3px solid var(--md-primary);
   object-fit: cover;
 }
 
@@ -32,10 +32,10 @@
   margin-top: 0.5rem;
   font-size: 0.85rem;
   color: var(--success);
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--success-bg);
   padding: 0.25rem 0.75rem;
   border-radius: var(--radius-full);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  border: 1px solid var(--success-bg);
 }
 
 .medical-grid {
@@ -45,7 +45,9 @@
 }
 
 @media (max-width: 900px) {
-  .medical-grid { grid-template-columns: 1fr; }
+  .medical-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .section-title {
@@ -56,7 +58,9 @@
   font-size: 1.25rem;
 }
 
-.icon-success { color: var(--success); }
+.icon-success {
+  color: var(--success);
+}
 
 .log-card {
   padding: 1.5rem;
@@ -68,20 +72,26 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
-  border-bottom: 1px solid var(--glass-border);
+  border-bottom: 1px solid var(--md-outline-variant);
   padding-bottom: 0.75rem;
 }
 
-.log-header h3 { font-size: 1.1rem; }
-.log-date { color: var(--text-tertiary); font-size: 0.9rem; }
+.log-header h3 {
+  font-size: 1.1rem;
+}
+
+.log-date {
+  color: var(--md-on-surface-variant);
+  font-size: 0.9rem;
+}
 
 .log-body p {
   margin-bottom: 0.5rem;
-  color: var(--text-secondary);
+  color: var(--md-on-surface-variant);
 }
 
 .log-body strong {
-  color: var(--text-primary);
+  color: var(--md-on-surface);
 }
 
 .media-card {
@@ -103,7 +113,7 @@
 .media-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -119,8 +129,15 @@
   padding: 1rem;
 }
 
-.media-info h4 { font-size: 1rem; margin-bottom: 0.25rem; }
-.media-info p { font-size: 0.85rem; color: var(--text-secondary); }
+.media-info h4 {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.media-info p {
+  font-size: 0.85rem;
+  color: var(--md-on-surface-variant);
+}
 
 .readonly-notice {
   padding: 1.5rem;
@@ -129,14 +146,14 @@
   align-items: center;
   text-align: center;
   gap: 1rem;
-  background: rgba(16, 185, 129, 0.05);
+  background: var(--success-bg);
   border-color: rgba(16, 185, 129, 0.2);
 }
 
 
 .readonly-notice p {
   font-size: 0.9rem;
-  color: var(--text-secondary);
+  color: var(--md-on-surface-variant);
 }
 
 @media print {

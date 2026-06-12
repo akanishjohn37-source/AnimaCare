@@ -1,7 +1,7 @@
 .civic-dashboard {
   padding: 2rem;
-  background-color: #0b0f19;
-  color: #e2e8f0;
+  background-color: var(--md-surface-container-lowest);
+  color: var(--md-on-surface);
   min-height: calc(100vh - 70px);
   font-family: 'Inter', sans-serif;
 }
@@ -16,7 +16,7 @@
 .civic-title h1 {
   font-size: 2.2rem;
   font-weight: 800;
-  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  background: linear-gradient(90deg, var(--md-primary), var(--md-tertiary));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -24,7 +24,7 @@
 }
 
 .civic-title p {
-  color: #94a3b8;
+  color: var(--md-on-surface-variant);
   margin: 0;
 }
 
@@ -55,8 +55,8 @@
 }
 
 .metric-card {
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--md-surface-container);
+  border: 1px solid var(--md-outline-variant);
   border-radius: 16px;
   padding: 1.5rem;
   display: flex;
@@ -106,14 +106,14 @@
   font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #94a3b8;
+  color: var(--md-on-surface-variant);
   margin: 0 0 0.5rem 0;
 }
 
 .metric-content .value {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--md-on-surface);
   margin: 0;
 }
 
@@ -125,8 +125,8 @@
 }
 
 .panel {
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--md-surface-container);
+  border: 1px solid var(--md-outline-variant);
   border-radius: 16px;
   padding: 1.5rem;
   backdrop-filter: blur(10px);
@@ -164,15 +164,15 @@
 .form-group label {
   display: block;
   font-size: 0.875rem;
-  color: #94a3b8;
+  color: var(--md-on-surface-variant);
   margin-bottom: 0.5rem;
 }
 
 .civic-input, .civic-textarea {
   width: 100%;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  color: #f8fafc;
+  background: var(--md-surface-container-high);
+  border: 1px solid var(--md-outline-variant);
+  color: var(--md-on-surface);
   padding: 0.75rem 1rem;
   border-radius: 8px;
   font-family: inherit;
@@ -187,8 +187,8 @@
 
 .civic-input:focus, .civic-textarea:focus {
   outline: none;
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+  border-color: var(--md-primary);
+  box-shadow: 0 0 0 3px rgba(208, 188, 255, 0.2);
 }
 
 .polygon-info {

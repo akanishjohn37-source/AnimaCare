@@ -22,21 +22,21 @@ const Dashboard = () => {
           authFetch('http://localhost:8000/api/citizens/livestocks/'),
           authFetch('http://localhost:8000/api/shelter/applications/')
         ]);
-        
+
         let fetchedPets = [];
         let fetchedLivestocks = [];
-        
+
         if (petsRes.ok) { const d = await petsRes.json(); fetchedPets = d.results || (Array.isArray(d) ? d : []); }
         if (livestockRes.ok) { const d = await livestockRes.json(); fetchedLivestocks = d.results || (Array.isArray(d) ? d : []); }
         if (appsRes.ok) { const d = await appsRes.json(); setApplications(d.results || (Array.isArray(d) ? d : [])); }
-        
+
         // Filter out livestocks from pets since Pet endpoint returns all
         const livestockIds = new Set(fetchedLivestocks.map(l => l.id));
         const justPets = fetchedPets.filter(p => !livestockIds.has(p.id));
-        
+
         setPets(justPets);
         setLivestocks(fetchedLivestocks);
-        
+
         if (justPets.length === 0 && fetchedLivestocks.length > 0) {
           setActiveTab('livestocks');
         }
@@ -89,14 +89,14 @@ const Dashboard = () => {
     if (!window.confirm("Are you sure you want to accept this adoption? The pet will be transferred to your profile.")) return;
     try {
       const res = await authFetch(`http://localhost:8000/api/shelter/applications/${appId}/accept_adoption/`, { method: 'POST' });
-      if (res.ok) { 
-        setApplications(applications.map(app => app.id === appId ? { ...app, status: 'Accepted' } : app)); 
+      if (res.ok) {
+        setApplications(applications.map(app => app.id === appId ? { ...app, status: 'Accepted' } : app));
         alert("Adoption confirmed! The pet has been added to your profile.");
         // Refetch pets to show the newly added pet
         const petsRes = await authFetch('http://localhost:8000/api/citizens/pets/');
         if (petsRes.ok) {
-           const data = await petsRes.json();
-           if (data.results) setPets(data.results);
+          const data = await petsRes.json();
+          if (data.results) setPets(data.results);
         }
       }
     } catch (err) { console.error(err); }
@@ -121,11 +121,11 @@ const Dashboard = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        setApplications(applications.map(app => app.id === appId ? { 
-          ...app, 
-          status: data.status, 
+        setApplications(applications.map(app => app.id === appId ? {
+          ...app,
+          status: data.status,
           applicant_confirmed: data.applicant_confirmed || false,
-          feedback: data.message 
+          feedback: data.message
         } : app));
         if (response === 'accept') {
           alert("Interview accepted and confirmed! The shelter admin has been notified.");
@@ -184,9 +184,9 @@ const Dashboard = () => {
             <motion.div variants={itemVariants} className="glass-panel dashboard-card">
               <div className="card-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
                 <div style={{ display: 'flex', gap: '1.5rem', cursor: 'pointer' }}>
-                  <h2 
-                    onClick={() => setActiveTab('pets')} 
-                    style={{ 
+                  <h2
+                    onClick={() => setActiveTab('pets')}
+                    style={{
                       display: 'flex', alignItems: 'center', gap: '0.5rem',
                       opacity: activeTab === 'pets' ? 1 : 0.4,
                       borderBottom: activeTab === 'pets' ? '2px solid #8b5cf6' : '2px solid transparent',
@@ -196,9 +196,9 @@ const Dashboard = () => {
                   >
                     <Heart size={20} className={activeTab === 'pets' ? "icon-accent" : ""} /> Active Pet Profiles
                   </h2>
-                  <h2 
-                    onClick={() => setActiveTab('livestocks')} 
-                    style={{ 
+                  <h2
+                    onClick={() => setActiveTab('livestocks')}
+                    style={{
                       display: 'flex', alignItems: 'center', gap: '0.5rem',
                       opacity: activeTab === 'livestocks' ? 1 : 0.4,
                       borderBottom: activeTab === 'livestocks' ? '2px solid #10b981' : '2px solid transparent',
@@ -233,7 +233,7 @@ const Dashboard = () => {
                         <div className="pet-actions">
                           <Link to={`/pet/edit/${pet.id}?type=pet`} className="action-btn" title="Edit Pet"><Edit2 size={18} /></Link>
                           <Link to={`/medical/${pet.id}`} className="action-btn" title="View Medical Records"><FileText size={18} /></Link>
-                          <button onClick={() => handleDeletePet(pet.id)} className="action-btn" style={{color: '#ef4444'}} title="Delete Pet"><Trash2 size={18} /></button>
+                          <button onClick={() => handleDeletePet(pet.id)} className="action-btn" style={{ color: '#ef4444' }} title="Delete Pet"><Trash2 size={18} /></button>
                         </div>
                       </div>
                     );
@@ -262,7 +262,7 @@ const Dashboard = () => {
                       <div className="pet-actions">
                         <Link to={`/pet/edit/${ls.id}?type=livestock`} className="action-btn" title="Edit Livestock"><Edit2 size={18} /></Link>
                         <Link to={`/medical/${ls.id}?type=livestock`} className="action-btn" title="View Medical Records"><FileText size={18} /></Link>
-                        <button onClick={() => handleDeleteLivestock(ls.id)} className="action-btn" style={{color: '#ef4444'}} title="Delete Livestock"><Trash2 size={18} /></button>
+                        <button onClick={() => handleDeleteLivestock(ls.id)} className="action-btn" style={{ color: '#ef4444' }} title="Delete Livestock"><Trash2 size={18} /></button>
                       </div>
                     </div>
                   )) : <p style={{ color: 'rgba(255,255,255,0.4)', padding: '2rem', textAlign: 'center' }}>No active livestock herds found.</p>
@@ -299,24 +299,24 @@ const Dashboard = () => {
                     <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>Applied on: {new Date(app.timestamp).toLocaleDateString()}</p>
                     {app.status === 'Interview Scheduled' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.75rem', padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
-                         <p style={{ fontSize: '0.72rem', color: '#f59e0b', margin: 0, fontWeight: 'bold' }}>Interview Scheduled: {app.feedback || 'At Shelter Facility'}</p>
-                         {app.applicant_confirmed ? (
-                            <p style={{ fontSize: '0.72rem', color: '#10b981', margin: 0, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></span>
-                              Interview Confirmed! The shelter admin has been notified.
-                            </p>
-                         ) : (
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                               <button onClick={() => handleReplyInterview(app.id, 'accept')} className="btn btn-primary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#10b981', borderColor: '#10b981', borderRadius: '6px' }}>Accept Interview</button>
-                               <button onClick={() => handleReplyInterview(app.id, 'reject')} className="btn btn-secondary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', borderColor: '#ef4444', color: '#ef4444', borderRadius: '6px' }}>Reject Interview</button>
-                            </div>
-                         )}
+                        <p style={{ fontSize: '0.72rem', color: '#f59e0b', margin: 0, fontWeight: 'bold' }}>Interview Scheduled: {app.feedback || 'At Shelter Facility'}</p>
+                        {app.applicant_confirmed ? (
+                          <p style={{ fontSize: '0.72rem', color: '#10b981', margin: 0, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></span>
+                            Interview Confirmed! The shelter admin has been notified.
+                          </p>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button onClick={() => handleReplyInterview(app.id, 'accept')} className="btn btn-primary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#10b981', borderColor: '#10b981', borderRadius: '6px' }}>Accept Interview</button>
+                            <button onClick={() => handleReplyInterview(app.id, 'reject')} className="btn btn-secondary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', borderColor: '#ef4444', color: '#ef4444', borderRadius: '6px' }}>Reject Interview</button>
+                          </div>
+                        )}
                       </div>
                     )}
                     {app.status === 'Approved' && (
                       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
-                         <button onClick={() => handleAcceptAdoption(app.id)} className="btn btn-primary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#10b981', borderColor: '#10b981', borderRadius: '6px' }}>Confirm</button>
-                         <button onClick={() => handleRejectAdoption(app.id)} className="btn btn-secondary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', borderColor: '#ef4444', color: '#ef4444', borderRadius: '6px' }}>Decline</button>
+                        <button onClick={() => handleAcceptAdoption(app.id)} className="btn btn-primary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#10b981', borderColor: '#10b981', borderRadius: '6px' }}>Confirm</button>
+                        <button onClick={() => handleRejectAdoption(app.id)} className="btn btn-secondary" style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', borderColor: '#ef4444', color: '#ef4444', borderRadius: '6px' }}>Decline</button>
                       </div>
                     )}
                   </div>
