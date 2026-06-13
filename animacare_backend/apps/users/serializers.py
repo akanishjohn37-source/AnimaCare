@@ -207,6 +207,9 @@ class UserAdminSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     role_display = serializers.SerializerMethodField()
     status_display = serializers.SerializerMethodField()
+    veterinarian_profile = VeterinarianProfileSerializer(read_only=True)
+    shelter_profile = ShelterAdminProfileSerializer(read_only=True)
+    civic_profile = CivicAuthorityProfileSerializer(read_only=True)
 
     class Meta:
         model = User
@@ -214,6 +217,7 @@ class UserAdminSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'full_name', 'role', 'role_display',
             'account_status', 'status_display', 'phone_number', 'zone',
             'date_joined', 'approval_note', 'approved_at',
+            'veterinarian_profile', 'shelter_profile', 'civic_profile',
         ]
 
     def get_full_name(self, obj):
