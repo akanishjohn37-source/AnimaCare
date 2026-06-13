@@ -216,7 +216,7 @@ const Appointments = () => {
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+      <div className="appointments-header">
         <div>
           <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: 800, margin: 0 }}>Vet Appointments</h1>
           <p style={{ color: 'rgba(255,255,255,0.4)', marginTop: '0.5rem' }}>Discover specialized care and manage your pet's clinical schedule.</p>
@@ -237,13 +237,13 @@ const Appointments = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
+      <div className="appointments-grid">
         {/* Veterinarians List */}
         <div>
           <h2 style={{ color: '#fff', fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <Stethoscope size={20} className="icon-accent" /> Veterinarians Directory
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+          <div className="vets-grid">
             {vets.map(vet => (
               <motion.div 
                 key={vet.id}
@@ -344,95 +344,144 @@ const Appointments = () => {
           style={{
             position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
             background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 1000, backdropFilter: 'blur(12px)'
+            zIndex: 1000, backdropFilter: 'blur(12px)',
+            padding: '1.5rem'
           }}
         >
           <motion.div 
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.9, y: 20 }}
-            className="glass-panel" 
-            style={{ width: '100%', maxWidth: 500, padding: '2.5rem', position: 'relative', border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
+            className="glass-panel modal-card" 
+            style={{ 
+              width: '100%', 
+              maxWidth: 520, 
+              maxHeight: '90vh', 
+              position: 'relative', 
+              border: '1px solid rgba(255,255,255,0.15)', 
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: 0,
+              overflow: 'hidden',
+              borderRadius: '20px'
+            }}
           >
-            <button onClick={() => { setShowModal(false); setSelectedVet(null); setSelectedDate(''); setSelectedSlotId(''); }} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
-               <X size={24} />
+            <button 
+              onClick={() => { setShowModal(false); setSelectedVet(null); setSelectedDate(''); setSelectedSlotId(''); }} 
+              style={{ 
+                position: 'absolute', 
+                top: '1.25rem', 
+                right: '1.25rem', 
+                background: 'rgba(255,255,255,0.05)', 
+                border: 'none', 
+                color: 'rgba(255,255,255,0.6)', 
+                cursor: 'pointer',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s',
+                zIndex: 10
+              }}
+              className="modal-close-btn"
+            >
+               <X size={18} />
             </button>
             
-             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                <h2 style={{ color: '#fff', margin: 0, fontSize: '1.75rem' }}>{selectedVet ? `Visit Dr. ${selectedVet.first_name || selectedVet.username}` : 'New Appointment'}</h2>
-                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Select your animal and choose an available consultation slot.</p>
-             </div>
- 
-             <form onSubmit={handleCreateAppointment} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                 <div>
-                   <label style={labelStyle}>Animal Type</label>
-                   <div style={{ position: 'relative' }}>
-                     <select 
-                       value={animalType}
-                       onChange={(e) => {
-                         setAnimalType(e.target.value);
-                         setSelectedAnimalId('');
-                       }}
-                       style={inputStyle}
-                     >
-                       <option value="pet">Pet</option>
-                       <option value="livestock">Livestock</option>
-                     </select>
-                     <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
-                   </div>
-                 </div>
- 
-                 <div>
-                   <label style={labelStyle}>Select {animalType === 'pet' ? 'Pet' : 'Livestock'}</label>
-                   <div style={{ position: 'relative' }}>
-                     <select 
-                       required
-                       value={selectedAnimalId}
-                       onChange={(e) => setSelectedAnimalId(e.target.value)}
-                       style={inputStyle}
-                     >
-                       <option value="">-- Choose {animalType === 'pet' ? 'Pet' : 'Livestock'} --</option>
-                       {animalType === 'pet' ? (
-                         pets.map(p => (
-                           <option key={p.id} value={p.id}>
-                             {p.name} ({p.species})
-                           </option>
-                         ))
-                       ) : (
-                         livestock.map(l => (
-                           <option key={l.id} value={l.id}>
-                             {l.name} ({l.species})
-                           </option>
-                         ))
-                       )}
-                     </select>
-                     <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
-                   </div>
-                 </div>
-               </div>
- 
-               {!selectedVet && (
-                 <div style={{ position: 'relative' }}>
-                   <label style={labelStyle}>Select Veterinarian</label>
-                   <div style={{ position: 'relative' }}>
-                     <select 
-                       required
-                       value={quickVetId}
+            {/* Modal Header */}
+            <div style={{ padding: '1.75rem 2rem 1.25rem 2rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <h2 style={{ color: '#fff', margin: 0, fontSize: '1.5rem', fontWeight: 700, paddingRight: '2.5rem' }}>
+                {selectedVet ? `Visit Dr. ${selectedVet.first_name || selectedVet.username}` : 'New Appointment'}
+              </h2>
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginTop: '0.25rem', marginBottom: 0 }}>
+                Select your animal and choose an available consultation slot.
+              </p>
+            </div>
+             
+            {/* Modal Body (Scrollable) */}
+            <div 
+              style={{ 
+                padding: '1.75rem 2rem 2rem 2rem', 
+                overflowY: 'auto', 
+                flex: 1,
+                scrollbarWidth: 'thin'
+              }} 
+              className="modal-scroll-body"
+            >
+              <form onSubmit={handleCreateAppointment} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={labelStyle}>Animal Type</label>
+                    <div style={{ position: 'relative' }}>
+                      <select 
+                        value={animalType}
+                        onChange={(e) => {
+                          setAnimalType(e.target.value);
+                          setSelectedAnimalId('');
+                        }}
+                        style={inputStyle}
+                      >
+                        <option value="pet">Pet</option>
+                        <option value="livestock">Livestock</option>
+                      </select>
+                      <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
+                    </div>
+                  </div>
+  
+                  <div>
+                    <label style={labelStyle}>Select {animalType === 'pet' ? 'Pet' : 'Livestock'}</label>
+                    <div style={{ position: 'relative' }}>
+                      <select 
+                        required
+                        value={selectedAnimalId}
+                        onChange={(e) => setSelectedAnimalId(e.target.value)}
+                        style={inputStyle}
+                      >
+                        <option value="">-- Choose {animalType === 'pet' ? 'Pet' : 'Livestock'} --</option>
+                        {animalType === 'pet' ? (
+                          pets.map(p => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} ({p.species})
+                            </option>
+                          ))
+                        ) : (
+                          livestock.map(l => (
+                            <option key={l.id} value={l.id}>
+                              {l.name} ({l.species})
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
+                    </div>
+                  </div>
+                </div>
+  
+                {!selectedVet && (
+                  <div>
+                    <label style={labelStyle}>Select Veterinarian</label>
+                    <div style={{ position: 'relative' }}>
+                      <select 
+                        required
+                        value={quickVetId}
                         onChange={(e) => {
                           setQuickVetId(e.target.value);
                           setSelectedDate('');
                           setSelectedSlotId('');
                         }}
-                     >
-                       <option value="">-- Choose Veterinarian --</option>
-                       {vets.map(v => <option key={v.id} value={v.id}>Dr. {v.first_name || v.username} {v.last_name}</option>)}
-                     </select>
-                     <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
-                   </div>
-                 </div>
-               )}
- 
+                        style={inputStyle}
+                      >
+                        <option value="">-- Choose Veterinarian --</option>
+                        {vets.map(v => <option key={v.id} value={v.id}>Dr. {v.first_name || v.username} {v.last_name}</option>)}
+                      </select>
+                      <ChevronDown size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
+                    </div>
+                  </div>
+                )}
+  
                 {/* Custom Calendar Date & Slot Picker */}
                 {(() => {
                   const activeVetId = selectedVet?.id || (quickVetId ? parseInt(quickVetId) : null);
@@ -634,11 +683,11 @@ const Appointments = () => {
                             {(() => {
                               const daySlots = slots.filter(s => s.vet === activeVetId && s.date === selectedDate);
                               if (daySlots.length === 0) {
-                                return (
-                                  <div style={{ gridColumn: 'span 3', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
-                                    No slots scheduled for this day.
-                                  </div>
-                                );
+                                  return (
+                                    <div style={{ gridColumn: 'span 3', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
+                                      No slots scheduled for this day.
+                                    </div>
+                                  );
                               }
                               return daySlots.map(s => {
                                 const remaining = s.max_appointments - s.booked_count;
@@ -696,20 +745,21 @@ const Appointments = () => {
                     </div>
                   );
                 })()}
- 
-               <div>
-                 <label style={labelStyle}>Reason for Examination</label>
-                 <textarea 
-                   rows="3"
-                   value={bookingReason}
-                   onChange={(e) => setBookingReason(e.target.value)}
-                   placeholder="Describe symptoms or visit reason..."
-                   style={{ ...inputStyle, resize: 'none', appearance: 'auto', cursor: 'text' }}
-                 />
-               </div>
- 
-               <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem', padding: '1rem', fontWeight: 700, fontSize: '1rem' }}>Confirm Booking</button>
-             </form>
+  
+                <div>
+                  <label style={labelStyle}>Reason for Examination</label>
+                  <textarea 
+                    rows="3"
+                    value={bookingReason}
+                    onChange={(e) => setBookingReason(e.target.value)}
+                    placeholder="Describe symptoms or visit reason..."
+                    style={{ ...inputStyle, resize: 'none', appearance: 'auto', cursor: 'text' }}
+                  />
+                </div>
+  
+                <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem', padding: '1rem', fontWeight: 700, fontSize: '1rem' }}>Confirm Booking</button>
+              </form>
+            </div>
           </motion.div>
         </motion.div>
       )}
@@ -735,6 +785,69 @@ const Appointments = () => {
         }
         .icon-accent {
           color: #8b5cf6;
+        }
+        .appointments-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 2.5rem;
+          gap: 1.5rem;
+        }
+        .appointments-grid {
+          display: grid;
+          grid-template-columns: 2fr 1fr;
+          gap: 2rem;
+        }
+        .vets-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1.25rem;
+        }
+        .modal-close-btn {
+          background: rgba(255,255,255,0.05);
+          border: none;
+          color: rgba(255,255,255,0.6);
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .modal-close-btn:hover {
+          background-color: rgba(255,255,255,0.1) !important;
+          color: #fff !important;
+        }
+        .modal-scroll-body::-webkit-scrollbar {
+          width: 6px;
+        }
+        .modal-scroll-body::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .modal-scroll-body::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.15);
+          border-radius: 3px;
+        }
+        .modal-scroll-body::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.3);
+        }
+        @media (max-width: 1024px) {
+          .appointments-grid {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+          }
+        }
+        @media (max-width: 768px) {
+          .appointments-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 2rem;
+          }
+          .appointments-header h1 {
+            font-size: 2rem !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .vets-grid {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </div>

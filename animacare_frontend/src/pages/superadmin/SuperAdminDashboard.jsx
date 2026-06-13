@@ -87,6 +87,14 @@ const SuperAdminDashboard = () => {
   const [toast, setToast]               = useState('');
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, userId: null, action: null, reason: '' });
   const [auditLogs, setAuditLogs]       = useState(getInitialAuditLogs());
+  const [expandedDetails, setExpandedDetails] = useState({});
+
+  const toggleDetails = (userId) => {
+    setExpandedDetails(prev => ({
+      ...prev,
+      [userId]: !prev[userId]
+    }));
+  };
 
   const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
@@ -315,6 +323,144 @@ const SuperAdminDashboard = () => {
                         )}
                       </div>
                     </div>
+
+                    <button 
+                      onClick={() => toggleDetails(u.id)}
+                      style={{
+                        background: expandedDetails[u.id] ? 'rgba(167, 139, 250, 0.2)' : 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: expandedDetails[u.id] ? '#a78bfa' : '#fff',
+                        padding: '0.4rem 0.8rem',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        width: 'fit-content',
+                        marginTop: '0.5rem',
+                        marginBottom: '0.5rem'
+                      }}
+                    >
+                      {expandedDetails[u.id] ? 'Hide Verification Details ▴' : 'View Verification Details ▾'}
+                    </button>
+
+                    {expandedDetails[u.id] && (
+                      <div style={{
+                        marginTop: '0.5rem',
+                        marginBottom: '1rem',
+                        padding: '1rem',
+                        borderRadius: '8px',
+                        background: 'rgba(0,0,0,0.2)',
+                        border: '1px solid rgba(255,255,255,0.05)'
+                      }}>
+                        <h4 style={{ margin: '0 0 0.8rem 0', color: '#a78bfa', fontSize: '0.9rem', letterSpacing: '1px' }}>VERIFICATION DATA</h4>
+                        
+                        {u.role === 'veterinarian' && u.veterinarian_profile && (
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)' }}>
+                            <div>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Clinic Name:</strong>
+                              {u.veterinarian_profile.clinic_hospital_name}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>License Number:</strong>
+                              {u.veterinarian_profile.medical_license_number}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Specialization:</strong>
+                              {u.veterinarian_profile.specialization}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Years of Experience:</strong>
+                              {u.veterinarian_profile.years_of_experience}
+                            </div>
+                            <div style={{ gridColumn: '1 / -1' }}>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Clinic Address:</strong>
+                              {u.veterinarian_profile.clinic_address}
+                            </div>
+                            <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <strong style={{ minWidth: '130px' }}>License Document:</strong>
+                              {u.veterinarian_profile.license_document_url ? (
+                                <a href={u.veterinarian_profile.license_document_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#4ade80', textDecoration: 'none', background: 'rgba(74, 222, 128, 0.1)', padding: '0.3rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500 }}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                  View Document
+                                </a>
+                              ) : (
+                                <span style={{ color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>Not uploaded</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {u.role === 'shelter_admin' && u.shelter_profile && (
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)' }}>
+                            <div>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Shelter Name:</strong>
+                              {u.shelter_profile.shelter_name}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>NGO Registration Number:</strong>
+                              {u.shelter_profile.shelter_registration_number}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Shelter Type:</strong>
+                              {u.shelter_profile.shelter_type === 'specific' ? `Specific (${u.shelter_profile.specific_animal})` : 'Mixed Animal'}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Capacity:</strong>
+                              {u.shelter_profile.capacity}
+                            </div>
+                            <div style={{ gridColumn: '1 / -1' }}>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Shelter Address:</strong>
+                              {u.shelter_profile.shelter_address}
+                            </div>
+                            <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <strong style={{ minWidth: '130px' }}>NGO Document:</strong>
+                              {u.shelter_profile.registration_document_url ? (
+                                <a href={u.shelter_profile.registration_document_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#4ade80', textDecoration: 'none', background: 'rgba(74, 222, 128, 0.1)', padding: '0.3rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500 }}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                  View Document
+                                </a>
+                              ) : (
+                                <span style={{ color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>Not uploaded</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {u.role === 'civic_authority' && u.civic_profile && (
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)' }}>
+                            <div>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Department:</strong>
+                              {u.civic_profile.department_name}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Designation:</strong>
+                              {u.civic_profile.designation}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Employee ID:</strong>
+                              {u.civic_profile.employee_id}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Jurisdiction Area:</strong>
+                              {u.civic_profile.jurisdiction_area}
+                            </div>
+                            <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <strong style={{ minWidth: '130px' }}>Official ID:</strong>
+                              {u.civic_profile.id_document_url ? (
+                                <a href={u.civic_profile.id_document_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#4ade80', textDecoration: 'none', background: 'rgba(74, 222, 128, 0.1)', padding: '0.3rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500 }}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                  View Document
+                                </a>
+                              ) : (
+                                <span style={{ color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>Not uploaded</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Admin note field */}
                     <div style={{ display: 'flex', gap: '0.75rem' }}>

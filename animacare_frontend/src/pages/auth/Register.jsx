@@ -52,7 +52,7 @@ const KERALA_LOCAL_BODIES = [
   'Kannur Corporation',
 ];
 
-const STEPS = ['Select Role', 'Personal Info', 'Professional Details', 'Review'];
+const STEPS = ['Select Role', 'Personal Info', 'Professional Details'];
 
 const Register = () => {
   const { register } = useAuth();
@@ -183,18 +183,18 @@ const Register = () => {
     veterinarian_profile: {
       clinic_hospital_name: '', medical_license_number: '',
       clinic_address: '', professional_contact_number: '',
-      specialization: '', years_of_experience: '',
+      specialization: '', years_of_experience: '', license_document_url: ''
     },
     // Shelter
     shelter_profile: {
       shelter_name: '', shelter_registration_number: '',
       shelter_address: '', shelter_contact_number: '', capacity: '',
-      shelter_type: 'mixed', specific_animal: '',
+      shelter_type: 'mixed', specific_animal: '', registration_document_url: ''
     },
     // Civic
     civic_profile: {
       department_name: '', employee_id: '',
-      jurisdiction_area: '', designation: '', official_contact: '',
+      jurisdiction_area: '', designation: '', official_contact: '', id_document_url: ''
     },
   });
 
@@ -218,43 +218,132 @@ const Register = () => {
     setError('');
   };
 
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+
+  const handleFileUpload = async (e, section, fieldName) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadingDoc(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch(`${API_BASE}/upload/`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setForm((p) => ({
+          ...p,
+          [section]: { ...p[section], [fieldName]: data.url }
+        }));
+      } else {
+        setError(data.error || 'Failed to upload document');
+      }
+    } catch (err) {
+      setError('Network error during file upload');
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
   const roleObj = ROLES.find((r) => r.value === selectedRole);
 
-  const canNext = () => {
-    if (step === 0) return !!selectedRole;
-    if (step === 1) {
-      return !!(form.username && form.email && form.first_name &&
-        form.last_name && form.password && form.confirm_password &&
-        form.phone_number.length === 10 && (selectedRole === 'civic_authority' || form.zone));
+  const validatePersonalStep = () => {
+    if (!form.first_name.trim()) {
+      return "First name is required.";
     }
-    if (step === 2) {
-      if (selectedRole === 'veterinarian') {
-        return Object.values(form.veterinarian_profile).every(v => v.trim() !== '') && form.veterinarian_profile.professional_contact_number.length === 10;
-      }
-      if (selectedRole === 'shelter_admin') {
-        const sp = form.shelter_profile;
-        const baseOk = !!(sp.shelter_name && sp.shelter_registration_number && sp.shelter_address && sp.capacity !== '' && sp.shelter_contact_number.length === 10);
-        if (sp.shelter_type === 'specific') {
-          return baseOk && !!(sp.specific_animal && sp.specific_animal.trim());
-        }
-        return baseOk;
-      }
-      if (selectedRole === 'civic_authority') {
-        return Object.values(form.civic_profile).every(v => v.trim() !== '') &&
-          form.civic_profile.official_contact.length === 10 &&
-          municipalStatus === 'verified';
-      }
+    if (!form.last_name.trim()) {
+      return "Last name is required.";
     }
-    return true;
+    if (!form.username.trim()) {
+      return "Username is required.";
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!form.email.trim()) {
+      return "Email address is required.";
+    }
+    if (!emailRegex.test(form.email)) {
+      return "Please enter a valid email address.";
+    }
+    if (!form.phone_number) {
+      return "Phone number is required.";
+    }
+    if (form.phone_number.length !== 10) {
+      return "Phone number must be exactly 10 digits.";
+    }
+    if (!form.address.trim()) {
+      return "Address is required.";
+    }
+    if (selectedRole !== 'civic_authority' && !form.zone) {
+      return "Local body jurisdiction is required.";
+    }
+    if (!form.password) {
+      return "Password is required.";
+    }
+    if (form.password.length < 8) {
+      return "Password must be at least 8 characters.";
+    }
+    if (form.password !== form.confirm_password) {
+      return "Passwords do not match.";
+    }
+    return null;
+  };
+
+  const validateProfessionalStep = () => {
+    if (selectedRole === 'citizen') {
+      return null;
+    }
+    if (selectedRole === 'veterinarian') {
+      const vp = form.veterinarian_profile;
+      if (!vp.clinic_hospital_name.trim()) return "Clinic/Hospital Name is required.";
+      if (!vp.medical_license_number.trim()) return "Medical License Number is required.";
+      if (vetLicenseStatus !== 'verified') return "Please verify your veterinary license number before proceeding.";
+      if (!vp.specialization.trim()) return "Specialization is required.";
+      if (!vp.professional_contact_number) return "Professional contact number is required.";
+      if (vp.professional_contact_number.length !== 10) return "Professional contact number must be exactly 10 digits.";
+      if (!vp.years_of_experience || parseInt(vp.years_of_experience) <= 0) return "Please enter valid years of experience.";
+      if (!vp.clinic_address.trim()) return "Clinic Address is required.";
+    }
+    if (selectedRole === 'shelter_admin') {
+      const sp = form.shelter_profile;
+      if (!sp.shelter_name.trim()) return "Shelter Name is required.";
+      if (!sp.shelter_registration_number.trim()) return "NGO Darpan ID is required.";
+      if (darpanStatus !== 'verified') return "Please verify your NGO Darpan ID before proceeding.";
+      if (!sp.capacity || parseInt(sp.capacity) <= 0) return "Capacity must be a valid positive number.";
+      if (sp.shelter_type === 'specific' && !sp.specific_animal.trim()) return "Please specify the target animal/species.";
+      if (!sp.shelter_contact_number) return "Shelter contact number is required.";
+      if (sp.shelter_contact_number.length !== 10) return "Shelter contact number must be exactly 10 digits.";
+      if (!sp.shelter_address.trim()) return "Shelter Address is required.";
+    }
+    if (selectedRole === 'civic_authority') {
+      const cp = form.civic_profile;
+      if (!cp.department_name.trim()) return "Department Name is required.";
+      if (!cp.employee_id.trim()) return "Employee ID is required.";
+      if (!cp.designation.trim()) return "Designation is required.";
+      if (!cp.jurisdiction_area) return "Jurisdiction Area is required.";
+      if (!cp.official_contact) return "Official contact number is required.";
+      if (cp.official_contact.length !== 10) return "Official contact number must be exactly 10 digits.";
+      if (municipalStatus !== 'verified') return "Please verify your municipal registration code before proceeding.";
+    }
+    return null;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (form.password !== form.confirm_password) {
-      setError('Passwords do not match.'); return;
+    
+    const personalErr = validatePersonalStep();
+    if (personalErr) {
+      setError(personalErr);
+      return;
     }
-    if (form.password.length < 8) {
-      setError('Password must be at least 8 characters.'); return;
+
+    const professionalErr = validateProfessionalStep();
+    if (professionalErr) {
+      setError(professionalErr);
+      return;
     }
 
     setLoading(true);
@@ -283,7 +372,7 @@ const Register = () => {
 
       if (result.requires_approval) {
         setSuccess(result.message);
-        setStep(4); // "pending" state
+        setStep(3); // "pending" state
       } else {
         // Citizen — auto-logged in, go to dashboard
         navigate('/dashboard', { replace: true });
@@ -606,8 +695,9 @@ const Register = () => {
             )}
           </div>
           <div className="auth-field auth-field--full">
-            <label>Upload Registration Certificate</label>
-            <input type="file" name="registration_certificate" accept="image/*,.pdf" className="auth-input-wrap" style={{ padding: '0.5rem', width: '100%' }} />
+            <label>Upload Registration Certificate {uploadingDoc && <Loader2 size={12} className="auth-btn-spinner" />}</label>
+            <input type="file" accept="image/*,.pdf" className="auth-input-wrap" style={{ padding: '0.5rem', width: '100%' }} onChange={(e) => handleFileUpload(e, 'veterinarian_profile', 'license_document_url')} />
+            {vp.license_document_url && <span style={{ color: '#4ade80', fontSize: '0.75rem', marginTop: '0.2rem', display: 'block' }}>✓ Document uploaded</span>}
             <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>The Municipality Admin will manually verify your license via the State Veterinary Council database.</p>
           </div>
           <div className="auth-field">
@@ -688,6 +778,11 @@ const Register = () => {
               </div>
             )}
           </div>
+          <div className="auth-field auth-field--full">
+            <label>Upload NGO Registration Document {uploadingDoc && <Loader2 size={12} className="auth-btn-spinner" />}</label>
+            <input type="file" accept="image/*,.pdf" className="auth-input-wrap" style={{ padding: '0.5rem', width: '100%' }} onChange={(e) => handleFileUpload(e, 'shelter_profile', 'registration_document_url')} />
+            {sp.registration_document_url && <span style={{ color: '#f59e0b', fontSize: '0.75rem', marginTop: '0.2rem', display: 'block' }}>✓ Document uploaded</span>}
+          </div>
           <div className="auth-field">
             <label>Capacity (animals)</label>
             <div className="auth-input-wrap"><Hash size={15} className="auth-input-icon" />
@@ -757,6 +852,11 @@ const Register = () => {
             <div className="auth-input-wrap"><Hash size={15} className="auth-input-icon" />
               <input name="employee_id" value={cp.employee_id} onChange={ch}
                 placeholder="EMP-GOV-0234" /></div>
+          </div>
+          <div className="auth-field auth-field--full">
+            <label>Upload Government ID / Authorization Letter {uploadingDoc && <Loader2 size={12} className="auth-btn-spinner" />}</label>
+            <input type="file" accept="image/*,.pdf" className="auth-input-wrap" style={{ padding: '0.5rem', width: '100%' }} onChange={(e) => handleFileUpload(e, 'civic_profile', 'id_document_url')} />
+            {cp.id_document_url && <span style={{ color: '#a78bfa', fontSize: '0.75rem', marginTop: '0.2rem', display: 'block' }}>✓ Document uploaded</span>}
           </div>
           <div className="auth-field">
             <label>Designation</label>
@@ -903,7 +1003,7 @@ const Register = () => {
   );
 
   /* ──────────────── Pending Success ──────────────── */
-  if (step === 4 && success) {
+  if (step === 3 && success) {
     return (
       <div className="auth-page auth-page--center">
         <div className="auth-card auth-card--success">
@@ -923,7 +1023,7 @@ const Register = () => {
     );
   }
 
-  const stepTitles = ['Choose Your Role', 'Personal Information', 'Professional Details', 'Review & Submit'];
+  const stepTitles = ['Choose Your Role', 'Personal Information', 'Professional Details'];
 
   return (
     <div className="auth-page">
@@ -952,15 +1052,13 @@ const Register = () => {
               {step === 0 && 'Select the role that best describes you'}
               {step === 1 && 'Fill in your basic account details'}
               {step === 2 && (selectedRole === 'citizen' ? 'No extra details required!' : 'Provide your professional credentials')}
-              {step === 3 && 'Confirm your information before submitting'}
             </p>
           </div>
 
-          <form onSubmit={step === 3 ? handleSubmit : (e) => e.preventDefault()}>
+          <form onSubmit={step === 2 ? handleSubmit : (e) => e.preventDefault()}>
             {step === 0 && renderRoleStep()}
             {step === 1 && renderPersonalStep()}
             {step === 2 && renderProfessionalStep()}
-            {step === 3 && renderReviewStep()}
 
             {error && (
               <div className="auth-alert auth-alert--error" style={{ marginTop: '1rem' }}>
@@ -970,28 +1068,38 @@ const Register = () => {
 
             <div className="auth-nav-btns">
               {step > 0 && (
-                <button type="button" className="auth-back-btn" onClick={() => setStep((p) => p - 1)}>
+                <button type="button" className="auth-back-btn" onClick={() => { setError(''); setStep((p) => p - 1); }}>
                   ← Back
                 </button>
               )}
-              {step < 3 && (
+              {step < 2 && (
                 <button
                   type="button"
                   id={`register-next-step-${step}`}
                   className="auth-submit-btn"
                   onClick={() => {
-                    if (!canNext()) {
-                      setError('Please fill in all required fields accurately before proceeding.');
-                    } else {
-                      setError('');
-                      setStep((p) => p + 1);
+                    if (step === 0) {
+                      if (!selectedRole) {
+                        setError('Please select a role to proceed.');
+                      } else {
+                        setError('');
+                        setStep((p) => p + 1);
+                      }
+                    } else if (step === 1) {
+                      const personalErr = validatePersonalStep();
+                      if (personalErr) {
+                        setError(personalErr);
+                      } else {
+                        setError('');
+                        setStep((p) => p + 1);
+                      }
                     }
                   }}
                 >
                   Continue <ArrowRight size={16} />
                 </button>
               )}
-              {step === 3 && (
+              {step === 2 && (
                 <button
                   type="submit"
                   id="register-submit-btn"

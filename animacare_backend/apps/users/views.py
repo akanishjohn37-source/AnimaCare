@@ -12,6 +12,21 @@ from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from .serializers import RegisterSerializer, LoginSerializer, UserProfileSerializer, NotificationSerializer
 from .models import VeterinarianProfile, ShelterAdminProfile, CivicAuthorityProfile, Notification
+from django.core.files.storage import default_storage
+
+class UploadDocumentView(APIView):
+    """Handles file uploads for user registration documents"""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response({'error': 'No file provided'}, status=400)
+        
+        # Save file to media directory
+        file_name = default_storage.save(f'documents/{file_obj.name}', file_obj)
+        file_url = request.build_absolute_uri(default_storage.url(file_name))
+        return Response({'url': file_url})
 
 User = get_user_model()
 

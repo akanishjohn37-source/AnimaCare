@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     RegisterView, LoginView, LogoutView, MeView, ChangePasswordDirectView,
     PendingUsersView, ApproveUserView, AllUsersView, UserStatsView, VetsView, NotificationViewSet,
-    TokenRefreshView,
+    TokenRefreshView, UploadDocumentView,
     VerifyVetLicenseView, VerifyNGODarpanView, VerifyMunicipalRegistrationView,
     VerifyOwnerPetBindingView, OccupiedCivicZonesView,
 )
@@ -20,6 +20,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('me/', MeView.as_view(), name='me'),
     path('change-password/', ChangePasswordDirectView.as_view(), name='change-password'),
+    path('upload/', UploadDocumentView.as_view(), name='upload-document'),
 
     # Admin — user management & approval
     path('admin/users/', AllUsersView.as_view(), name='admin-users'),

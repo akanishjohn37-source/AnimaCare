@@ -18,6 +18,13 @@ VET_LICENSE_REGISTRY = {
         "expiry": "2027-06-15",
         "specialization": "Surgery",
     },
+        "KSVC.REG.56782": {
+        "name": "Dr. Ravi Kumar",
+        "status": "active",
+        "state_council": "Kerala State Veterinary Council",
+        "expiry": "2027-06-15",
+        "specialization": "Surgery",
+    },
     "KSVC.REG.9999": {
         "name": "Dr. Fake Revoked",
         "status": "suspended",
