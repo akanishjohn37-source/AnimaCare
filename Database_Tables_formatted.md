@@ -1,0 +1,437 @@
+# Database Schema Table Details
+
+## Table: AnimalInventory
+* **Primary Key**: `id`
+* **Foreign Key**: `None`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | UUID | 36 | Primary Key | Stores unique animalinventory id |
+| 2 | name | Varchar | 100 | Not Null | Stores name |
+| 3 | breed | Varchar | 100 | Not Null | Stores breed |
+| 4 | energy_level | Integer | 11 | Not Null | Stores energy level |
+| 5 | sociability | Varchar | 50 | Not Null | Stores sociability |
+| 6 | required_maintenance | Varchar | 50 | Not Null | Stores required maintenance |
+| 7 | good_for_apartments | Boolean |  | Not Null | Stores good for apartments |
+| 8 | good_with_children | Boolean |  | Not Null | Stores good with children |
+| 9 | good_with_other_pets | Boolean |  | Not Null | Stores good with other pets |
+| 10 | image_url | Varchar | 200 |  | Stores image url |
+
+## Table: Pet
+* **Primary Key**: `id`
+* **Foreign Key**: `owner`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | UUID | 36 | Primary Key | Stores unique pet id |
+| 2 | owner | Integer | 11 | Foreign Key | Stores reference ID to the settings |
+| 3 | name | Varchar | 100 | Not Null | Stores name |
+| 4 | breed | Varchar | 100 | Not Null | Stores breed |
+| 5 | age_months | Integer | 11 | Not Null | Stores age months |
+| 6 | current_weight_kg | Float |  | Not Null | Stores current weight kg |
+
+## Table: MedicalRecord
+* **Primary Key**: `id`
+* **Foreign Key**: `pet`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | UUID | 36 | Primary Key | Stores unique medicalrecord id |
+| 2 | pet | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the Pet |
+| 3 | date | Date |  | Not Null | Stores date |
+| 4 | weight_kg | Float |  | Not Null | Stores weight kg |
+| 5 | notes | Text |  |  | Stores notes |
+
+## Table: LifestyleAssessment
+* **Primary Key**: `id`
+* **Foreign Key**: `user`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique lifestyleassessment id |
+| 2 | user | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the settings |
+| 3 | housing_type | Varchar | 100 | Not Null | Stores housing type |
+| 4 | activity_level | Integer | 11 | Not Null | Stores activity level |
+| 5 | has_children | Boolean |  | Not Null | Stores has children |
+| 6 | has_other_pets | Boolean |  | Not Null | Stores has other pets |
+| 7 | created_at | Datetime |  | Not Null | Stores created at |
+
+## Table: AICompatibilityScore
+* **Primary Key**: `id`
+* **Foreign Key**: `user, animal`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique aicompatibilityscore id |
+| 2 | user | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the settings |
+| 3 | animal | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the AnimalInventory |
+| 4 | score_percentage | Float |  | Not Null | Stores score percentage |
+| 5 | match_reasons | JSON |  | Not Null | Stores match reasons |
+| 6 | calculated_at | Datetime |  | Not Null | Stores calculated at |
+
+## Table: HealthRiskFlag
+* **Primary Key**: `id`
+* **Foreign Key**: `pet`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique healthriskflag id |
+| 2 | pet | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the Pet |
+| 3 | risk_type | Varchar | 100 | Not Null | Stores risk type |
+| 4 | severity | Varchar | 50 | Not Null | Stores severity |
+| 5 | description | Text |  | Not Null | Stores description |
+| 6 | is_active | Boolean |  | Not Null | Stores is active |
+| 7 | flagged_at | Datetime |  | Not Null | Stores flagged at |
+
+## Table: Pet
+* **Primary Key**: `id`
+* **Foreign Key**: `owner`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique pet id |
+| 2 | owner | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the User |
+| 3 | name | Varchar | 100 | Not Null | Stores name |
+| 4 | species | Varchar | 50 | Not Null | Stores species |
+| 5 | breed | Varchar | 100 |  | Stores breed |
+| 6 | health_status | Varchar | 100 | Not Null | Stores health status |
+| 7 | gender | Varchar | 50 |  | Stores gender |
+| 8 | dob | Date |  |  | Stores dob |
+| 9 | media_url | Text |  |  | Stores media url |
+| 10 | ownership_verified | Boolean |  | Not Null | Stores ownership verified |
+| 11 | ownership_verified_at | Datetime |  |  | Stores ownership verified at |
+
+## Table: FarmLocation
+* **Primary Key**: `id`
+* **Foreign Key**: `owner`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique farmlocation id |
+| 2 | owner | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the User |
+| 3 | name | Varchar | 255 | Not Null | Stores name |
+
+## Table: Livestock
+* **Primary Key**: `id`
+* **Foreign Key**: `owner`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique livestock id |
+| 2 | owner | Integer | 11 | Foreign Key | Stores reference ID to the User |
+| 3 | name | Varchar | 100 |  | Stores name |
+| 4 | species | Varchar | 50 |  | Stores species |
+| 5 | livestock_type | Varchar | 100 |  | Stores livestock type |
+| 6 | farm_location | Varchar | 255 |  | Stores farm location |
+| 7 | health_status | Varchar | 100 | Not Null | Stores health status |
+| 8 | gender | Varchar | 50 |  | Stores gender |
+| 9 | dob | Date |  |  | Stores dob |
+| 10 | media_url | Text |  |  | Stores media url |
+| 11 | ownership_verified | Boolean |  | Not Null | Stores ownership verified |
+| 12 | ownership_verified_at | Datetime |  |  | Stores ownership verified at |
+
+## Table: SOSAlert
+* **Primary Key**: `id`
+* **Foreign Key**: `reporter, assigned_shelter`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique sosalert id |
+| 2 | reporter | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the User |
+| 3 | alert_type | Varchar | 20 | Not Null | Stores alert type |
+| 4 | animal_description | Text |  |  | Stores animal description |
+| 5 | location | Varchar | 255 | Not Null | Stores location |
+| 6 | timestamp | Datetime |  | Not Null | Stores timestamp |
+| 7 | status | Varchar | 20 | Not Null | Stores status |
+| 8 | assigned_shelter | Integer | 11 | Foreign Key | Stores reference ID to the shelter |
+| 9 | is_resolved | Boolean |  | Not Null | Stores is resolved |
+
+## Table: ConsultationLog
+* **Primary Key**: `id`
+* **Foreign Key**: `pet, livestock, attending_vet`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique consultationlog id |
+| 2 | pet | Integer | 11 | Foreign Key | Stores reference ID to the Pet |
+| 3 | livestock | Integer | 11 | Foreign Key | Stores reference ID to the Livestock |
+| 4 | attending_vet | Integer | 11 | Foreign Key | Stores reference ID to the settings |
+| 5 | date | Datetime |  | Not Null | Stores date |
+| 6 | vital_signs | JSON |  |  | Stores vital signs |
+| 7 | consultation_notes | Text |  |  | Stores consultation notes |
+| 8 | zoonotic_disease_flag | Varchar | 100 |  | Stores zoonotic disease flag |
+| 9 | health_status | Varchar | 100 |  | Stores health status |
+
+## Table: VaccinationLog
+* **Primary Key**: `id`
+* **Foreign Key**: `consultation, original_record`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique vaccinationlog id |
+| 2 | consultation | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the ConsultationLog |
+| 3 | injection_name | Varchar | 100 | Not Null | Stores injection name |
+| 4 | manufacturer | Varchar | 100 | Not Null | Stores manufacturer |
+| 5 | batch_number | Varchar | 50 | Not Null | Stores batch number |
+| 6 | date_administered | Date |  | Not Null | Stores date administered |
+| 7 | next_due_date | Date |  |  | Stores next due date |
+| 8 | is_frozen | Boolean |  | Not Null | Stores is frozen |
+| 9 | record_hash | Varchar | 64 |  | Stores record hash |
+| 10 | is_amended | Boolean |  | Not Null | Stores is amended |
+| 11 | original_record | Integer | 11 | Foreign Key | Stores reference ID to the self |
+
+## Table: DigitalPrescription
+* **Primary Key**: `id`
+* **Foreign Key**: `consultation`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique digitalprescription id |
+| 2 | consultation | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the ConsultationLog |
+| 3 | medications | JSON |  | Not Null | Stores medications |
+| 4 | issued_date | Datetime |  | Not Null | Stores issued date |
+| 5 | is_frozen | Boolean |  | Not Null | Stores is frozen |
+| 6 | record_hash | Varchar | 64 |  | Stores record hash |
+
+## Table: DiagnosticMedia
+* **Primary Key**: `id`
+* **Foreign Key**: `consultation`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique diagnosticmedia id |
+| 2 | consultation | Integer | 11 | Foreign Key | Stores reference ID to the ConsultationLog |
+| 3 | media_url | Text |  | Not Null | Stores media url |
+| 4 | media_type | Varchar | 50 | Not Null | Stores media type |
+| 5 | diagnostic_tags | JSON |  |  | Stores diagnostic tags |
+| 6 | uploaded_at | Datetime |  | Not Null | Stores uploaded at |
+
+## Table: AppointmentSlot
+* **Primary Key**: `id`
+* **Foreign Key**: `vet`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique appointmentslot id |
+| 2 | vet | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the settings |
+| 3 | date | Date |  | Not Null | Stores date |
+| 4 | start_time | TimeField |  | Not Null | Stores start time |
+| 5 | end_time | TimeField |  | Not Null | Stores end time |
+| 6 | max_appointments | Integer | 11 | Not Null | Stores max appointments |
+| 7 | booked_count | Integer | 11 | Not Null | Stores booked count |
+| 8 | is_active | Boolean |  | Not Null | Stores is active |
+
+## Table: VetScheduleDay
+* **Primary Key**: `id`
+* **Foreign Key**: `vet`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique vetscheduleday id |
+| 2 | vet | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the settings |
+| 3 | date | Date |  | Not Null | Stores date |
+| 4 | status | Varchar | 10 | Not Null | Stores status |
+
+## Table: Appointment
+* **Primary Key**: `id`
+* **Foreign Key**: `pet, livestock, vet, slot`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique appointment id |
+| 2 | pet | Integer | 11 | Foreign Key | Stores reference ID to the Pet |
+| 3 | livestock | Integer | 11 | Foreign Key | Stores reference ID to the Livestock |
+| 4 | vet | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the settings |
+| 5 | slot | Integer | 11 | Foreign Key | Stores reference ID to the AppointmentSlot |
+| 6 | date | Datetime |  | Not Null | Stores date |
+| 7 | reason | Text |  |  | Stores reason |
+| 8 | status | Varchar | 20 | Not Null | Stores status |
+| 9 | created_at | Datetime |  | Not Null | Stores created at |
+
+## Table: SelfReportedRecord
+* **Primary Key**: `id`
+* **Foreign Key**: `pet, livestock`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique selfreportedrecord id |
+| 2 | pet | Integer | 11 | Foreign Key | Stores reference ID to the Pet |
+| 3 | livestock | Integer | 11 | Foreign Key | Stores reference ID to the Livestock |
+| 4 | title | Varchar | 255 | Not Null | Stores title |
+| 5 | date | Date |  | Not Null | Stores date |
+| 6 | description | Text |  |  | Stores description |
+| 7 | created_at | Datetime |  | Not Null | Stores created at |
+
+## Table: VaccinationSchedule
+* **Primary Key**: `id`
+* **Foreign Key**: `pet, livestock, owner`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique vaccinationschedule id |
+| 2 | pet | Integer | 11 | Foreign Key | Stores reference ID to the Pet |
+| 3 | livestock | Integer | 11 | Foreign Key | Stores reference ID to the Livestock |
+| 4 | owner | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the settings |
+| 5 | animal_name | Varchar | 100 | Not Null | Stores animal name |
+| 6 | animal_type | Varchar | 50 | Not Null | Stores animal type |
+| 7 | gender | Varchar | 20 |  | Stores gender |
+| 8 | date_of_birth | Date |  | Not Null | Stores date of birth |
+| 9 | track | Varchar | 20 | Not Null | Stores track |
+| 10 | created_at | Datetime |  | Not Null | Stores created at |
+
+## Table: VaccinationScheduleItem
+* **Primary Key**: `id`
+* **Foreign Key**: `schedule`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique vaccinationscheduleitem id |
+| 2 | schedule | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the VaccinationSchedule |
+| 3 | item_type | Varchar | 20 | Not Null | Stores item type |
+| 4 | title | Varchar | 255 | Not Null | Stores title |
+| 5 | description | Text |  |  | Stores description |
+| 6 | scheduled_date | Date |  | Not Null | Stores scheduled date |
+| 7 | is_completed | Boolean |  | Not Null | Stores is completed |
+| 8 | notification_sent | Boolean |  | Not Null | Stores notification sent |
+
+## Table: AuditTrail
+* **Primary Key**: `id`
+* **Foreign Key**: `admin_user`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique audittrail id |
+| 2 | admin_user | Integer | 11 | Foreign Key | Stores reference ID to the settings |
+| 3 | action_type | Varchar | 100 | Not Null | Stores action type |
+| 4 | description | Text |  | Not Null | Stores description |
+| 5 | timestamp | Datetime |  | Not Null | Stores timestamp |
+| 6 | ip_address | Varchar | 39 |  | Stores ip address |
+
+## Table: Shelter
+* **Primary Key**: `id`
+* **Foreign Key**: `admin`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique shelter id |
+| 2 | name | Varchar | 255 | Not Null | Stores name |
+| 3 | tax_id | Varchar | 50 | Unique, Not Null | Stores tax id |
+| 4 | address | Text |  | Not Null | Stores address |
+| 5 | location | Varchar | 255 | Not Null | Stores location |
+| 6 | admin | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the User |
+| 7 | is_verified | Boolean |  | Not Null | Stores is verified |
+
+## Table: AnimalInventory
+* **Primary Key**: `id`
+* **Foreign Key**: `shelter`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique animalinventory id |
+| 2 | shelter | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the Shelter |
+| 3 | name | Varchar | 100 | Not Null | Stores name |
+| 4 | species | Varchar | 50 | Not Null | Stores species |
+| 5 | breed | Varchar | 100 |  | Stores breed |
+| 6 | age | Varchar | 50 |  | Stores age |
+| 7 | behavioral_traits | Text |  |  | Stores behavioral traits |
+| 8 | medical_triage_status | Varchar | 50 | Not Null | Stores medical triage status |
+| 9 | intake_date | Date |  | Not Null | Stores intake date |
+| 10 | found_location | Varchar | 255 |  | Stores found location |
+| 11 | kennel_zone_id | Varchar | 50 | Not Null | Stores kennel zone id |
+| 12 | is_adopted | Boolean |  | Not Null | Stores is adopted |
+| 13 | is_available | Boolean |  | Not Null | Stores is available |
+| 14 | is_suspended | Boolean |  | Not Null | Stores is suspended |
+| 15 | listing_type | Varchar | 20 | Not Null | Stores listing type |
+| 16 | price | Decimal | 10,2 | Not Null | Stores price |
+| 17 | media_url | Text |  |  | Stores media url |
+
+## Table: AdoptionApplication
+* **Primary Key**: `id`
+* **Foreign Key**: `applicant, animal`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique adoptionapplication id |
+| 2 | applicant | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the User |
+| 3 | animal | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the AnimalInventory |
+| 4 | status | Varchar | 50 | Not Null | Stores status |
+| 5 | applicant_confirmed | Boolean |  | Not Null | Stores applicant confirmed |
+| 6 | feedback | Text |  |  | Stores feedback |
+| 7 | timestamp | Datetime |  | Not Null | Stores timestamp |
+
+## Table: User
+* **Primary Key**: `id`
+* **Foreign Key**: `None`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique user id |
+| 2 | role | Varchar | 30 | Not Null | Stores role |
+| 3 | phone_number | Varchar | 20 |  | Stores phone number |
+| 4 | profile_picture | Text |  |  | Stores profile picture |
+| 5 | address | Text |  |  | Stores address |
+| 6 | zone | Varchar | 255 |  | Stores zone |
+| 7 | requires_approval | Boolean |  | Not Null | Stores requires approval |
+| 8 | approval_note | Text |  |  | Stores approval note |
+| 9 | approved_at | Datetime |  |  | Stores approved at |
+| 10 | created_at | Datetime |  | Not Null | Stores created at |
+| 11 | updated_at | Datetime |  | Not Null | Stores updated at |
+
+## Table: VeterinarianProfile
+* **Primary Key**: `id`
+* **Foreign Key**: `None`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique veterinarianprofile id |
+| 2 | clinic_hospital_name | Varchar | 255 | Not Null | Stores clinic hospital name |
+| 3 | medical_license_number | Varchar | 100 | Unique, Not Null | Stores medical license number |
+| 4 | clinic_address | Text |  | Not Null | Stores clinic address |
+| 5 | professional_contact_number | Varchar | 20 | Not Null | Stores professional contact number |
+| 6 | specialization | Varchar | 150 |  | Stores specialization |
+| 7 | years_of_experience | Integer | 11 | Not Null | Stores years of experience |
+| 8 | license_document_url | Text |  |  | Stores license document url |
+
+## Table: ShelterAdminProfile
+* **Primary Key**: `id`
+* **Foreign Key**: `None`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique shelteradminprofile id |
+| 2 | shelter_name | Varchar | 255 | Not Null | Stores shelter name |
+| 3 | shelter_registration_number | Varchar | 100 | Unique, Not Null | Stores shelter registration number |
+| 4 | shelter_address | Text |  | Not Null | Stores shelter address |
+| 5 | shelter_contact_number | Varchar | 20 | Not Null | Stores shelter contact number |
+| 6 | capacity | Integer | 11 | Not Null | Stores capacity |
+| 7 | shelter_type | Varchar | 50 | Not Null | Stores shelter type |
+| 8 | specific_animal | Varchar | 100 |  | Stores specific animal |
+| 9 | registration_document_url | Text |  |  | Stores registration document url |
+
+## Table: CivicAuthorityProfile
+* **Primary Key**: `id`
+* **Foreign Key**: `None`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique civicauthorityprofile id |
+| 2 | department_name | Varchar | 255 | Not Null | Stores department name |
+| 3 | employee_id | Varchar | 100 | Unique, Not Null | Stores employee id |
+| 4 | jurisdiction_area | Varchar | 255 | Not Null | Stores jurisdiction area |
+| 5 | designation | Varchar | 150 | Not Null | Stores designation |
+| 6 | official_contact | Varchar | 20 | Not Null | Stores official contact |
+| 7 | id_document_url | Text |  |  | Stores id document url |
+
+## Table: Notification
+* **Primary Key**: `id`
+* **Foreign Key**: `recipient`
+
+| S.NO. | COLUMN | DATATYPE | SIZE | CONSTRAINTS | DESCRIPTION |
+| --- | --- | --- | --- | --- | --- |
+| 1 | id | Integer | 11 | Primary Key, Auto Increment | Stores unique notification id |
+| 2 | recipient | Integer | 11 | Foreign Key, Not Null | Stores reference ID to the User |
+| 3 | title | Varchar | 255 | Not Null | Stores title |
+| 4 | message | Text |  | Not Null | Stores message |
+| 5 | is_read | Boolean |  | Not Null | Stores is read |
+| 6 | created_at | Datetime |  | Not Null | Stores created at |
+

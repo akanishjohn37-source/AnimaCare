@@ -21,6 +21,8 @@
   margin-bottom: 1.5rem;
   border-bottom: 1px solid var(--glass-border);
   padding-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .card-header h2 {
@@ -54,6 +56,18 @@
   border: 1px solid var(--md-outline-variant);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.2);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .pet-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .pet-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 .pet-item:hover {

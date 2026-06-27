@@ -183,7 +183,7 @@ const Dashboard = () => {
           {hasAnimals && (
             <motion.div variants={itemVariants} className="glass-panel dashboard-card">
               <div className="card-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-                <div style={{ display: 'flex', gap: '1.5rem', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', gap: '1.5rem', cursor: 'pointer', flexWrap: 'wrap' }}>
                   <h2
                     onClick={() => setActiveTab('pets')}
                     style={{

@@ -214,16 +214,22 @@ const SOSMap = () => {
           const lng = position.coords.longitude;
           if (lat >= 8.15 && lat <= 12.85 && lng >= 74.85 && lng <= 77.40) {
             setLocation({ lat, lng });
+            showToast("Location updated successfully!");
           } else {
-            showToast("Your physical location is outside Kerala. Marker cleared.");
-            setLocation({ lat: 0, lng: 0 });
+            showToast("Your physical location is outside Kerala. Snapping to default location.");
+            setLocation({ lat: 9.9312, lng: 76.2673 }); // Snap to Kochi instead of 0,0
           }
         },
         (error) => {
           console.error("Error obtaining location", error);
-          alert("Unable to retrieve your location.");
+          let errorMessage = "Unable to retrieve your location.";
+          if (error.code === 1) errorMessage = "Location access denied. Please allow location permissions in your browser settings.";
+          else if (error.code === 2) errorMessage = "Location information is currently unavailable (GPS/Network issue).";
+          else if (error.code === 3) errorMessage = "The request to get your location timed out.";
+          
+          alert(errorMessage);
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
       );
     } else {
       alert("Geolocation is not supported by your browser");
@@ -293,7 +299,6 @@ const SOSMap = () => {
                 eventHandlers={{
                   click: (e) => {
                     L.DomEvent.stop(e);
-                    setLocation({ lat: 0, lng: 0 });
                     showToast("Cannot place marker outside Kerala state boundaries!");
                   }
                 }}

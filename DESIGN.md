@@ -20,6 +20,10 @@ This document outlines the core architecture, layout structures, user pages, des
     *   **Authenticated Profile Dropdown:** Renders the user's avatar, display name, verified role, and a prominent "Sign Out" button (with the `LogOut` icon) to end the session.
 *   **Main Container:** A layout defined in `App.jsx` (`.app-container` and `.main-content`) with a glassmorphism theme (`.glass-panel`) and dark-themed pages.
 *   **Layout Themes:** Glassmorphic dark theme using CSS variables (defined in `index.css`) for background, text, accent colors, gradients, and rounded borders.
+*   **Mobile Responsiveness:** The system employs CSS media queries and Tailwind utilities to adapt to smaller screens:
+    *   `.main-content` padding dynamically reduces from `2rem` to `1rem` on devices `< 768px`.
+    *   `.page-header` and `.card-header` elements gracefully flex-wrap or stack vertically to prevent horizontal overflow.
+    *   Complex dashboards (like Shelter or Civic) transition their sidebar + grid layouts from side-by-side (`md:flex-row`) to stacked column layouts (`flex-col`) on mobile devices.
 
 ---
 
@@ -167,7 +171,9 @@ This section provides a deep-dive breakdown of the 20 pages discovered within th
     *   Modal form: event description, event date, file attachment upload.
     *   "Save Report" and "Cancel" buttons.
 *   **Responsive Behavior:**
-    *   Uses `.medical-grid` which stacks columns on tablets and mobile devices. PDF export utilizes print-specific stylesheet overrides (`no-print`).
+    *   Uses `.medical-grid` which stacks columns on tablets and mobile devices. 
+    *   The top `.medical-header` transitions to a padded layout on small screens, snapping the "Export PDF" button absolutely to the top right corner to avoid overlapping with long animal names.
+    *   PDF export utilizes print-specific stylesheet overrides (`no-print`).
 
 ---
 
@@ -269,7 +275,8 @@ This section provides a deep-dive breakdown of the 20 pages discovered within th
     *   Inventory controls: search inputs, "Add Pet" form triggers.
     *   Add/Edit animal form fields (text, number, file, dropdown selectors).
 *   **Responsive Behavior:**
-    *   The 5 navigation tabs are styled to wrap onto multiple lines or horizontal scroll container. The Kanban board transitions from 4 horizontal columns to a single active column selector on mobile screens.
+    *   The 5 navigation tabs are styled to wrap onto multiple lines or horizontal scroll container. The Kanban board transitions from 4 horizontal columns to a single active column selector on mobile screens. 
+    *   The main layout utilizes `flex-col md:flex-row` wrappers so the navigation sidebar and workspace perfectly stack on smaller viewports. Facility capacity headers and forms automatically flex-wrap or transition to a 1-column layout (`grid-cols-1 md:grid-cols-2`).
 
 ---
 
@@ -414,4 +421,4 @@ This section provides a deep-dive breakdown of the 20 pages discovered within th
     *   Audit log search field.
     *   Pagination controls ("Next", "Prev").
 *   **Responsive Behavior:**
-    *   Tables wrap cells or enable horizontal scrolling (`overflow-x: auto`) to prevent truncation on mobile. The system metrics grid converts from a 3-column widget board to a single vertical column stack on small screens.
+    *   Tables wrap cells or enable horizontal scrolling (`overflow-x: auto`) to prevent truncation on mobile. The system metrics grid converts from a 3-column widget board to a single vertical column stack on small screens. The top navigation tabs (`.superadmin-nav`) and headers use `flex-wrap` and media queries to cleanly stack actions on mobile viewports without overflowing.

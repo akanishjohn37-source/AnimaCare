@@ -11,6 +11,15 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .civic-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .civic-title h1 {
@@ -137,6 +146,8 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .panel-header h2 {

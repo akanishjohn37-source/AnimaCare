@@ -12,12 +12,26 @@
   width: 100%;
 }
 
+@media (max-width: 768px) {
+  .main-content {
+    padding: 1rem;
+  }
+}
+
 /* Common UI Patterns */
 .page-header {
   margin-bottom: 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .page-title {
@@ -25,6 +39,14 @@
   font-weight: 700;
   letter-spacing: -0.025em;
   margin-bottom: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 1.75rem;
+    word-wrap: break-word;
+    word-break: break-word;
+  }
 }
 
 .page-subtitle {
@@ -95,7 +117,7 @@
 .form-control {
   width: 100%;
   padding: 0.75rem 1rem;
-  background: rgba(14, 14, 19, 0.65);
+  background-color: rgba(14, 14, 19, 0.65);
   border: 1px solid var(--md-outline-variant);
   border-radius: var(--radius-md);
   color: var(--md-on-surface);

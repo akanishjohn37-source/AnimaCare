@@ -1,0 +1,6 @@
+Level 0 — Context Diagram
+Level 1 — Module 1.0: Users & Authentication
+Level 1 — Module 2.0: Citizens
+Level12 — Module 3.0: Clinical
+Level 1 — Module 4.0: Shelter & Adoption
+Level 1 — Module 5.0: Governance (Super Admin)

@@ -1,0 +1,259 @@
+Table Design
+1. Identity & Access Control Tables
+Table: Users_User (Custom Base User)
+Field Name
+Data Type
+Constraint
+Description
+id
+Integer
+Primary Key, Auto-Increment
+Unique identifier for every system user.
+email
+Varchar(255)
+Unique, Not Null
+Used as the login credential.
+password
+Varchar(128)
+Not Null
+Hashed password.
+role
+Varchar(50)
+Not Null
+Enum: Citizen, Vet, ShelterAdmin, Civic.
+is_verified
+Boolean
+Default: False
+True if SuperAdmin approved their ID.
+date_joined
+DateTime
+Auto-Now-Add
+Timestamp of registration.
+Table: Users_VeterinarianProfile
+Field Name
+Data Type
+Constraint
+Description
+id
+Integer
+Primary Key
+Profile identifier.
+user_id
+Integer
+Foreign Key (Users_User.id)
+Links to base user account.
+license_no
+Varchar(100)
+Unique, Not Null
+Medical license for validation.
+clinic_name
+Varchar(200)
+Nullable
+Current place of practice.
+specialization
+Varchar(100)
+Nullable
+e.g. Surgeon, General, Avian.
+2. Citizen & Public Action Tables
+Table: Citizens_Pet
+Field Name
+Data Type
+Constraint
+Description
+id
+Integer
+Primary Key
+Unique Pet Passport ID.
+owner_id
+Integer
+ForeignKey (Users_User.id)
+The citizen who owns the pet.
+name
+Varchar(100)
+Not Null
+Pet's call name.
+species
+Varchar(50)
+Not Null
+e.g., Dog, Cat, Bird.
+breed
+Varchar(100)
+Nullable
+Specific genetic breed.
+age_months
+Integer
+Nullable
+Age representation.
+Table: Citizens_SOSAlert
+Field Name
+Data Type
+Constraint
+Description
+id
+Integer
+Primary Key
+Alert ticket number.
+reporter_id
+Integer
+ForeignKey (Users_User.id)
+Citizen logging the alert.
+latitude
+Decimal(9,6)
+Not Null
+Geospatial location.
+longitude
+Decimal(9,6)
+Not Null
+Geospatial location.
+status
+Varchar(50)
+Default: "Active"
+Enum: Active, Rescued, Outbreak.
+description
+Text
+Nullable
+Detail of injury or missing animal.
+3. Animal Shelter & Adoptions Tables
+Table: Shelter_ShelterFacility
+Field Name
+Data Type
+Constraint
+Description
+id
+Integer
+Primary Key
+Facility identification.
+name
+Varchar(200)
+Not Null
+Name of the rescue shelter.
+capacity
+Integer
+Not Null
+Maximum allowed animals.
+address
+Text
+Not Null
+Physical location.
+Table: Shelter_AnimalInventory
+Field Name
+Data Type
+Constraint
+Description
+id
+Integer
+Primary Key
+Internal tracking tag.
+shelter_id
+Integer
+ForeignKey (ShelterFacility.id)
+The facility holding the animal.
+species
+Varchar(50)
+Not Null
+Biological class.
+health_status
+Varchar(50)
+Default: "Intake"
+Status (e.g. Healthy, Sick, Quarantine).
+is_adoptable
+Boolean
+Default: False
+True if cleared by vet.
+Table: Shelter_AdoptionApplication
+Field Name
+Data Type
+Constraint
+Description
+id
+Integer
+Primary Key
+Application form ID.
+animal_id
+Integer
+ForeignKey (AnimalInventory.id)
+Animal applied for.
+applicant_id
+Integer
+Foreign Key (Users_User.id)
+Citizen applying.
+ai_score
+Integer
+Nullable
+Generated compatibility score (0-100).
+status
+Varchar(50)
+Default: "Pending"
+Pending, Approved, Rejected.
+4. Clinical & Health Tables
+Table: Clinical_ConsultationLog
+Field Name
+Data Type
+Constraint
+Description
+id
+Integer
+Primary Key
+Record sheet ID.
+pet_id
+Integer
+ForeignKey (Citizens_Pet.id)
+Patient being checked.
+vet_id
+Integer
+ForeignKey (Users_User.id)
+Doctor conducting exam.
+diagnosis
+Varchar(200)
+Not Null
+Primary medical finding (for analytics).
+datetime
+DateTime
+Auto-Now-Add
+Time of clinical logging.
+Table: Clinical_Vaccination
+Field Name
+Data Type
+Constraint
+Description
+id
+Integer
+Primary Key
+Immutable vaccine token.
+pet_id
+Integer
+ForeignKey (Citizens_Pet.id)
+Pet receiving vaccine.
+vaccine_type
+Varchar(100)
+Not Null
+e.g. Rabies, DHPP.
+administered_by
+Integer
+ForeignKey (Users_User.id)
+Vet who gave the shot.
+expiry_date
+Date
+Not Null
+Good-until date.
+Table: Clinical_DiagnosticMedia
+Field Name
+Data Type
+Constraint
+Description
+id
+Integer
+Primary Key
+Media identifier.
+consult_id
+Integer
+ForeignKey (ConsultationLog.id)
+Link to the specific visit.
+media_url
+Varchar(500)
+Not Null
+AWS S3 URI string where file is hosted.
+type
+Varchar(50)
+Not Null
+e.g. X-Ray, Bloodwork PDF.

@@ -479,7 +479,7 @@ export default function ShelterDashboard() {
             )}
          </AnimatePresence>
 
-         <header className="bg-neutral-800 p-6 border-b border-neutral-700 flex justify-between items-center">
+         <header className="bg-neutral-800 p-6 border-b border-neutral-700 flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
                <h1 className="text-3xl font-bold text-emerald-400 flex items-center gap-3"><PawPrint size={32} /> Shelter Command Center</h1>
                <div className="flex gap-2 items-center mt-1.5">
@@ -500,8 +500,8 @@ export default function ShelterDashboard() {
             </div>
          </header>
 
-         <div className="flex-1 flex px-8 py-6 gap-8 overflow-hidden">
-            <aside className="w-64 flex flex-col gap-3">
+         <div className="flex-1 flex flex-col md:flex-row px-4 md:px-8 py-6 gap-8 overflow-hidden">
+            <aside className="w-full md:w-64 flex flex-col gap-3">
                {[
                   { id: 'rescue', icon: AlertCircle, label: 'Rescue Missions', count: nearbyAlerts.filter(a => a.status !== 'Resolved').length, color: 'text-red-400' },
                   { id: 'kanban', icon: Activity, label: 'Adoption Pipeline', color: 'text-emerald-400' },
@@ -519,7 +519,7 @@ export default function ShelterDashboard() {
             <main className="flex-1 bg-neutral-800/30 rounded-2xl p-6 border border-neutral-700/50 backdrop-blur-sm shadow-xl flex flex-col relative overflow-hidden">
                {activeTab === 'rescue' && (
                   <div className="h-full flex flex-col">
-                     <div className="flex justify-between items-center mb-6">
+                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                         <h2 className="text-2xl font-bold flex items-center gap-2"><AlertCircle className="text-red-400" /> Critical SOS Alerts</h2>
                         <div className="flex items-center gap-2 bg-red-600/10 px-3 py-1 rounded-full border border-red-500/20">
                            <div className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
@@ -723,9 +723,9 @@ export default function ShelterDashboard() {
 
                {activeTab === 'capacity' && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col">
-                     <div className="flex justify-between items-end mb-8">
+                     <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
                         <div><h2 className="text-3xl font-black text-white flex items-center gap-3"><Home className="text-emerald-400" size={32} /> Facility Control Center</h2><p className="text-neutral-500 font-bold mt-1 uppercase tracking-widest text-xs">Dynamic Capacity & Grid Management</p></div>
-                        <div className="flex items-center gap-6"><div className="text-right"><p className="text-[10px] text-neutral-600 uppercase font-black mb-1">Overall Occupancy</p><h3 className="text-4xl font-black text-emerald-400">{inventory.filter(pet => !pet.is_adopted).length} <span className="text-neutral-600">/ {totalCapacity}</span></h3></div><button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className="p-3 bg-neutral-900 border border-neutral-700 rounded-xl hover:bg-neutral-800 transition-all text-neutral-400 hover:text-white"><Settings size={24} /></button></div>
+                        <div className="flex items-center gap-6"><div className="text-left md:text-right"><p className="text-[10px] text-neutral-600 uppercase font-black mb-1">Overall Occupancy</p><h3 className="text-4xl font-black text-emerald-400">{inventory.filter(pet => !pet.is_adopted).length} <span className="text-neutral-600">/ {totalCapacity}</span></h3></div><button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className="p-3 bg-neutral-900 border border-neutral-700 rounded-xl hover:bg-neutral-800 transition-all text-neutral-400 hover:text-white"><Settings size={24} /></button></div>
                      </div>
                      <AnimatePresence>{isSettingsOpen && (<motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-8"><div className="bg-neutral-900 p-6 rounded-2xl border border-emerald-500/20 flex justify-between items-center"><div><h4 className="font-black text-white uppercase tracking-widest text-sm">Scale Facility Capacity</h4><p className="text-neutral-500 text-xs mt-1">Adjust total units for the entire shelter.</p></div><div className="flex items-center gap-4"><button onClick={() => setTotalCapacity(Math.max(1, totalCapacity - 5))} className="p-3 bg-neutral-800 hover:bg-red-600/20 text-red-400 rounded-xl transition-all border border-neutral-700"><Minus size={20} /></button><div className="w-20 text-center font-black text-2xl text-white">{totalCapacity}</div><button onClick={() => setTotalCapacity(totalCapacity + 5)} className="p-3 bg-neutral-800 hover:bg-emerald-600/20 text-emerald-400 rounded-xl transition-all border border-neutral-700"><Plus size={20} /></button></div></div></motion.div>)}</AnimatePresence>
                      <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar"><div className="grid grid-cols-5 md:grid-cols-10 gap-3 pb-4">{capacitySlots.map(slot => (<div key={slot.id} onClick={() => setSelectedSlot(slot)} className={`aspect-square rounded-xl border-2 flex flex-col items-center justify-center transition-all relative group cursor-pointer overflow-hidden ${slot.status === 'Occupied' ? 'bg-emerald-600/10 border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : 'bg-neutral-900 border-neutral-800 hover:border-emerald-500/30'}`}><span className="text-[10px] font-black text-neutral-600 mb-1 z-10 bg-neutral-900/80 px-1 rounded">{slot.id}</span>{slot.status === 'Occupied' ? (slot.pet?.media_url ? <img src={slot.pet.media_url} className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity" /> : <PawPrint size={20} className="text-emerald-400 z-10" />) : <div className="w-1.5 h-1.5 rounded-full bg-neutral-800" />}</div>))}</div></div>
@@ -746,8 +746,8 @@ export default function ShelterDashboard() {
                         </div>
                         <button onClick={() => setMissionToIntake(null)} className="text-white/50 hover:text-white"><X size={32} /></button>
                      </div>
-                     <form onSubmit={handleCompleteMissionAndIntake} className="p-8 grid grid-cols-2 gap-6">
-                        <div className="col-span-2 bg-neutral-800/50 p-4 rounded-2xl border border-neutral-700 mb-2">
+                     <form onSubmit={handleCompleteMissionAndIntake} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="col-span-1 md:col-span-2 bg-neutral-800/50 p-4 rounded-2xl border border-neutral-700 mb-2">
                            <p className="text-[10px] text-neutral-500 uppercase font-black mb-1">Rescue Source</p>
                            <p className="text-sm font-bold text-emerald-400 flex items-center gap-2"><AlertCircle size={14} /> SOS Report: {missionToIntake.animal_description}</p>
                         </div>

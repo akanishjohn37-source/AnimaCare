@@ -19,7 +19,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/status/', api_status),
     path('api/auth/', include('apps.users.urls')),          # ← Auth / RBAC
-    path('api/v4/', include('apps.analytics.urls')),
     path('api/shelter/', include('apps.shelter.urls')),
     path('api/superadmin/', include('apps.governance.urls')),
     path('api/citizens/', include('apps.citizens.urls')),

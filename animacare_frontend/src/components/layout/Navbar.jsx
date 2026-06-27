@@ -5,7 +5,7 @@ import {
   Activity, User, AlertCircle, Heart, FileText,
   Map, Shield, Stethoscope, Building2, LogOut,
   ChevronDown, LayoutDashboard, BookOpen, ClipboardList,
-  BarChart2, PlusCircle, Bell, Calendar
+  BarChart2, PlusCircle, Bell, Calendar, Menu, X
 } from 'lucide-react';
 import './Navbar.css';
 
@@ -21,8 +21,6 @@ const NAV_MAP = {
 
   veterinarian: [
     { to: '/vet-dashboard',     icon: LayoutDashboard, label: 'Clinical Portal' },
-    { to: '/vaccination-scheduler', icon: Calendar, label: 'Injections' },
-    { to: '/predictive-health', icon: BarChart2,        label: 'Analytics'    },
   ],
   shelter_admin: [
     { to: '/shelter-dashboard', icon: LayoutDashboard, label: 'Dashboard'    },
@@ -30,7 +28,6 @@ const NAV_MAP = {
   ],
   civic_authority: [
     { to: '/civic-dashboard',   icon: Map,             label: 'Civic Portal' },
-    { to: '/civic-analytics',   icon: BarChart2,        label: 'Analytics'   },
   ],
   admin: [
     { to: '/superadmin',        icon: Shield,          label: 'Admin Panel'  },
@@ -60,6 +57,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const [dropOpen, setDropOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -116,13 +114,22 @@ const Navbar = () => {
     return (
       <nav className="navbar glass-panel no-print">
         <div className="navbar-container">
-          <NavLink to="/login" className="navbar-brand">
+          {/* Mobile Menu Toggle */}
+          <button 
+            className="mobile-menu-btn" 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle navigation menu"
+          >
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+          
+          <NavLink to="/login" className="navbar-brand" onClick={() => setMobileMenuOpen(false)}>
             <Activity className="brand-icon" size={28} />
             <span className="brand-text gradient-text">AnimaCare</span>
           </NavLink>
-          <div className="nav-links">
-            <NavLink to="/login"    className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}><User size={18}/><span>Login</span></NavLink>
-            <NavLink to="/register" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}><Shield size={18}/><span>Register</span></NavLink>
+          <div className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+            <NavLink to="/login" onClick={() => setMobileMenuOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}><User size={18}/><span>Login</span></NavLink>
+            <NavLink to="/register" onClick={() => setMobileMenuOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}><Shield size={18}/><span>Register</span></NavLink>
           </div>
         </div>
       </nav>
@@ -132,20 +139,30 @@ const Navbar = () => {
   return (
     <nav className="navbar glass-panel no-print">
       <div className="navbar-container">
+        {/* Mobile Menu Toggle */}
+        <button 
+          className="mobile-menu-btn" 
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle navigation menu"
+        >
+          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+
         {/* Brand */}
-        <NavLink to={navItems[0]?.to || '/dashboard'} className="navbar-brand">
+        <NavLink to={navItems[0]?.to || '/dashboard'} className="navbar-brand" onClick={() => setMobileMenuOpen(false)}>
           <Activity className="brand-icon" size={28} />
           <span className="brand-text gradient-text">AnimaCare</span>
         </NavLink>
 
         {/* Role-specific nav links */}
-        <div className="nav-links">
+        <div className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''}`}>
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/superadmin'}
               className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+              onClick={() => setMobileMenuOpen(false)}
             >
               <Icon size={18} />
               <span>{label}</span>

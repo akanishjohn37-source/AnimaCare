@@ -142,7 +142,27 @@ This document serves as the comprehensive design system reference for the **Anim
 
 ---
 
-## 2. Global CSS Utility Configurations
+## 2. Mobile Responsiveness & Layout Adjustments
+
+To ensure a seamless experience on all devices, AnimaCare enforces standard CSS media queries and responsive utility classes.
+
+### A. Breakpoints
+*   **Mobile Small:** `< 480px` (Stacks tight components like pet items and internal card actions).
+*   **Mobile / Tablet:** `< 768px` (General stack threshold for page headers, sidebars, and grid panels).
+*   **Tablet Landscape / Desktop:** `< 1024px` (Adjusts main complex grids).
+
+### B. Global Container Rules (`App.css`)
+*   **Main Container Padding:** Reduces `.main-content` padding from `2rem` to `1rem` on mobile (`max-width: 768px`) to maximize screen real estate.
+*   **Page Headers:** `.page-header` elements apply `flex-direction: column` and `align-items: flex-start` on mobile to prevent overlapping titles and buttons.
+
+### C. Dashboard Specific Patterns
+*   **Card Headers:** Internal dashboard sections utilize `flex-wrap: wrap` with a gap to safely flow long text onto new lines.
+*   **Sidebar Navigation:** Complex dashboards (e.g., Shelter Dashboard) use full-width sidebars on mobile (`w-full`) and fixed widths on desktop (`md:w-64`), switching the main layout from `flex-col` to `md:flex-row`.
+*   **Data Grids & Lists:** Flex layouts gracefully collapse into single columns via `flex-direction: column` on screens `< 480px` or `< 768px`.
+
+---
+
+## 3. Global CSS Utility Configurations
 
 ### A. Glassmorphic Panel (`.glass-panel` / `.glass-card`)
 ```css
@@ -335,6 +355,7 @@ This document serves as the comprehensive design system reference for the **Anim
 *   **Avatar Image Preview (`.avatar-preview`):** Circular thumbnail preview that triggers a pink glow on hover: `box-shadow: 0 0 15px rgba(236, 72, 153, 0.3)`.
 
 #### 3. Medical Viewer Page (`citizens/MedicalViewer.jsx`)
+*   **Header Panel (`.medical-header`):** Glassmorphic panel displaying the pet identity. Features absolute positioning for action buttons on mobile screens to push the "Export PDF" button to the top right corner and prevent text overlap.
 *   **Consultation History Timelines:** Chronological vertical timelines mapping past veterinary visits.
 *   **Prescription Details:** Nested cards featuring custom border-left outlines highlighting logged instructions.
 *   **Attachment Files:** Download blocks allowing citizens to open diagnostic images or documents.
